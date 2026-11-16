@@ -1,0 +1,138 @@
+import type { DatabaseSync } from "node:sqlite";
+import {
+  APPLICATION_STATUSES,
+  type Settings,
+  type UiState,
+} from "../shared/api.ts";
+import { check } from "./files.ts";
+
+const defaults: Settings = {
+  revision: 1,
+  theme: "system",
+  defaultProvider: "pi",
+  autoBuild: false,
+  sendOnEnter: true,
+  collapsedStatuses: ["Fertig", "Gesendet", "Absage", "Zusage"],
+};
+
+export class Preferences {
+  constructor(private db: DatabaseSync) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS preferences(singleton INTEGER PRIMARY KEY CHECK(singleton=1),value TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS open_applications(app TEXT PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,position INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS composer_drafts(app TEXT PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,text TEXT NOT NULL);
+    `);
+    db.prepare("INSERT OR IGNORE INTO preferences VALUES(1,?)").run(
+      JSON.stringify(defaults),
+    );
+  }
+  settings(): Settings {
+    return JSON.parse(
+      String(
+        this.db
+          .prepare("SELECT value FROM preferences WHERE singleton=1")
+          .get()!.value,
+      ),
+    );
+  }
+  update(input: unknown): Settings {
+    check(
+      input && typeof input === "object" && !Array.isArray(input),
+      "Einstellungen erwartet",
+    );
+    const patch = input as Record<string, unknown>,
+      current = this.settings();
+    check(
+      patch.revision === current.revision,
+      "Einstellungen inzwischen geändert. Neu laden.",
+      409,
+    );
+    check(
+      Object.keys(patch).every((key) => Object.hasOwn(defaults, key)),
+      "Unbekannte Einstellung",
+    );
+    if (patch.theme !== undefined)
+      check(
+        patch.theme === "system" ||
+          patch.theme === "light" ||
+          patch.theme === "dark",
+        "Ungültiges Farbschema",
+      );
+    if (patch.defaultProvider !== undefined)
+      check(
+        patch.defaultProvider === "pi" || patch.defaultProvider === "codex",
+        "Ungültiger Harness",
+      );
+    for (const key of ["autoBuild", "sendOnEnter"] as const)
+      if (patch[key] !== undefined)
+        check(typeof patch[key] === "boolean", "Ungültige Einstellung: " + key);
+    if (patch.collapsedStatuses !== undefined) {
+      const values = patch.collapsedStatuses;
+      check(
+        Array.isArray(values) &&
+          values.length <= APPLICATION_STATUSES.length &&
+          new Set(values).size === values.length &&
+          values.every((value) => APPLICATION_STATUSES.includes(value)),
+        "Ungültige Statusauswahl",
+      );
+    }
+    const result = {
+      ...current,
+      ...patch,
+      revision: current.revision + 1,
+    } as Settings;
+    this.db
+      .prepare("UPDATE preferences SET value=? WHERE singleton=1")
+      .run(JSON.stringify(result));
+    return result;
+  }
+  ui(): UiState {
+    return {
+      openIds: this.db
+        .prepare("SELECT app FROM open_applications ORDER BY position DESC")
+        .all()
+        .map((row) => String(row.app)),
+    };
+  }
+  open(app: string): UiState {
+    const position = Number(
+      this.db
+        .prepare(
+          "SELECT COALESCE(MAX(position),0)+1 AS next FROM open_applications",
+        )
+        .get()!.next,
+    );
+    this.db
+      .prepare(
+        "INSERT INTO open_applications(app,position) VALUES(?,?) ON CONFLICT(app) DO UPDATE SET position=excluded.position",
+      )
+      .run(app, position);
+    return this.ui();
+  }
+  close(app: string): UiState {
+    this.db.prepare("DELETE FROM open_applications WHERE app=?").run(app);
+    return this.ui();
+  }
+  draft(app: string) {
+    return {
+      text: String(
+        this.db.prepare("SELECT text FROM composer_drafts WHERE app=?").get(app)
+          ?.text || "",
+      ),
+    };
+  }
+  saveDraft(app: string, text: unknown) {
+    check(
+      typeof text === "string" && text.length <= 50000 && !text.includes("\0"),
+      "Entwurf zu lang oder ungültig",
+    );
+    if (text)
+      this.db
+        .prepare(
+          "INSERT INTO composer_drafts(app,text) VALUES(?,?) ON CONFLICT(app) DO UPDATE SET text=excluded.text",
+        )
+        .run(app, text);
+    else this.db.prepare("DELETE FROM composer_drafts WHERE app=?").run(app);
+    return { text };
+  }
+}

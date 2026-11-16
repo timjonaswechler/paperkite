@@ -1,0 +1,25 @@
+# Private runtime data and local working areas
+/data/
+/backups/
+/.work/
+/.frontend-captures/
+
+# Installed dependencies and generated output
+/node_modules/
+/dist/
+*.log
+
+# Read-only upstream reference checkout/archive; extracted code and licenses are tracked
+/vendor/t3/
+/vendor/*.tar
+/vendor/*.tar.gz
+
+# Local credentials and databases
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-*
+
+# Local OS metadata
+.DS_Store

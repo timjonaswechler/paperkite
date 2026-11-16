@@ -1,0 +1,57 @@
+{
+  "name": "bewerbung",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "start": "tsx server/main.ts",
+    "test": "tsx --test test/*.test.ts",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.9.0",
+    "@effect/platform-node": "4.1.2",
+    "@fontsource-variable/inter": "5.3.0",
+    "@tailwindcss/vite": "4.1.18",
+    "@tiptap/core": "3.31.3",
+    "@tiptap/pm": "3.31.3",
+    "@tiptap/react": "3.31.3",
+    "@tiptap/starter-kit": "3.31.3",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "effect": "4.1.2",
+    "express": "5.1.0",
+    "fflate": "0.8.2",
+    "hast-util-to-jsx-runtime": "2.3.6",
+    "html-url-attributes": "3.0.1",
+    "lucide-react": "0.468.0",
+    "mdast-util-from-markdown": "2.0.2",
+    "micromark-util-combine-extensions": "2.0.1",
+    "micromark-util-types": "2.0.2",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remark-gfm": "4.0.1",
+    "remark-parse": "11.0.0",
+    "remark-rehype": "11.1.2",
+    "tailwind-merge": "3.4.0",
+    "tailwindcss": "4.1.18",
+    "tsx": "4.21.0",
+    "unified": "11.0.5",
+    "vfile": "6.0.3"
+  },
+  "overrides": {
+    "@tiptap/extension-bubble-menu": "3.31.3",
+    "@tiptap/extension-floating-menu": "3.31.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "@types/express": "5.0.6",
+    "@types/node": "22.19.7",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "prettier": "3.8.1",
+    "typescript": "5.9.3",
+    "vite": "6.4.1"
+  }
+}
