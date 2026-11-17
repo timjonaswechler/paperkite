@@ -11,6 +11,7 @@ import {
   Search,
   Settings,
   SquarePen,
+  Trash2,
   X,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -40,7 +41,12 @@ import {
 import { CollapsibleSectionHeader } from "../ui/collapsible-section-header";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
-export type ApplicationAction = "edit" | "copy" | "documents" | "source";
+export type ApplicationAction =
+  | "edit"
+  | "copy"
+  | "documents"
+  | "source"
+  | "delete";
 type Props = {
   applications: Application[];
   currentId: string;
@@ -130,7 +136,7 @@ function ApplicationRow({
               <span className="min-w-0 flex-1 truncate font-normal text-secondary-label text-xs">
                 {app.company}
               </span>
-              {opened && (
+              {opened && app.status !== "Entwurf" && (
                 <span className="shrink-0 text-xs text-sidebar-muted-foreground">
                   {app.status}
                 </span>
@@ -158,7 +164,7 @@ function ApplicationRow({
                   <SquarePen />
                   Öffnen
                 </MenuItem>
-                {opened && (
+                {opened && app.status !== "Entwurf" && (
                   <MenuItem onClick={() => props.onClose(app.id)}>
                     <X />
                     Aus geöffneten Bewerbungen schließen
@@ -205,6 +211,11 @@ function ApplicationRow({
                   <Pencil />
                   Lebenslauf / Quellen bearbeiten
                 </MenuItem>
+                <MenuSeparator />
+                <MenuItem onClick={() => props.onAction("delete", app.id)}>
+                  <Trash2 />
+                  Bewerbung löschen
+                </MenuItem>
               </div>
             </ContextMenu.Popup>
           </ContextMenu.Positioner>
@@ -218,9 +229,14 @@ export function ApplicationSidebar(props: Props) {
     ...props.openIds,
     ...(props.currentId ? [props.currentId] : []),
   ]);
-  const opened = [...openedIds]
-    .map((id) => props.applications.find((a) => a.id === id))
-    .filter((a): a is Application => Boolean(a));
+  const opened = [
+    ...props.applications.filter((app) => app.status === "Entwurf"),
+    ...[...openedIds]
+      .map((id) => props.applications.find((app) => app.id === id))
+      .filter((app): app is Application =>
+        Boolean(app && app.status !== "Entwurf"),
+      ),
+  ];
   return (
     <div
       className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground"
@@ -253,41 +269,43 @@ export function ApplicationSidebar(props: Props) {
           ))}
         </ul>
         <div className="mt-auto" data-status-groups>
-          {APPLICATION_STATUSES.map((status) => {
-            const apps = props.applications.filter(
-              (app) => app.status === status,
-            );
-            const expanded = !props.collapsed.includes(status);
-            return (
-              <section key={status} aria-label={status}>
-                <div className="relative mx-0.5 h-8">
-                  <CollapsibleSectionHeader
-                    expanded={expanded}
-                    onClick={() => props.onCollapse(status)}
-                    accessory={
-                      <span className="font-normal tabular-nums">
-                        {apps.length}
-                      </span>
-                    }
-                  >
-                    {status}
-                  </CollapsibleSectionHeader>
-                </div>
-                {expanded && (
-                  <ul>
-                    {apps.map((app) => (
-                      <ApplicationRow
-                        key={app.id}
-                        app={app}
-                        opened={openedIds.has(app.id)}
-                        props={props}
-                      />
-                    ))}
-                  </ul>
-                )}
-              </section>
-            );
-          })}
+          {APPLICATION_STATUSES.filter((status) => status !== "Entwurf").map(
+            (status) => {
+              const apps = props.applications.filter(
+                (app) => app.status === status,
+              );
+              const expanded = !props.collapsed.includes(status);
+              return (
+                <section key={status} aria-label={status}>
+                  <div className="relative mx-0.5 h-8">
+                    <CollapsibleSectionHeader
+                      expanded={expanded}
+                      onClick={() => props.onCollapse(status)}
+                      accessory={
+                        <span className="font-normal tabular-nums">
+                          {apps.length}
+                        </span>
+                      }
+                    >
+                      {status}
+                    </CollapsibleSectionHeader>
+                  </div>
+                  {expanded && (
+                    <ul>
+                      {apps.map((app) => (
+                        <ApplicationRow
+                          key={app.id}
+                          app={app}
+                          opened={openedIds.has(app.id)}
+                          props={props}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              );
+            },
+          )}
         </div>
       </nav>
       <SidebarFooter>

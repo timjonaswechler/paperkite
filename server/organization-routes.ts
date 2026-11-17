@@ -35,7 +35,7 @@ export function organizationRoutes(
   api.get("/search", (req, res) =>
     res.json(store.search(req.query.q ?? "", req.query.status)),
   );
-  api.get("/documents", (_req, res) => res.json(store.documents.list()));
+  api.get("/documents", (req, res) => res.json(store.documents.list(req.query.tag)));
   api.post(
     "/documents",
     express.raw({ type: "application/octet-stream", limit: DOCUMENT_LIMIT }),
@@ -55,7 +55,7 @@ export function organizationRoutes(
     },
   );
   api.patch("/documents/:id", (req, res) =>
-    res.json(store.documents.rename(req.params.id, req.body.label)),
+    res.json(store.documents.update(req.params.id, req.body)),
   );
   api.delete("/documents/:id", (req, res) =>
     res.json(store.documents.remove(req.params.id)),

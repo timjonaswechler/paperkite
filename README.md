@@ -4,11 +4,11 @@ Unabhängige Einzelbenutzer-Webapp mit eigener SQLite, lokalen Dokumenten und Pi
 
 ## Benutzen
 
-1. **Eigene Dateien:** Zeugnisse und Anlagen einmal zentral hochladen. In neuen oder bestehenden Bewerbungen die relevanten Dateien auswählen. Das ist keine Liste interner Lua-/TeX-Dateien.
-2. **Neue Bewerbung** öffnet ein Formular mit Unternehmen und Rolle als Pflichtfeldern, Status, Ausschreibung/URL, Notizen, CV-/Anschreiben-Ausgangspunkt und Anlagen. Erst „Bewerbung anlegen“ erzeugt eine Bewerbung; Abbrechen/Escape nicht. Der vorhandene Mac-Master wird angeboten, `general` bevorzugt. Ohne Master ist ein neutrales Anschreiben möglich.
+1. **Eigene Dateien:** Zeugnisse und Anlagen einmal zentral hochladen, mit Tags versehen und filtern. Die relevanten Dateien später unter **Unterlagen** in der jeweiligen Bewerbung auswählen. Das ist keine Liste interner Lua-/TeX-Dateien.
+2. **Neue Bewerbung** fragt Unternehmen und Rolle ab, optional Ausschreibung/URL, Notizen und eine Ausgangsbasis. Status, technisches CV-Profil und Anlagen werden beim Anlegen nicht abgefragt. Neue Bewerbungen/Kopien starten als Entwurf; der Standardmaster beziehungsweise das gewählte Quellprofil wird intern gewählt. Erst „Bewerbung anlegen“ erzeugt eine Bewerbung; Abbrechen/Escape nicht. Der vorhandene Mac-Master wird angeboten, `general` bevorzugt. Ohne Master ist ein neutrales Anschreiben möglich.
 3. Der Hauptbereich ist der **Chat**. Anbieter und Modell im Composer wählen; Schreiben/Bearbeiten verlangt jeweils eine sichtbare Einzelfreigabe. Nicht abgesendete Texte bleiben pro Bewerbung gespeichert. Die Einstellungen bestimmen Enter-Verhalten, Farbschema und Standard-Harness für neue Bewerbungen.
 4. **Unterlagen** im Kopfbereich öffnet rechts PDF-Builds, Vorschau, Logs, Verlauf, Downloads und die ausgewählten Anlagen. Auch unfertige Entwürfe sind erlaubt. Beide TeX-Engines laufen zweimal; Fehler ersetzen keinen erfolgreichen Stand. „Festhalten“ markiert einen erfolgreichen, unveränderlichen Dokumentstand.
-5. **Rechtsklick auf eine Bewerbung:** öffnen/schließen, Details, Status, unabhängige Kopie sowie Unterlagen/Quellen. Eine Kopie startet als Entwurf und übernimmt keine KI-Sitzung oder Builds. Geöffnete Bewerbungen stehen oben; Schließen entfernt nur diesen Eintrag, nicht die Bewerbung. Die sechs Statusgruppen darunter sind davon unabhängig: Entwurf, In Arbeit, Fertig, Gesendet, Absage, Zusage.
+5. **Rechtsklick auf eine Bewerbung:** Details, Status, unabhängige Kopie, Unterlagen/Quellen und bestätigtes Löschen. Eine Kopie übernimmt keine KI-Sitzung oder Builds. **Entwürfe stehen ohne Gruppenüberschrift immer oben** als offene Einträge, die auf Bearbeitung warten. Weitere geöffnete Bewerbungen bleiben dort erreichbar; darunter stehen In Arbeit, Fertig, Gesendet, Absage und Zusage.
 6. **Lebenslauf / Quellen bearbeiten** ist der separate erweiterte Lua-/TeX-Editor mit Datei- und CV-Eintragsübernahme. Das Profil benennt `cv/profiles/<name>.lua` ohne Endung. Der optionale automatische Build gilt nach manuellem Speichern einer Quelldatei.
 
 Zum Versenden **Dokumentpaket** verwenden: Es enthält nur die neuesten erfolgreichen CV-/Anschreiben-PDFs und die aktuell ausgewählten Anlagen. **Quellen-ZIP und Buildquellen enthalten interne Bewerbungsdaten einschließlich Notizen und sind nicht zum Versand bestimmt.** Buildquellen behalten ihre damalige Anlagenauswahl; spätere Auswahl- oder Bezeichnungsänderungen ändern diesen Stand nicht. Ein früheres erfolgreiches PDF kann gegenüber den aktuellen Quellen veraltet sein – Vorschau und Revision vor dem Versand prüfen. Status „Gesendet“ verschickt keine E-Mail.
@@ -19,7 +19,26 @@ Tastenkürzel bei Seitenfokus: Strg/⌘+K Suche, Strg/⌘+N neue Bewerbung, Strg
 
 Erlaubt sind PDF, JPG und PNG mit passendem Dateikopf und Dateiendung: maximal **25 MiB pro Datei**, **1 GiB Ablage**, **100 MiB und 40 Anlagen pro Bewerbung**. Identische Bytes werden anhand SHA-256 nur einmal gespeichert. Dateiinhalte bleiben unverändert; jede Bewerbung hat ihre eigene Auswahl. Bezeichnungen gelten zentral. Hochladen ist eine eigene Aktion: bereits hochgeladene Dateien bleiben auch nach Abbrechen eines Bewerbungsformulars in der Ablage.
 
+Tags gelten zentral und werden ohne Änderung der Dateibytes gespeichert: maximal 20 Tags mit je 40 Zeichen, Leerraum bereinigt, Kleinschreibung und ohne Duplikate. Suche und Tagfilter lassen sich kombinieren.
+
 Nur unbenutzte Anlagen lassen sich entfernen. Verweise aus anderen Bewerbungen oder erfolgreichen gespeicherten Builds verhindern das Löschen. Die Sicherung muss deshalb Datenbank, Quellen, Builds **und** `data/documents/` gemeinsam enthalten.
+
+### PDFs zusammenstellen und optimieren
+
+In **Eigene Dateien** Dateien auswählen oder eine einzelne Datei optimieren. In **Unterlagen** lassen sich das letzte erfolgreiche Anschreiben, der letzte erfolgreiche CV und die aktuell gewählten Anlagen zusammenstellen. Reihenfolge über Pfeile ändern, Quellen abwählen und bei PDFs Seiten wie `1-3,5` angeben. JPG/PNG werden als einzelne A4-Seiten ohne verlustbehaftete Bildneukodierung eingebettet.
+
+- **Verlustfrei** optimiert PDF-Strukturen und Kompression ohne Verringerung der Bildauflösung.
+- **Kompakt (150 dpi)** kann Bilder verkleinern und die Lesbarkeit oder PDF-Zusatzinformationen beeinträchtigen. Text bleibt normalerweise Text; keine Garantie für beliebige Eingabedokumente. Ergebnis vor Versand prüfen.
+- Originale werden nie überschrieben. **Digitale Signaturen gelten nur im Original**; Zusammenfügen oder Neuverpacken erzeugt eine andere Datei. Eine bestimmte Zielgröße ist nicht garantiert. Ist eine einzelne vollständige PDF bereits kleiner, bleibt deren unveränderte Ausgabe erhalten.
+- Plan, Reihenfolge, Seiten und Ausschlüsse werden je Bewerbung gespeichert. Beim nächsten Öffnen werden neueste erfolgreiche Buildstände eingesetzt; ausgeschlossene Quellen bleiben ausgeschlossen. Fertige Ergebnisse sind eigenständige, unveränderliche PDFs.
+- Laufende Aufträge können geschlossen und über **Bisherige PDF-Aufträge** wieder aufgerufen werden. Ergebnisse lassen sich herunterladen oder bis 25 MiB als neue Bibliotheksdatei speichern. Identische Ergebnisse verwenden den bereits vorhandenen Eintrag, ohne dessen Bezeichnung/Tags zu überschreiben.
+- Maximal 40 Quellen und 500 Ergebnis-Seiten; Anlagen zusammen höchstens 100 MiB. Verarbeitung nur lokal im isolierten Container ohne Netzwerk. Kennwortgeschützte oder beschädigte PDFs werden mit Fehler abgelehnt; Originale und frühere Ergebnisse bleiben erhalten.
+
+### Vorlagen verwalten und Bewerbungen löschen
+
+Unter **Einstellungen → Vorlagen** Vorlagen benennen, duplizieren, exportieren, als Standard setzen oder bestätigt löschen. **Aus Bewerbung als Vorlage speichern** hält eine neue unabhängige Kopie der bearbeiteten CV-/TeX-Quellen fest, ohne interne Bewerbungsmetadaten. Erst die erste Vorlage wird automatisch Standard; spätere Kopien/Importe wechseln einen vorhandenen Standard nicht ungefragt. Löschen einer Vorlage verändert bestehende Bewerbungen nicht.
+
+**Bewerbung löschen** verlangt eine Bestätigung und den aktuellen Datenstand. Chat, Arbeitsdateien, Sitzungen und eigene Build-/PDF-Ergebnisse werden entfernt; zentrale Uploads und andere Bewerbungen bleiben erhalten. Aktive Agenten, Freigaben oder PDF-Aufträge verhindern Löschen. Dateibereinigung ist dauerhaft protokolliert und wird nach einem Prozessabbruch beim nächsten Start fortgesetzt; Symlink-Ziele außerhalb des Bestands werden nicht verfolgt. Es gibt keine Wiederherstellungsschaltfläche; vorhandene Betriebsbackups werden nicht mitgelöscht.
 
 ### Einzelne CV-Einträge wiederverwenden
 
@@ -81,7 +100,7 @@ Codex-Initialisierung/Resume prüft Provider-Thread-ID, Arbeitsverzeichnis, eige
 
 Geprüft mit vorhandener Anmeldung: Pi `openai/gpt-6.1-sol`, Codex `gpt-6.1-sol`; Streaming, Resume, Stoppen und erlaubte/abgelehnte Schreibanfragen. Der Modellkatalog ist keine allgemeine Zusage der Kontofreigabe: frühere Pi-Anfragen an `gpt-4.1-mini` und `gpt-5.4-mini` wurden vom ChatGPT-Zugang abgelehnt. Claude wird nicht angeboten.
 
-Umfangreiche strukturierte CV-Formulare fehlen weiterhin; Inhalte werden im Lua-/TeX-Editor bearbeitet, Metadaten im Formular. Kein automatischer Versand und keine Löschfunktion für Bewerbungen. Lange gespeicherte Chatverläufe werden vollständig seitenweise geladen und mit laufenden Ereignissen ohne Duplikate zusammengeführt.
+Umfangreiche strukturierte CV-Formulare fehlen weiterhin; Inhalte werden im Lua-/TeX-Editor bearbeitet, Metadaten im Formular. Kein automatischer Versand. Bewerbungen lassen sich nur nach ausdrücklicher Bestätigung löschen. Lange gespeicherte Chatverläufe werden vollständig seitenweise geladen und mit laufenden Ereignissen ohne Duplikate zusammengeführt.
 
 ## Betrieb und Backup
 
@@ -97,13 +116,22 @@ systemctl --user status bewerbung.service
 
 Nur diesen Dienst neu starten, nicht T3. `bewerbung.service` ist unter `~/.config/systemd/user/` verlinkt und aktiviert. `PORT` und `DATA_DIR` sind überschreibbar; Standard ist `3119` bzw. `./data`.
 
-`data/` enthält `bewerbung.sqlite` einschließlich WAL/SHM, Vorlagen, Bewerbungsdateien, zentrale Anlagen (`documents/`), native Pi-/Codex-Sitzungen sowie Build-Eingaben/-Ausgaben. Einstellungen, geöffnete Bewerbungen, Chatentwürfe und Anlagenverweise liegen in derselben SQLite. Beim Update werden fehlende Organisationstabellen ergänzt; vorhandene Bewerbungen und native Sitzungen werden nicht neu angelegt. Beim Sichern Symlinks erhalten, **nicht dereferenzieren**: Codex verweist auf die vorhandene native Anmeldung außerhalb der App. Für konsistente Sicherungen den Bewerbungsdienst stoppen, **das gesamte Verzeichnis** kopieren und anschließend wieder starten. Rücksicherung nur bei gestopptem Dienst; Rechte 0700/0600 beibehalten. Dazu Quellcode, Lockfile und das Docker-Image sichern:
+`data/` enthält `bewerbung.sqlite` einschließlich WAL/SHM, Vorlagen, Bewerbungsdateien, zentrale Anlagen (`documents/`), native Pi-/Codex-Sitzungen sowie Build-Eingaben/-Ausgaben. Einstellungen, geöffnete Bewerbungen, Chatentwürfe, Tags, Vorlagenbezeichnungen/Standard, PDF-Pläne, Aufträge und Anlagenverweise liegen in derselben SQLite. `data/pdf-jobs/` enthält Ergebnisdateien; Eingabekopien werden nach Verarbeitung entfernt. Beim Update werden fehlende Organisationstabellen ergänzt; vorhandene Bewerbungen und native Sitzungen werden nicht neu angelegt. Beim Sichern Symlinks erhalten, **nicht dereferenzieren**: Codex verweist auf die vorhandene native Anmeldung außerhalb der App. Für konsistente Sicherungen den Bewerbungsdienst stoppen, **das gesamte Verzeichnis** kopieren und anschließend wieder starten. Rücksicherung nur bei gestopptem Dienst; Rechte 0700/0600 beibehalten. Dazu Quellcode, Lockfile und das Docker-Image sichern:
 
 ```sh
 docker save bewerbung-tex:2026-11-16 -o bewerbung-tex.tar
 ```
 
 Der Builder verwendet die konkrete Image-ID aus `builder/image-id`, nicht einen beweglichen Tag. Neuaufbau: `docker build --network host -t bewerbung-tex:2026-11-16 builder`, anschließend `docker image inspect bewerbung-tex:2026-11-16 --format '{{.Id}}' > builder/image-id`. Host-Netz nur beim Paketdownload; Dokument-Builds laufen mit `--network=none`, read-only Root/Inputs, ohne Capabilities/Shell-Escape, als Nutzer, mit PID-/CPU-/RAM-/Dateigrößen- und 120-Sekunden-Limit. Temporäre Schreibbereiche sind begrenzte tmpfs. Systemfonts müssen lesbar sein (`openin_any=a`); es sind keine Host-Geheimnisse in den Container gemountet.
+
+Die zusätzlichen PDF-Werkzeuge laufen in einem eigenen gepinnten Image, nicht als Hostprogramme:
+
+```sh
+docker build --network host -t bewerbung-pdf:workflow-v1 pdf-tools
+docker image inspect bewerbung-pdf:workflow-v1 --format '{{.Id}}' > pdf-tools/image-id
+```
+
+`pdf-tools/image-id` und das zugehörige Docker-Image mitsichern. Ohne konfiguriertes Image meldet die API fehlende PDF-Verfügbarkeit; die Oberfläche bietet keine scheinbar funktionierende Verarbeitung. Der Runtime-Container erhält nur die konkreten Eingabekopien und seinen Ausgabeordner, ohne Netzwerk, beschreibbares Root-Dateisystem oder Host-Geheimnisse; mit Zeit-, Prozess-, CPU-, RAM- und Ausgabegrenzen. Quelle: qpdf, Ghostscript, img2pdf/Pillow aus dem Image.
 
 ## Caddy – angewendet
 

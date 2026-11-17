@@ -1,4 +1,35 @@
-# Verifikation – T3-UI-Neuaufbau, 16.11.2026
+# Verifikation – Bewerbungsabläufe und lokale PDF-Werkzeuge
+
+## Erweiterung vom 17.11.2026
+
+**Isolierte Prüfung erfolgreich: Typecheck, Build und 32/32 Tests ohne Skips.** Keine produktiven Bewerbungen oder Uploads als Testfixtures verwendet. Alle ursprünglichen Sicherheits-, Quoten-, Freigabe- und Verlaufstests bleiben erhalten; keine neuen Abhängigkeiten im Node-Projekt. Die drei Kopfbereich-Schaltflächen wurden bewusst nicht umgestaltet.
+
+- Browser: Entwürfe ohne Gruppe/Badge ganz oben, vereinfachtes Anlegen/Kopieren und Bearbeiten, Entfernen des Pi-/Codex-Hinweises, Tags/Filter, Vorlagenbenennung/Standard/Kopie/Export/Löschung und neue Vorlage aus Bewerbung. Löschdialog mit Abbrechen, Revisionskonflikt und bestätigtem Entfernen; gemeinsame Dateien bleiben erhalten. Desktop-/Mobilabläufe ohne Browser-JS-Fehler.
+- PDF-Oberfläche: Reihenfolge, Seitenvalidierung, Kompressionswarnung, Download und Ablage als neue Datei; gespeicherte Abwahl bleibt beim Wiederöffnen bestehen. Globaler Auftrag ist nach Schließen über die Historie wieder erreichbar. Versand-/Quellen-ZIPs bleiben getrennt und inhaltlich unverändert geprüft.
+- Echte Offline-Werkzeuge mit synthetischen TeX-/Bildquellen: unabhängige Seitenmarker belegen Reihenfolge `BRAVO-2, ALPHA-3, ALPHA-1`; keine ungewählten Seiten. Text nach kompakter Verarbeitung weiter durchsuchbar und in gleicher Reihenfolge. Verlustfreie Bildeinbettung pixelgleich zur Quelle, kompakter hochauflösender Testscan kleiner und A4. Kennwortgeschützte/beschädigte PDFs und ungültige Seitennummern führen zu Fehlern, nicht zu geänderten Originalen oder verlorenen guten Ergebnissen.
+- Echte Pi-/Codex-Prozesse ohne Modellinferenz: zwei unabhängige Katalogsitzungen geöffnet, eine Bewerbung geschlossen/gelöscht; die andere Sitzung bleibt mit identischer nativer Identität nutzbar. Keine neue kostenpflichtige Modellrunde; bestehende Freigabe-/Resume-Nachweise stehen im historischen Abschnitt unten.
+- Unit-/HTTP-Verträge: Tagvalidierung vor Mutation, Vorlagen-/Kopienunabhängigkeit, Löschgrenzen einschließlich Auth-Symlink-Zielen und durablem Neustart-Cleanup, unveränderliche PDF-Eingabekopien, deduplizierte Ergebnisablage, Plan-CAS/Ausschlüsse und Quellenbesitz. Fehler von Renderer, Benachrichtigung oder temporärer Dateibereinigung dürfen spätere Aufträge nicht blockieren.
+
+Runtime: qpdf **12.2.0**, Ghostscript **10.05.1**, img2pdf **0.6.1**, Pillow **11.1.0**. Image-ID: `sha256:94b892b760e9e2af2fa4c160c33aaa02d38cbef32e0ff16b748dfcd6b56cd614`; `pdf-tools/image-id` bindet den tatsächlichen Containerstand. Docker ohne Netzwerk, beschreibbares Root oder Host-Geheimnisse; Ressourcen-/Zeitgrenzen in `server/pdf-runner.ts`. Keine Garantie für Signaturerhalt, beliebige PDF-Sonderfunktionen oder eine bestimmte Dateigröße. PDF-Plugin-Pixelabnahme im persönlichen Browser bleibt unbehauptet.
+
+Reproduzierbare Prüfaufrufe im Quellordner:
+
+```sh
+npm run check && npm test && npm run build
+node --import tsx scripts/smoke-frontend-logic.ts
+node --import tsx scripts/smoke-pdf-tools.ts
+node --import tsx scripts/smoke-delete-sessions.ts
+```
+
+Browserprüfung nur gegen separat gestartete, leere Testablage: `SMOKE_ORIGIN=http://127.0.0.1:<Testport> SMOKE_SYNTHETIC=1 node --import tsx scripts/smoke-redesign.ts`. Das Skript verweigert Nicht-Loopback-Ziele; `SMOKE_HARNESS` nicht setzen, wenn keine Modellinferenz gewünscht ist.
+
+### Bereitstellung
+
+Produktiv am 17.11.2026 ausgerollt; nur `bewerbung.service` neu gestartet. Konsistenter vorheriger Quell-/Daten-/Abhängigkeitsstand: `backups/workflow-20261117T115007Z/previous/`. Fingerprints belegen unveränderte Inhalte aller vorhandenen Tabellen und **1.054** Laufzeitdateien/Symlinks; **6 Bewerbungen, 13 zentrale Dokumente und 2 Vorlagen** erhalten. Neue Funktionen ergänzen ausschließlich eigene Tabellen. Quellenmanifest und Vorher-/Nachher-Fingerprints liegen in derselben Sicherung.
+
+Nach dem Rollout erneut: Typecheck und **32/32 Tests** mit temporären Daten erfolgreich. Geschützter HTTPS-Browsercheck bestätigt Sidebar, vereinfachtes Formular, Abbrechen und Vorlagenverwaltung ohne JS-Fehler; sämtliche mutierenden Browserrequests waren dabei technisch gesperrt und keiner wurde versucht. Bewerbung, T3-Root und `/interface` liefern 200; außerhalb NetBird 403. Bindung weiterhin `127.0.0.1:3119`, Caddyfile-Hash unverändert. Keine weiteren Commits/Pushes und keine Löschung oder PDF-Verarbeitung vorhandener Nutzerinhalte.
+
+## Historischer T3-UI-Neuaufbau, 16.11.2026
 
 **VERIFIED für die beschriebenen isolierten Prüfungen.** Die Oberfläche verwendet die in [PROVENIENZ.md](PROVENIENZ.md) abgegrenzten tatsächlichen T3-Komponenten und Tiptap-Extraktionen. Das ist keine Behauptung vollständiger Pixelgleichheit mit der privat installierten T3-Version.
 
@@ -8,7 +39,7 @@ Nach dem Rollout im Produktiv-Quellordner erneut erfolgreich: Typecheck und **24
 
 ## Umfang und Grenzen
 
-Bewerbungen statt Workspace-/Git-Threads, sechs fachliche Statusgruppen, geöffnete Bewerbungen darüber, Rechtsklickaktionen, neues Formular, Suche, Einstellungen, zentral hochgeladene Anlagen und separater Quelleneditor. Chat ist der Hauptbereich; PDF/Build/Anlagen befinden sich in der rechten Unterlagen-Seitenleiste. Kein Git/PR/Pairing, keine Platzhalter-Anbieter, keine Shell-Freigaben, keine Änderung installierter T3-/Pi-/Codex-Programme oder ihrer Zugangsdaten.
+Damals: Bewerbungen statt Workspace-/Git-Threads, sechs fachliche Statusgruppen, geöffnete Bewerbungen darüber, Rechtsklickaktionen, neues Formular, Suche, Einstellungen, zentral hochgeladene Anlagen und separater Quelleneditor. Chat ist der Hauptbereich; PDF/Build/Anlagen befinden sich in der rechten Unterlagen-Seitenleiste. Kein Git/PR/Pairing, keine Platzhalter-Anbieter, keine Shell-Freigaben, keine Änderung installierter T3-/Pi-/Codex-Programme oder ihrer Zugangsdaten.
 
 Alle neuen Laufzeitprüfungen verwenden eigene temporäre Daten auf srv. Keine Testbewerbungen im produktiven Bestand. Für den Original-CV wurde ausschließlich der unveränderliche Master gelesen und in getrennten Daten gebaut. Keine Mac-Originaldatei wurde geändert.
 
@@ -52,8 +83,8 @@ Vor dem Rollout werden ursprüngliche Quellhashes, neue Pfadkollisionen und akti
 
 Caddy/NetBird bleiben unverändert. Ursprünglicher geschützter Routen-Backupstand: `/containers/caddy/backups/Caddyfile.before-bewerbung-20261116-191623`; Caddyfile-SHA-256 `40c699cd39f57cf93c655ef16a96bb0bd115dabb9f8b60f37b0716f8304a211d`.
 
-Keine Commits/Pushes, keine Änderung der vorhandenen Bewerbungen durch Testfixtures. Die früher wegen abweichender Revision erhaltene Importprüfungs-Bewerbung wird weiterhin nicht bereinigt.
+Beim damaligen UI-Rollout keine Commits/Pushes, keine Änderung der vorhandenen Bewerbungen durch Testfixtures. Der anschließend ausdrücklich beauftragte initiale Git-Commit ist `8a353a1`; für die Erweiterung wurde kein weiterer Commit oder Push erstellt. Die früher wegen abweichender Revision erhaltene Importprüfungs-Bewerbung wird weiterhin nicht bereinigt.
 
 ## Nicht behauptet
 
-Keine vollständige OS-Sandbox für native Harness-/Tool-Host-Prozesse, keine automatische E-Mail, keine Vollformulare für sämtliche CV-Inhalte und keine Bewerbungslöschung. Keine statistische AI-Wasserzeichenprüfung oder Garantie gegen AI-Erkennung. Kein umfassender Fuzz-/Penetrationstest, kein End-to-End-SIGKILL-Test während offener Freigaben und keine exakte Gleichheit mit privaten T3-Änderungen. Native Shell bleibt bewusst nicht verfügbar.
+Keine vollständige OS-Sandbox für native Harness-/Tool-Host-Prozesse, keine automatische E-Mail, keine Vollformulare für sämtliche CV-Inhalte. Keine statistische AI-Wasserzeichenprüfung oder Garantie gegen AI-Erkennung. Kein umfassender Fuzz-/Penetrationstest, kein End-to-End-SIGKILL-Test während offener Freigaben und keine exakte Gleichheit mit privaten T3-Änderungen. Native Shell bleibt bewusst nicht verfügbar.

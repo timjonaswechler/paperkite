@@ -3,6 +3,21 @@ import { api, errorMessage } from "./api";
 
 // A remounted application must wait for its previous instance's final autosave.
 const pendingDrafts = new Map<string, { text: string; write: Promise<void> }>();
+const blockedDrafts = new Set<string>();
+
+export async function prepareDraftDeletion(id: string) {
+  blockedDrafts.add(id);
+  await pendingDrafts.get(id)?.write.catch(() => {});
+  return (deleted: boolean) => {
+    if (deleted) pendingDrafts.delete(id);
+    else {
+      blockedDrafts.delete(id);
+      window.dispatchEvent(
+        new CustomEvent("bewerbung:draft-resume", { detail: id }),
+      );
+    }
+  };
+}
 
 export function useDraft(id: string) {
   const [text, setText] = useState("");
@@ -22,7 +37,7 @@ export function useDraft(id: string) {
     const current = state.current;
     clearTimeout(current.timer);
     current.timer = undefined;
-    if (!current.dirty || current.sending) return;
+    if (!current.dirty || current.sending || blockedDrafts.has(id)) return;
     current.dirty = false;
     const value = current.text;
     current.pendingWrites++;
@@ -31,6 +46,10 @@ export function useDraft(id: string) {
       .catch(() => {})
       .then(async () => {
         try {
+          if (blockedDrafts.has(id)) {
+            current.dirty = true;
+            return;
+          }
           const body = { text: value };
           // Small draft writes survive a reload; larger writes keep the unload warning instead.
           await api(
@@ -93,15 +112,20 @@ export function useDraft(id: string) {
   }, [id, reload]);
   useEffect(() => {
     const flush = () => persist();
+    const resume = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === id) persist();
+    };
     const warn = (event: BeforeUnloadEvent) => {
       if (state.current.dirty || state.current.pendingWrites) {
         persist();
         event.preventDefault();
       }
     };
+    window.addEventListener("bewerbung:draft-resume", resume);
     window.addEventListener("pagehide", flush);
     window.addEventListener("beforeunload", warn);
     return () => {
+      window.removeEventListener("bewerbung:draft-resume", resume);
       window.removeEventListener("pagehide", flush);
       window.removeEventListener("beforeunload", warn);
     };

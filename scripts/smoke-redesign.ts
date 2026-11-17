@@ -5,10 +5,14 @@ import { chromium, expect } from "@playwright/test";
 import { unzipSync } from "fflate";
 import fs from "node:fs";
 import path from "node:path";
+import { crc32, deflateSync } from "node:zlib";
 import type {
   Application,
   ApplicationDetail,
   Settings,
+  LibraryDocument,
+  TemplateSummary,
+  PdfPlan,
 } from "../shared/api.ts";
 
 const origin = process.env.SMOKE_ORIGIN;
@@ -39,10 +43,27 @@ const stamp = Date.now();
 const company = `Synthetic Redesign ${stamp}`;
 const copyCompany = `${company} Copy`;
 const documentName = `Synthetic Certificate ${stamp}.png`;
-const png = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jD1cAAAAASUVORK5CYII=",
-  "base64",
-);
+// Valid PNG with a unique harmless text chunk: repeat runs must not collide with library dedupe.
+function chunk(type: string, data: Buffer) {
+  const header = Buffer.alloc(4),
+    checksum = Buffer.alloc(4),
+    body = Buffer.concat([Buffer.from(type), data]);
+  header.writeUInt32BE(data.length);
+  checksum.writeUInt32BE(crc32(body));
+  return Buffer.concat([header, body, checksum]);
+}
+const ihdr = Buffer.alloc(13);
+ihdr.writeUInt32BE(1, 0);
+ihdr.writeUInt32BE(1, 4);
+ihdr[8] = 8;
+ihdr[9] = 2;
+const png = Buffer.concat([
+  Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+  chunk("IHDR", ihdr),
+  chunk("tEXt", Buffer.from("Fixture\0" + stamp)),
+  chunk("IDAT", deflateSync(Buffer.from([0, 255, 255, 255]))),
+  chunk("IEND", Buffer.alloc(0)),
+]);
 async function api<T = unknown>(
   route: string,
   method = "GET",
@@ -182,12 +203,16 @@ try {
   await page
     .getByLabel("Notizen", { exact: true })
     .fill("Distinctive synthetic application note");
-  await page
-    .getByLabel("Zeugnisse hochladen")
-    .setInputFiles({ name: documentName, mimeType: "image/png", buffer: png });
   await expect(
-    page.getByRole("checkbox", { name: `${documentName} auswählen` }),
-  ).toBeChecked();
+    page.getByRole("combobox", { name: "Status", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("combobox", { name: "Profil", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByLabel("Zeugnisse hochladen")).toHaveCount(0);
+  await expect(
+    page.getByText("Zeugnisse und Anlagen", { exact: true }),
+  ).toHaveCount(0);
   await capture("new-application-light");
   await page
     .getByRole("button", { name: "Bewerbung anlegen", exact: true })
@@ -200,6 +225,42 @@ try {
     "general",
   );
   expect((await api<Application[]>("/applications")).length).toBe(before + 1);
+  expect(
+    (await api<ApplicationDetail>(`/applications/${id}`)).documents,
+  ).toHaveLength(0);
+  await expect(
+    page.locator('aside [data-status-groups] section[aria-label="Entwurf"]'),
+  ).toHaveCount(0);
+  await expect(page.locator(`aside [data-application-id="${id}"]`)).toHaveCount(
+    1,
+  );
+  await expect(
+    page
+      .locator(`aside [data-application-id="${id}"]`)
+      .getByText("Entwurf", { exact: true }),
+  ).toHaveCount(0);
+  await sidebarContext(`${company} · Frontend Engineer`);
+  await expect(
+    page.getByRole("menuitem", {
+      name: "Aus geöffneten Bewerbungen schließen",
+    }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Unterlagen", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Auswahl ändern", exact: true })
+    .click();
+  await page
+    .getByLabel("Zeugnisse hochladen")
+    .setInputFiles({ name: documentName, mimeType: "image/png", buffer: png });
+  await expect(
+    page.getByRole("checkbox", { name: `${documentName} auswählen` }),
+  ).toBeChecked();
+  await page
+    .getByRole("button", { name: "Änderungen speichern", exact: true })
+    .click();
+  await expect(page.getByText(documentName, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Unterlagen schließen" }).click();
   expect(
     (await api<ApplicationDetail>(`/applications/${id}`)).documents,
   ).toHaveLength(1);
@@ -286,6 +347,10 @@ try {
     company,
   );
   await page.getByLabel("Unternehmen", { exact: true }).fill(copyCompany);
+  await expect(page.getByLabel("Zeugnisse hochladen")).toHaveCount(0);
+  await expect(
+    page.getByRole("combobox", { name: "Status", exact: true }),
+  ).toHaveCount(0);
   await page
     .getByRole("button", { name: "Bewerbung anlegen", exact: true })
     .click();
@@ -350,10 +415,112 @@ try {
   await page
     .getByLabel("Dateibezeichnung", { exact: true })
     .fill(`${documentName} renamed`);
+  await page
+    .getByLabel("Tags", { exact: true })
+    .fill("  Zeugnis, Ausbildung, ZEUGNIS  ");
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
   await expect(
     page.getByText(`${documentName} renamed`, { exact: true }),
   ).toBeVisible();
+  const tagged = (await api<LibraryDocument[]>("/documents")).find(
+    (doc) => doc.id === originalDoc.id,
+  )!;
+  expect(tagged.tags).toHaveLength(2);
+  expect(new Set(tagged.tags)).toEqual(new Set(["zeugnis", "ausbildung"]));
+  expect(tagged.sha256).toBe(originalDoc.sha256);
+  const originalBytes = await page.request.get(
+    `${url.origin}/bewerbung/api/documents/${originalDoc.id}/file`,
+  );
+  expect(await originalBytes.body()).toEqual(png);
+  await choice("Nach Tag filtern", "ausbildung");
+  await expect(
+    page.getByText(`${documentName} renamed`, { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("searchbox", { name: "Eigene Dateien durchsuchen" })
+    .fill("zeugnis");
+  await expect(
+    page.getByText(`${documentName} renamed`, { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("searchbox", { name: "Eigene Dateien durchsuchen" })
+    .fill("missing-synthetic-tag");
+  await expect(page.getByText("Keine passenden Dateien.")).toBeVisible();
+  await page
+    .getByRole("searchbox", { name: "Eigene Dateien durchsuchen" })
+    .fill("");
+  await choice("Nach Tag filtern", "Alle Tags");
+  await page
+    .getByRole("checkbox", { name: `${documentName} renamed auswählen` })
+    .check();
+  await page
+    .getByRole("button", { name: /Zusammenfügen \/ optimieren/ })
+    .click();
+  const globalComposition = page.getByRole("dialog", {
+    name: "PDF zusammenfügen / optimieren",
+    exact: true,
+  });
+  await expect(
+    globalComposition.getByRole("checkbox", {
+      name: `${documentName} renamed einschließen`,
+    }),
+  ).toBeChecked();
+  await expect(globalComposition.locator("[data-pdf-source]")).toHaveCount(1);
+  await expect(
+    globalComposition.getByText("Bild · eine Seite", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    globalComposition.getByRole("textbox", { name: /^Seiten für/ }),
+  ).toHaveCount(0);
+  const globalPdfCapability = await api<{ pdfProcessing: boolean }>("/health");
+  let globalJobId = "";
+  if (globalPdfCapability.pdfProcessing) {
+    await globalComposition
+      .getByRole("button", { name: "PDF erstellen", exact: true })
+      .click();
+    await expect(
+      globalComposition.getByRole("status").filter({ hasText: "PDF fertig" }),
+    ).toBeVisible({ timeout: 120000 });
+    globalJobId = (await api<{ id: string }[]>("/pdf-jobs"))[0]!.id;
+  }
+  await globalComposition
+    .getByRole("button", { name: "Schließen", exact: true })
+    .click();
+  if (globalJobId) {
+    await page
+      .getByRole("button", { name: "Bisherige PDF-Aufträge", exact: true })
+      .click();
+    await globalComposition
+      .getByText("Bisherige PDF-Aufträge", { exact: true })
+      .click();
+    await globalComposition
+      .getByRole("button", { name: "Ergebnis", exact: true })
+      .first()
+      .click();
+    await expect(
+      globalComposition.getByRole("link", {
+        name: "PDF herunterladen",
+        exact: true,
+      }),
+    ).toHaveAttribute("href", new RegExp(globalJobId));
+    await globalComposition
+      .getByRole("button", { name: "Schließen", exact: true })
+      .click();
+  }
+  await page
+    .getByRole("button", {
+      name: `${documentName} renamed optimieren`,
+      exact: true,
+    })
+    .click();
+  await expect(
+    globalComposition.getByRole("checkbox", {
+      name: `${documentName} renamed einschließen`,
+    }),
+  ).toBeChecked();
+  await globalComposition
+    .getByRole("button", { name: "Schließen", exact: true })
+    .click();
   await page
     .getByRole("button", {
       name: `${documentName} renamed entfernen`,
@@ -364,6 +531,110 @@ try {
     .getByRole("button", { name: "Datei entfernen", exact: true })
     .click();
   await expect(page.getByRole("alert")).toBeVisible();
+  await page.getByRole("button", { name: "Vorlagen", exact: true }).click();
+  const snapshotLabel = `Synthetic master ${stamp}`;
+  const sourceBeforeSnapshot = await api<ApplicationDetail>(
+    `/applications/${id}`,
+  );
+  await page
+    .getByRole("button", { name: "Aus Bewerbung als Vorlage speichern" })
+    .click();
+  await choice("Quellbewerbung", `${company} · Frontend Engineer`);
+  await page.getByLabel("Vorlagenname", { exact: true }).fill(snapshotLabel);
+  await page
+    .getByRole("button", { name: "Vorlage speichern", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: snapshotLabel, exact: true }),
+  ).toBeVisible();
+  const snapshot = (await api<TemplateSummary[]>("/templates")).find(
+    (template) => template.label === snapshotLabel,
+  )!;
+  expect(snapshot).toBeDefined();
+  expect((await api<ApplicationDetail>(`/applications/${id}`)).revision).toBe(
+    sourceBeforeSnapshot.revision,
+  );
+  await page
+    .getByRole("button", {
+      name: `${snapshotLabel} als Standard setzen`,
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("button", {
+      name: `${snapshotLabel} als Standard setzen`,
+      exact: true,
+    }),
+  ).toBeDisabled();
+  expect(
+    (await api<TemplateSummary[]>("/templates")).find(
+      (template) => template.isDefault,
+    )?.id,
+  ).toBe(snapshot.id);
+  const exported = await page.request.get(
+    `${url.origin}/bewerbung/api/templates/${snapshot.id}/export`,
+  );
+  expect(exported.ok()).toBe(true);
+  expect((await exported.json()).format).toBe("bewerbung-template-v1");
+  await page
+    .getByRole("button", { name: `${snapshotLabel} duplizieren`, exact: true })
+    .click();
+  await page
+    .getByLabel("Vorlagenname", { exact: true })
+    .fill(`${snapshotLabel} copy`);
+  await page
+    .getByRole("button", { name: "Vorlage speichern", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: `${snapshotLabel} copy`, exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: `${snapshotLabel} copy umbenennen`,
+      exact: true,
+    })
+    .click();
+  await page
+    .getByLabel("Vorlagenname", { exact: true })
+    .fill(`${snapshotLabel} renamed`);
+  await page
+    .getByRole("button", { name: "Vorlage speichern", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: `${snapshotLabel} renamed`,
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: `${snapshotLabel} renamed löschen`,
+      exact: true,
+    })
+    .click();
+  await page.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: `${snapshotLabel} renamed`,
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: `${snapshotLabel} renamed löschen`,
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("button", { name: "Vorlage löschen", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: `${snapshotLabel} renamed`,
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await capture("templates-managed");
   await page.getByRole("button", { name: "Zurück zum Chat" }).click();
   await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);
@@ -529,6 +800,131 @@ try {
       expect(archive[`Anlagen/01_${currentName}`]).toBeUndefined();
     }
   }
+  await page
+    .getByRole("button", {
+      name: "PDF zusammenfügen / optimieren",
+      exact: true,
+    })
+    .click();
+  const composition = page.getByRole("dialog", {
+    name: "PDF zusammenfügen / optimieren",
+    exact: true,
+  });
+  await expect(composition).toBeVisible();
+  const pdfCapability = await api<{ pdfProcessing: boolean }>("/health");
+  if (pdfCapability.pdfProcessing) {
+    await expect(
+      composition.getByRole("checkbox", { name: "Anschreiben einschließen" }),
+    ).toBeChecked();
+    await expect(
+      composition.getByRole("checkbox", {
+        name: `${currentName} einschließen`,
+      }),
+    ).toBeChecked();
+    await composition
+      .getByRole("button", { name: `${currentName} nach oben`, exact: true })
+      .click();
+    await expect(
+      composition.locator("[data-pdf-source]").first(),
+    ).toContainText(currentName);
+    await composition
+      .getByRole("textbox", { name: `Seiten für ${currentName}`, exact: true })
+      .fill("3-1");
+    await expect(
+      composition.getByRole("button", { name: "PDF erstellen", exact: true }),
+    ).toBeDisabled();
+    await composition
+      .getByRole("textbox", { name: `Seiten für ${currentName}`, exact: true })
+      .fill("1");
+    await choice("Kompression", "Kompakt (150 dpi)");
+    await expect(
+      composition.getByText(/Lesbarkeit beeinträchtigen/),
+    ).toBeVisible();
+    await choice("Kompression", "Verlustfrei");
+    await composition
+      .getByRole("button", { name: "PDF erstellen", exact: true })
+      .click();
+    await expect(
+      composition.getByRole("status").filter({ hasText: "PDF fertig" }),
+    ).toBeVisible({ timeout: 120000 });
+    const plan = await api<PdfPlan>(`/applications/${copyId}/pdf-plan`);
+    const copyWithDoc = await api<ApplicationDetail>(`/applications/${copyId}`);
+    expect(plan.items).toEqual([
+      { kind: "document", id: copyWithDoc.documents[0]!.id, pages: "1" },
+      {
+        kind: "build",
+        id: copyWithDoc.builds.find(
+          (build) => build.kind === "cover" && build.status === "success",
+        )!.id,
+      },
+    ]);
+    expect(plan.compression).toBe("lossless");
+    const resultDownload = page.waitForEvent("download");
+    await composition
+      .getByRole("link", { name: "PDF herunterladen", exact: true })
+      .click();
+    const composedFile = await resultDownload;
+    expect(await composedFile.failure()).toBeNull();
+    expect(
+      fs
+        .readFileSync((await composedFile.path())!)
+        .subarray(0, 5)
+        .toString(),
+    ).toBe("%PDF-");
+    await composition
+      .getByRole("button", { name: "In Eigene Dateien speichern", exact: true })
+      .click();
+    await expect(
+      composition.getByRole("status").filter({ hasText: /Eigene Dateien/ }),
+    ).toBeVisible();
+    expect(
+      (await api<LibraryDocument[]>("/documents")).find(
+        (doc) => doc.id === originalDoc.id,
+      )?.sha256,
+    ).toBe(originalDoc.sha256);
+    await capture("pdf-composition-result");
+    await composition
+      .getByRole("checkbox", { name: "Anschreiben einschließen" })
+      .uncheck();
+    await composition
+      .getByRole("button", { name: "PDF erstellen", exact: true })
+      .click();
+    await expect(
+      composition.getByRole("status").filter({ hasText: "PDF fertig" }),
+    ).toBeVisible({ timeout: 120000 });
+    expect(
+      (await api<PdfPlan>(`/applications/${copyId}/pdf-plan`)).excluded,
+    ).toEqual(["build:cover"]);
+    await composition
+      .getByRole("button", { name: "Schließen", exact: true })
+      .click();
+    await page
+      .getByRole("button", {
+        name: "PDF zusammenfügen / optimieren",
+        exact: true,
+      })
+      .click();
+    await expect(
+      composition.getByRole("checkbox", { name: "Anschreiben einschließen" }),
+    ).not.toBeChecked();
+    await expect(
+      composition.getByRole("checkbox", {
+        name: `${currentName} einschließen`,
+      }),
+    ).toBeChecked();
+  } else {
+    await expect(
+      composition.getByText(
+        /PDF-Verarbeitung ist auf diesem Server nicht verfügbar/,
+      ),
+    ).toBeVisible();
+    await expect(
+      composition.getByRole("button", { name: "PDF erstellen", exact: true }),
+    ).toBeDisabled();
+  }
+  await composition
+    .getByRole("button", { name: "Schließen", exact: true })
+    .click();
   await capture("documents-panel-dark");
   await page.getByRole("button", { name: "Unterlagen schließen" }).click();
 
@@ -624,6 +1020,92 @@ try {
   await capture("sidebar-mobile");
   await page.getByRole("button", { name: "Seitenleiste schließen" }).click();
   await capture("chat-mobile");
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const deletionTarget = await api<ApplicationDetail>("/applications", "POST", {
+    company: `${company} delete`,
+    role: "Disposable delete",
+    documentIds: [originalDoc.id],
+  });
+  await page.goto(`${url.origin}/bewerbung/applications/${deletionTarget.id}`);
+  await expect(
+    page.getByRole("heading", { name: deletionTarget.company, exact: true }),
+  ).toBeVisible();
+  const deletes: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "DELETE") deletes.push(request.url());
+  });
+  await page
+    .getByRole("textbox", { name: "Nachricht an Assistent" })
+    .fill("Draft retained on cancel");
+  await sidebarContext(`${deletionTarget.company} · ${deletionTarget.role}`);
+  await page
+    .getByRole("menuitem", { name: "Bewerbung löschen", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Bewerbung löschen", exact: true }),
+  ).toContainText("Zentrale Dateien");
+  await page.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  expect(deletes).toEqual([]);
+  await expect(
+    page.getByRole("textbox", { name: "Nachricht an Assistent" }),
+  ).toHaveText("Draft retained on cancel");
+  await sidebarContext(`${deletionTarget.company} · ${deletionTarget.role}`);
+  await page
+    .getByRole("menuitem", { name: "Bewerbung löschen", exact: true })
+    .click();
+  await api(`/applications/${deletionTarget.id}`, "PATCH", {
+    revision: deletionTarget.revision,
+    notes: "Concurrent metadata edit",
+  });
+  await page
+    .getByRole("button", { name: "Bewerbung löschen", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("dialog", { name: "Bewerbung löschen", exact: true })
+      .getByRole("alert"),
+  ).toBeVisible();
+  expect(
+    (await api<Application[]>("/applications")).some(
+      (app) => app.id === deletionTarget.id,
+    ),
+  ).toBe(true);
+  await page.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Nachricht an Assistent" })
+    .fill("Discard me, never resurrect");
+  await sidebarContext(`${deletionTarget.company} · ${deletionTarget.role}`);
+  await page
+    .getByRole("menuitem", { name: "Bewerbung löschen", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Bewerbung löschen", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Deine nächste Bewerbung", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator(`aside [data-application-id="${deletionTarget.id}"]`),
+  ).toHaveCount(0);
+  expect(
+    (await api<Application[]>("/applications")).some(
+      (app) => app.id === deletionTarget.id,
+    ),
+  ).toBe(false);
+  expect((await api<{ openIds: string[] }>("/ui-state")).openIds).not.toContain(
+    deletionTarget.id,
+  );
+  const deletedDraft = await page.request.get(
+    `${url.origin}/bewerbung/api/applications/${deletionTarget.id}/draft`,
+  );
+  expect(deletedDraft.status()).toBe(404);
+  expect(
+    await (
+      await page.request.get(
+        `${url.origin}/bewerbung/api/documents/${originalDoc.id}/file`,
+      )
+    ).body(),
+  ).toEqual(png);
   expect(errors).toEqual([]);
   console.log(
     `PASS redesign browser flows; original=${id}, copy=${copyId}; captures=${artifacts}; real harness=${provider || "not run"}`,

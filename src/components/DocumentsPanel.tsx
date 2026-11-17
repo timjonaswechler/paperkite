@@ -12,6 +12,7 @@ import {
 import { Button } from "./ui/button";
 import { ErrorNotice, IconButton } from "./Controls";
 import { DocumentPreview, formatBytes } from "./DocumentLibrary";
+import { PdfCompositionDialog } from "./PdfCompositionDialog";
 
 export function DocumentsPanel({
   app,
@@ -27,6 +28,7 @@ export function DocumentsPanel({
   onEdit: () => void;
 }) {
   const [pdf, setPdf] = useState("");
+  const [composing, setComposing] = useState(false);
   const [log, setLog] = useState<{ title: string; text: string } | null>(null);
   const [document, setDocument] = useState<LibraryDocument | null>(null);
   const [busy, setBusy] = useState(false);
@@ -40,6 +42,10 @@ export function DocumentsPanel({
   const buildBusy = app.builds.some(
     (b) => b.status === "queued" || b.status === "running",
   );
+  function closePanel() {
+    setComposing(false);
+    onClose();
+  }
   async function action(fn: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -55,7 +61,7 @@ export function DocumentsPanel({
     <Sheet
       open={open}
       onOpenChange={(value) => {
-        if (!value) onClose();
+        if (!value) closePanel();
       }}
     >
       <SheetPopup
@@ -66,7 +72,7 @@ export function DocumentsPanel({
         <SheetHeader>
           <div className="flex items-center justify-between gap-3">
             <SheetTitle>Unterlagen</SheetTitle>
-            <IconButton label="Unterlagen schließen" onClick={onClose}>
+            <IconButton label="Unterlagen schließen" onClick={closePanel}>
               <X />
             </IconButton>
           </div>
@@ -116,6 +122,20 @@ export function DocumentsPanel({
               <Download />
               Dokumentpaket
             </Button>
+          </div>
+          <div className="space-y-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy || app.harness.busy || buildBusy}
+              onClick={() => setComposing(true)}
+            >
+              PDF zusammenfügen / optimieren
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Neueste erfolgreiche Anschreiben- und Lebenslauf-Builds mit den
+              ausgewählten Anlagen zu einem PDF verbinden.
+            </p>
           </div>
           <p className="text-xs text-muted-foreground">
             Versandpaket: nur die neuesten erfolgreichen Lebenslauf- und
@@ -312,6 +332,13 @@ export function DocumentsPanel({
             )}
           </section>
         </div>
+        {open && composing && (
+          <PdfCompositionDialog
+            app={app}
+            documents={app.documents}
+            onClose={() => setComposing(false)}
+          />
+        )}
         <DocumentPreview
           document={document}
           onClose={() => setDocument(null)}

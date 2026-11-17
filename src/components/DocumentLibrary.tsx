@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, Eye, FileText, Pencil, Trash2, Upload } from "lucide-react";
+import {
+  Download,
+  Eye,
+  FileText,
+  Pencil,
+  Trash2,
+  Upload,
+  Files,
+} from "lucide-react";
 import type { LibraryDocument } from "../../shared/api";
 import { api, base, errorMessage } from "../api";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
+import { Badge } from "./ui/badge";
+import { PdfCompositionDialog } from "./PdfCompositionDialog";
+import { DocumentTags, parseTags, tagsError } from "./DocumentTags";
 import {
   Dialog,
   DialogPopup,
@@ -14,7 +25,7 @@ import {
   DialogFooter,
   DialogPanel,
 } from "./ui/dialog";
-import { ErrorNotice, IconButton } from "./Controls";
+import { Choice, ErrorNotice, IconButton } from "./Controls";
 
 export const formatBytes = (bytes: number) =>
   bytes < 1024 * 1024
@@ -96,6 +107,10 @@ export function DocumentLibrary({
 }) {
   const [documents, setDocuments] = useState<LibraryDocument[]>([]);
   const [query, setQuery] = useState("");
+  const [tag, setTag] = useState("");
+  const [tags, setTags] = useState("");
+  const [composeIds, setComposeIds] = useState<string[]>([]);
+  const [composing, setComposing] = useState<LibraryDocument[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -161,11 +176,18 @@ export function DocumentLibrary({
       setReload((n) => n + 1);
     }
   }
-  const matching = documents.filter((d) =>
-    `${d.label} ${d.name}`
-      .toLocaleLowerCase()
-      .includes(query.toLocaleLowerCase()),
+  const allTags = [
+    ...new Set(documents.flatMap((document) => document.tags)),
+  ].sort();
+  const matching = documents.filter(
+    (d) =>
+      (!tag || d.tags.includes(tag)) &&
+      `${d.label} ${d.name} ${d.tags.join(" ")}`
+        .toLocaleLowerCase()
+        .includes(query.toLocaleLowerCase()),
   );
+  const selection = onSelectionChange ? (selected ?? []) : composeIds;
+  const changeSelection = onSelectionChange ?? setComposeIds;
   return (
     <div className="space-y-3" data-document-library>
       <div className="flex flex-wrap items-center gap-2">
@@ -173,7 +195,7 @@ export function DocumentLibrary({
           <Input
             type="search"
             aria-label="Eigene Dateien durchsuchen"
-            placeholder="Zeugnisse und Anlagen durchsuchen…"
+            placeholder="Dateien oder Tags durchsuchen…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -206,6 +228,50 @@ export function DocumentLibrary({
           }}
         />
       </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Choice
+          label="Nach Tag filtern"
+          value={tag}
+          onChange={setTag}
+          options={[
+            { value: "", label: "Alle Tags" },
+            ...[...new Set([...allTags, ...(tag ? [tag] : [])])].map(
+              (value) => ({ value, label: value }),
+            ),
+          ]}
+        />
+        {!onSelectionChange && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={
+              busy ||
+              !documents.some((document) => composeIds.includes(document.id))
+            }
+            onClick={() =>
+              setComposing(
+                documents.filter((document) =>
+                  composeIds.includes(document.id),
+                ),
+              )
+            }
+          >
+            <Files />
+            Zusammenfügen / optimieren (
+            {
+              documents.filter((document) => composeIds.includes(document.id))
+                .length
+            }
+            )
+          </Button>
+        )}
+      </div>
+      {!onSelectionChange && (
+        <Button variant="ghost" size="sm" onClick={() => setComposing([])}>
+          Bisherige PDF-Aufträge
+        </Button>
+      )}
       <ErrorNotice error={error} onClose={() => setError("")} />
       {loading ? (
         <p className="text-sm text-muted-foreground" role="status">
@@ -213,28 +279,29 @@ export function DocumentLibrary({
         </p>
       ) : !matching.length ? (
         <p className="py-4 text-sm text-muted-foreground">
-          {query
+          {query || tag
             ? "Keine passenden Dateien."
             : "Noch keine Zeugnisse oder Anlagen. Einmal hochladen, in mehreren Bewerbungen verwenden."}
         </p>
       ) : (
         <ul className="max-h-72 overflow-auto divide-y divide-border/50 rounded-lg border border-border/60">
           {matching.map((document) => (
-            <li key={document.id} className="flex items-center gap-3 px-3 py-2">
-              {onSelectionChange && (
-                <Checkbox
-                  aria-label={`${document.label} auswählen`}
-                  disabled={busy}
-                  checked={selected?.includes(document.id) ?? false}
-                  onCheckedChange={(checked) =>
-                    onSelectionChange(
-                      checked
-                        ? [...new Set([...(selected ?? []), document.id])]
-                        : (selected ?? []).filter((id) => id !== document.id),
-                    )
-                  }
-                />
-              )}
+            <li
+              key={document.id}
+              className="flex flex-wrap items-center gap-3 px-3 py-2"
+            >
+              <Checkbox
+                aria-label={`${document.label} auswählen`}
+                disabled={busy}
+                checked={selection.includes(document.id)}
+                onCheckedChange={(checked) =>
+                  changeSelection(
+                    checked
+                      ? [...new Set([...selection, document.id])]
+                      : selection.filter((id) => id !== document.id),
+                  )
+                }
+              />
               <FileText className="size-4 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm" title={document.label}>
@@ -249,42 +316,65 @@ export function DocumentLibrary({
                       : "JPG"}
                   {!onSelectionChange && ` · ${document.usedBy} Bewerbungen`}
                 </p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {document.tags.map((value) => (
+                    <Badge key={value} variant="secondary" size="sm">
+                      {value}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-              <IconButton
-                label={`${document.label} ansehen`}
-                onClick={() => setPreview(document)}
+              <div
+                className={
+                  onSelectionChange
+                    ? "flex shrink-0 items-center"
+                    : "flex shrink-0 items-center gap-1 max-sm:w-full max-sm:justify-end"
+                }
               >
-                <Eye />
-              </IconButton>
-              {!onSelectionChange && (
-                <>
-                  <IconButton
-                    label={`${document.label} herunterladen`}
-                    render={
-                      <a
-                        href={`${base}/documents/${document.id}/file?download=1`}
-                      />
-                    }
-                  >
-                    <Download />
-                  </IconButton>
-                  <IconButton
-                    label={`${document.label} umbenennen`}
-                    onClick={() => {
-                      setRenaming(document);
-                      setLabel(document.label);
-                    }}
-                  >
-                    <Pencil />
-                  </IconButton>
-                  <IconButton
-                    label={`${document.label} entfernen`}
-                    onClick={() => setRemoving(document)}
-                  >
-                    <Trash2 />
-                  </IconButton>
-                </>
-              )}
+                <IconButton
+                  label={`${document.label} ansehen`}
+                  onClick={() => setPreview(document)}
+                >
+                  <Eye />
+                </IconButton>
+                {!onSelectionChange && (
+                  <>
+                    <IconButton
+                      label={`${document.label} herunterladen`}
+                      render={
+                        <a
+                          href={`${base}/documents/${document.id}/file?download=1`}
+                        />
+                      }
+                    >
+                      <Download />
+                    </IconButton>
+                    <IconButton
+                      label={`${document.label} umbenennen`}
+                      onClick={() => {
+                        setRenaming(document);
+                        setLabel(document.label);
+                        setTags(document.tags.join(", "));
+                      }}
+                    >
+                      <Pencil />
+                    </IconButton>
+                    <IconButton
+                      label={`${document.label} optimieren`}
+                      disabled={busy}
+                      onClick={() => setComposing([document])}
+                    >
+                      <Files />
+                    </IconButton>
+                    <IconButton
+                      label={`${document.label} entfernen`}
+                      onClick={() => setRemoving(document)}
+                    >
+                      <Trash2 />
+                    </IconButton>
+                  </>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -294,16 +384,23 @@ export function DocumentLibrary({
         {onSelectionChange &&
           ` · ${selected?.length ?? 0} ausgewählt (maximal 100 MiB je Bewerbung)`}
       </p>
+      {composing && (
+        <PdfCompositionDialog
+          documents={composing}
+          onClose={() => setComposing(null)}
+          onSaved={() => setReload((n) => n + 1)}
+        />
+      )}
       <DocumentPreview document={preview} onClose={() => setPreview(null)} />
       <Dialog
         open={Boolean(renaming)}
         onOpenChange={(open) => {
-          if (!open) setRenaming(null);
+          if (!open && !busy) setRenaming(null);
         }}
       >
         <DialogPopup>
           <DialogHeader>
-            <DialogTitle>Dateibezeichnung ändern</DialogTitle>
+            <DialogTitle>Dateibezeichnung und Tags ändern</DialogTitle>
             <DialogDescription>
               Der Inhalt und bestehende Build-Snapshots bleiben unverändert.
             </DialogDescription>
@@ -313,20 +410,27 @@ export function DocumentLibrary({
               aria-label="Dateibezeichnung"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
+              disabled={busy}
             />
+            <DocumentTags value={tags} onChange={setTags} disabled={busy} />
           </DialogPanel>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setRenaming(null)}>
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => setRenaming(null)}
+            >
               Abbrechen
             </Button>
             <Button
-              disabled={!label.trim() || busy}
+              disabled={!label.trim() || busy || Boolean(tagsError(tags))}
               onClick={async () => {
                 if (!renaming) return;
                 setBusy(true);
                 try {
                   await api(`/documents/${renaming.id}`, "PATCH", {
                     label: label.trim(),
+                    tags: parseTags(tags),
                   });
                   setRenaming(null);
                   setReload((n) => n + 1);

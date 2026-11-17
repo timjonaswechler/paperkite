@@ -26,6 +26,7 @@ export type LibraryDocument = {
   sha256: string;
   created: string;
   usedBy: number;
+  tags: string[];
 };
 export type TemplateSummary = {
   id: string;
@@ -33,6 +34,9 @@ export type TemplateSummary = {
   bytes: number;
   digest: string;
   profiles: string[];
+  label: string;
+  isDefault: boolean;
+  defaultProfile?: string;
 };
 export type Application = {
   id: string;
@@ -87,6 +91,32 @@ export type SearchResult = Pick<
 > & {
   match: "company" | "role" | "notes" | "posting" | "chat";
   preview: string;
+};
+export type PdfInput = {
+  kind: "document" | "build";
+  id: string;
+  pages?: string;
+};
+export type PdfCompression = "lossless" | "compact";
+export type PdfPlan = {
+  revision: number;
+  items: PdfInput[];
+  compression: PdfCompression;
+  excluded?: string[];
+};
+export type PdfJob = {
+  id: string;
+  app: string | null;
+  status: "queued" | "running" | "success" | "failed";
+  created: string;
+  compression: PdfCompression;
+  items: PdfInput[];
+  sourceBytes: number;
+  bytes?: number;
+  pages?: number;
+  error?: string;
+  note?: string;
+  label: string;
 };
 export type ChatEvent = {
   id: number;

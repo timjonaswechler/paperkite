@@ -12,6 +12,8 @@ import {
 } from "../shared/api.ts";
 import { DocumentLibrary } from "./documents.ts";
 import { Preferences } from "./preferences.ts";
+import { Templates } from "./templates.ts";
+import { deletionSchema, cleanDeletions, removeApplication } from "./application-deletion.ts";
 import {
   parseProfile,
   serializeProfile,
@@ -20,7 +22,6 @@ import {
 import {
   checkFileChanges,
   check,
-  decodeImport,
   fileMap,
   isText,
   neutralCover,
@@ -34,6 +35,7 @@ export class Store {
   db: DatabaseSync;
   documents: DocumentLibrary;
   preferences: Preferences;
+  templateLibrary: Templates;
   constructor(public root: string) {
     fs.mkdirSync(root, { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(path.join(root, "bewerbung.sqlite"));
@@ -45,6 +47,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT,app TEXT NOT NULL REFERENCES apps(id),type TEXT NOT NULL,payload TEXT NOT NULL,created TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS sessions(app TEXT PRIMARY KEY REFERENCES apps(id),provider TEXT NOT NULL,native TEXT,model TEXT);
     `);
+    this.templateLibrary = new Templates(this.db, root);
     this.documents = new DocumentLibrary(this.db, root);
     this.preferences = new Preferences(this.db);
     this.db
@@ -55,7 +58,10 @@ export class Store {
     this.db.exec(
       "DELETE FROM build_documents WHERE build IN (SELECT id FROM builds WHERE status='failed')",
     );
+    deletionSchema(this.db);
+    cleanDeletions(this.db, root);
   }
+  remove(id: string, revision: unknown) { return removeApplication(this.db, this.root, id, revision); }
   app(id: string): Application {
     const row = this.db.prepare("SELECT * FROM apps WHERE id=?").get(id);
     check(row, "Bewerbung nicht gefunden", 404);
@@ -139,52 +145,8 @@ export class Store {
         };
       });
   }
-  templates(): TemplateSummary[] {
-    return this.db
-      .prepare("SELECT * FROM templates ORDER BY created DESC")
-      .all()
-      .map((row) => {
-        const directory = path.join(
-          this.root,
-          "templates",
-          String(row.id),
-          "cv",
-          "profiles",
-        );
-        const profiles = fs.existsSync(directory)
-          ? fs
-              .readdirSync(directory)
-              .filter((name) => /^[A-Za-z0-9_-]+\.lua$/.test(name))
-              .map((name) => name.slice(0, -4))
-              .sort()
-          : [];
-        return {
-          id: String(row.id),
-          created: String(row.created),
-          bytes: Number(row.bytes),
-          digest: String(row.digest),
-          profiles,
-        };
-      });
-  }
-  import(input: unknown) {
-    const decoded = decodeImport(input);
-    const id = randomUUID();
-    putMap(path.join(this.root, "templates", id), decoded.files);
-    this.db
-      .prepare("INSERT INTO templates VALUES(?,?,?,?)")
-      .run(id, new Date().toISOString(), decoded.digest, decoded.bytes);
-    return {
-      id,
-      count: Object.keys(decoded.files).length,
-      bytes: decoded.bytes,
-      profiles: Object.keys(decoded.files).filter((p) =>
-        p.startsWith("cv/profiles/"),
-      ),
-      warning:
-        "Alte Anschreiben sind nur Referenzen. Originalquellen bleiben unverändert.",
-    };
-  }
+  templates(): TemplateSummary[] { return this.templateLibrary.list(); }
+  import(input: unknown) { return this.templateLibrary.import(input); }
   private factsFiles(a: Application, files: Record<string, Buffer> = {}) {
     return {
       ...files,
@@ -264,14 +226,8 @@ export class Store {
       inheritedDocuments = this.documents.ids(source.id);
     }
     if (input.template) {
-      check(
-        this.db
-          .prepare("SELECT id FROM templates WHERE id=?")
-          .get(input.template),
-        "Vorlage nicht gefunden",
-        404,
-      );
-      const master = fileMap(path.join(this.root, "templates", input.template));
+      const masterInfo = this.templateLibrary.get(input.template);
+      const master = this.templateLibrary.files(input.template);
       if (input.source) area(master, ["cv/", "fonts/"]);
       else
         files = Object.fromEntries(
@@ -280,12 +236,7 @@ export class Store {
           ),
         );
       template = input.template;
-      profile = files["cv/profiles/general.lua"]
-        ? "general"
-        : Object.keys(files)
-            .sort()
-            .find((name) => name.startsWith("cv/profiles/"))
-            ?.slice(12, -4) || "default";
+      profile = masterInfo.defaultProfile || "default";
     }
     if (input.cvSource) {
       const source = this.app(input.cvSource);

@@ -519,6 +519,11 @@ export class CodexHarness {
     s.busy = false;
     await this.runtime.runPromise(Scope.close(s.scope, Exit.void));
   }
+  async closeApp(app: string) {
+    check(!this.busy(app), "Agent arbeitet noch", 409);
+    const session = this.sessions.get(app);
+    if (session) await this.drop(app, session);
+  }
   async close() {
     await Promise.all(
       [...this.starting.values()].map((p) => p.catch(() => {})),

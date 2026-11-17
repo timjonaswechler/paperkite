@@ -8,7 +8,12 @@ import {
   Palette,
   Settings2,
 } from "lucide-react";
-import type { Provider, Settings, TemplateSummary } from "../../shared/api";
+import type {
+  Application,
+  Provider,
+  Settings,
+  TemplateSummary,
+} from "../../shared/api";
 import { api, errorMessage } from "../api";
 import {
   Dialog,
@@ -27,6 +32,7 @@ import {
 import { SettingsGroup } from "./settings/SettingsGroup";
 import { Choice, ErrorNotice } from "./Controls";
 import { DocumentLibrary } from "./DocumentLibrary";
+import { TemplatesManager } from "./TemplatesManager";
 import license from "../T3-LICENSE.txt?raw";
 
 function SettingsRow({
@@ -71,12 +77,14 @@ const sections = [
 ];
 export function SettingsDialog({
   settings,
+  applications,
   templates,
   saveSettings,
   onClose,
   onImported,
 }: {
   settings: Settings;
+  applications: Application[];
   templates: TemplateSummary[];
   saveSettings: (patch: Partial<Settings>) => Promise<void>;
   onClose: () => void;
@@ -312,27 +320,11 @@ export function SettingsDialog({
                       }}
                     />
                   </SettingsGroup>
-                  <ul className="space-y-3">
-                    {templates.map((template, index) => (
-                      <li
-                        className="rounded-xl border border-border/60 p-4 text-sm"
-                        key={template.id}
-                      >
-                        <p className="font-medium">
-                          {index === 0 ? "Neuester Master" : "Master"} ·{" "}
-                          {new Date(template.created).toLocaleString("de-DE")}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Profile: {template.profiles.join(", ") || "keine"}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                  {!templates.length && (
-                    <p className="text-sm text-muted-foreground">
-                      Noch kein Master importiert.
-                    </p>
-                  )}
+                  <TemplatesManager
+                    templates={templates}
+                    applications={applications}
+                    onChanged={onImported}
+                  />
                 </>
               )}
               <p role="status" className="text-xs text-muted-foreground">

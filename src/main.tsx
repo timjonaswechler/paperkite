@@ -13,6 +13,16 @@ import {
 import { api, ApiError, errorMessage } from "./api";
 import { Workspace } from "./Workspace";
 import { confirmNavigation } from "./navigation";
+import { prepareDraftDeletion } from "./useDraft";
+import {
+  Dialog,
+  DialogPopup,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogPanel,
+  DialogFooter,
+} from "./components/ui/dialog";
 import {
   ApplicationSidebar,
   type ApplicationAction,
@@ -52,6 +62,9 @@ function App() {
   const routeRef = useRef(id);
   routeRef.current = id;
   const [form, setForm] = useState<ApplicationFormRequest | null>(null);
+  const [removing, setRemoving] = useState<ApplicationDetail | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -197,9 +210,52 @@ function App() {
       const application = await api<ApplicationDetail>(
         `/applications/${target}`,
       );
-      setForm({ mode: action, application });
+      if (action === "delete") {
+        setDeleteError("");
+        setRemoving(application);
+      } else setForm({ mode: action, application });
     } catch (e) {
       fail(e);
+    }
+  }
+  async function deleteApplication() {
+    if (!removing || deleteBusy) return;
+    setDeleteBusy(true);
+    setDeleteError("");
+    const finishDraft = await prepareDraftDeletion(removing.id);
+    let deleted = false;
+    try {
+      const result = await api<{ ok: true; ui: UiState }>(
+        `/applications/${removing.id}`,
+        "DELETE",
+        { revision: removing.revision },
+      );
+      deleted = true;
+      finishDraft(true);
+      setUi(result.ui);
+      setApplications((current) =>
+        current.filter((app) => app.id !== removing.id),
+      );
+      if (routeRef.current === removing.id) {
+        history.pushState({}, "", "/bewerbung/");
+        setId("");
+        setPanel(null);
+      }
+      setRemoving(null);
+      await refreshList();
+    } catch (e) {
+      if (deleted) fail(e);
+      else {
+        finishDraft(false);
+        setDeleteError(
+          e instanceof ApiError && e.status === 409
+            ? `${errorMessage(e)} Bitte laufende Arbeiten beenden und den Löschdialog erneut öffnen, um den aktuellen Stand zu bestätigen.`
+            : errorMessage(e),
+        );
+        await refreshList().catch(fail);
+      }
+    } finally {
+      setDeleteBusy(false);
     }
   }
   async function changeStatus(
@@ -383,12 +439,52 @@ function App() {
         {showSettings && settings && (
           <SettingsDialog
             settings={settings}
+            applications={applications}
             templates={templates}
             saveSettings={saveSettings}
             onClose={() => setShowSettings(false)}
             onImported={refreshList}
           />
         )}
+        <Dialog
+          open={Boolean(removing)}
+          onOpenChange={(open) => {
+            if (!open && !deleteBusy) setRemoving(null);
+          }}
+        >
+          <DialogPopup showCloseButton={!deleteBusy}>
+            <DialogHeader>
+              <DialogTitle>Bewerbung löschen</DialogTitle>
+              <DialogDescription>
+                „{removing?.company} · {removing?.role}“ dauerhaft löschen?
+                Chat, Entwürfe, Quellen und Builds dieser Bewerbung werden
+                entfernt. Zentrale Dateien in „Eigene Dateien“ bleiben erhalten.
+                Dies lässt sich nicht rückgängig machen.
+              </DialogDescription>
+            </DialogHeader>
+            {deleteError && (
+              <DialogPanel>
+                <ErrorNotice error={deleteError} />
+              </DialogPanel>
+            )}
+            <DialogFooter>
+              <Button
+                variant="ghost"
+                disabled={deleteBusy}
+                onClick={() => setRemoving(null)}
+              >
+                Abbrechen
+              </Button>
+              <Button
+                variant="destructive-outline"
+                disabled={deleteBusy}
+                onClick={() => void deleteApplication()}
+              >
+                {deleteBusy ? "Löschen…" : "Bewerbung löschen"}
+              </Button>
+            </DialogFooter>
+          </DialogPopup>
+        </Dialog>
         <LibraryDialog open={showLibrary} onOpenChange={setShowLibrary} />
         {showSearch && (
           <SearchDialog

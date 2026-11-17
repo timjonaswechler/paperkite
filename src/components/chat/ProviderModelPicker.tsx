@@ -212,10 +212,6 @@ export function ProviderModelPicker({
             )}
           </div>
         </div>
-        <p className="border-t border-border/70 px-3 py-2 text-xs leading-snug text-muted-foreground">
-          Pi und Codex führen getrennte Sitzungen. Die Auswahl sendet keine
-          Nachricht.
-        </p>
       </PopoverPopup>
     </Popover>
   );

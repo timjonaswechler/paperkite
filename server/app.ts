@@ -7,8 +7,16 @@ import { Builds, type Runner } from "./builds.ts";
 import { Harness } from "./harness.ts";
 import { check, fileMap, HttpError, JSON_LIMIT } from "./files.ts";
 import { organizationRoutes } from "./organization-routes.ts";
+import { workflowRoutes } from "./workflow-routes.ts";
+import { PdfJobs } from "./pdf-jobs.ts";
+import type { PdfRunner } from "./pdf-runner.ts";
 
-export function createApp(root: string, runner: Runner, port = 3119) {
+export function createApp(
+  root: string,
+  runner: Runner,
+  port = 3119,
+  pdfRunner?: PdfRunner,
+) {
   const store = new Store(root),
     web = express();
   const streams = new Map<string, Set<express.Response>>();
@@ -20,8 +28,20 @@ export function createApp(root: string, runner: Runner, port = 3119) {
     publish(app, { type: "build" }),
   );
   const harness = new Harness(store, publish);
-  const editable = (id: string) => {
+  const pdfs = new PdfJobs(store, builds, pdfRunner, (app) =>
+    publish(app, { type: "pdf" }),
+  );
+  const deleting = new Set<string>();
+  const available = (id: string) => {
+    check(
+      typeof id === "string" && /^[a-f0-9-]{36}$/.test(id),
+      "Ungültige Bewerbungs-ID",
+    );
     store.app(id);
+    check(!deleting.has(id), "Bewerbung wird gerade gelöscht", 409);
+  };
+  const editable = (id: string) => {
+    available(id);
     check(
       !harness.busy(id),
       "Agent arbeitet. Erst stoppen oder abwarten.",
@@ -81,11 +101,17 @@ export function createApp(root: string, runner: Runner, port = 3119) {
       );
     next();
   });
+  api.use("/applications/:id", (req, _res, next) => {
+    check(!deleting.has(req.params.id), "Bewerbung wird gerade gelöscht", 409);
+    next();
+  });
   web.use("/bewerbung/api", api);
   organizationRoutes(api, store, builds);
+  workflowRoutes(api, store, pdfs, editable, available);
   api.get("/health", (_req, res) =>
     res.json({
       ok: true,
+      pdfProcessing: pdfs.available,
       storage: "SQLite + lokale Dateien",
       templateImported: store.templates().length > 0,
       harnesses: [
@@ -141,6 +167,38 @@ export function createApp(root: string, runner: Runner, port = 3119) {
       harness: harness.status(req.params.id),
     }),
   );
+  api.delete("/applications/:id", async (req, res) => {
+    editable(req.params.id);
+    check(
+      harness.status(req.params.id).pending.length === 0,
+      "Offene Freigabe zuerst beantworten",
+      409,
+    );
+    check(
+      store.app(req.params.id).revision === req.body.revision,
+      "Inzwischen geändert. Neu laden.",
+      409,
+    );
+    check(
+      !store
+        .builds(req.params.id)
+        .some(
+          (build) => build.status === "queued" || build.status === "running",
+        ) && !pdfs.busy(req.params.id),
+      "PDF-Auftrag läuft noch. Bitte abwarten.",
+      409,
+    );
+    deleting.add(req.params.id);
+    try {
+      await harness.closeApp(req.params.id);
+      store.remove(req.params.id, req.body.revision);
+      for (const stream of streams.get(req.params.id) || []) stream.end();
+      streams.delete(req.params.id);
+      res.json({ ok: true, ui: store.preferences.ui() });
+    } finally {
+      deleting.delete(req.params.id);
+    }
+  });
   api.patch("/applications/:id", (req, res) => {
     editable(req.params.id);
     res.json(store.update(req.params.id, req.body));
@@ -307,10 +365,12 @@ export function createApp(root: string, runner: Runner, port = 3119) {
     store,
     builds,
     harness,
+    pdfs,
     close: async () => {
       for (const set of streams.values()) for (const res of set) res.end();
       await harness.close();
       await builds.idle();
+      await pdfs.idle();
       store.close();
     },
   };

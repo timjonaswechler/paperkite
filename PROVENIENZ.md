@@ -28,4 +28,10 @@ Konfigurationsreferenz: [OpenAI `config.schema.json`](https://raw.githubusercont
 
 Der vollständige MIT-Hinweis bleibt zusätzlich unter `src/T3-LICENSE.txt` erhalten und ist in den Einstellungen lesbar. Exakte direkte UI-Abhängigkeiten des Neuaufbaus: Base UI 1.9.0, Inter Variable 5.3.0 und Tiptap `core/pm/react/starter-kit` 3.31.3; optionale Tiptap-Menü-Peers sind auf dieselbe Version fixiert. Inter wird lokal ausgeliefert. `src/style.css` ergänzt die tatsächlichen Glas-/Markdown-/Composer-Regeln und die anhand der Nutzerreferenz angepasste dunkle Holzkohlepalette mit 302-px-Seitenleiste. Formulare, Dateiablage, Suchlogik, Entwurfspersistenz und Organisations-APIs sind anwendungseigen.
 
+## Lokale PDF-Werkzeuge
+
+`server/pdf-{jobs,runner}.ts`, `pdf-tools/process.py`, Vorlagenverwaltung, Tags und Löschlogik sind anwendungseigen; die Dialog-/Menüprimitiven bleiben die oben abgegrenzten T3-Komponenten. Laufzeitbibliotheken stammen aus dem eigenen Debian-Image: qpdf 12.2.0, Ghostscript 10.05.1, img2pdf 0.6.1 und Pillow 11.1.0. `pdf-tools/image-id` pinnt die konkrete Laufzeit; deren Quell- und Lizenzpakete verbleiben im Image.
+
+Geprüfte Primärreferenzen: [qpdf CLI: Seitenauswahl, Stream-/Objektkompression und Rückgabecodes](https://qpdf.readthedocs.io/en/stable/cli.html), [Ghostscript pdfwrite und Downsampling](https://ghostscript.readthedocs.io/en/latest/VectorDevices.html), [img2pdf: verlustfreie Bildeinbettung](https://pypi.org/project/img2pdf/). Die tatsächliche Kombination wurde zusätzlich offline mit synthetischen Quellen getestet; keine bloße API-Annahme und keine Cloud-Konvertierung. Kompaktverarbeitung ist ein neues PDF und kein Versprechen über digitale Signaturen, Sonderfunktionen oder Dateigröße.
+
 Keine Laufzeitänderungen an den installierten Pi-/Codex-/T3-Programmen. NPM-Abhängigkeiten sind im `package-lock.json` fixiert; TeX-Laufzeit wird durch `builder/image-id` fixiert. Weitere Lizenzen bleiben in den jeweiligen Abhängigkeiten erhalten.

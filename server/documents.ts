@@ -9,6 +9,17 @@ export const DOCUMENT_LIMIT = 25 * 1024 * 1024;
 export const LIBRARY_LIMIT = 1024 * 1024 * 1024;
 export const APPLICATION_DOCUMENT_LIMIT = 100 * 1024 * 1024;
 
+export function normalizeTags(value: unknown): string[] {
+  check(Array.isArray(value) && value.length <= 20, "Höchstens 20 Tags erlaubt");
+  const tags = value.map((tag) => {
+    check(typeof tag === "string" && !/[\x00-\x1f\x7f]/.test(tag), "Ungültiger Tag");
+    const normalized = tag.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("de-DE");
+    check(normalized.length > 0 && normalized.length <= 40 && !/[\x00-\x1f\x7f]/.test(normalized), "Tags benötigen 1 bis 40 Zeichen ohne Steuerzeichen");
+    return normalized;
+  });
+  return [...new Set(tags)].sort((a, b) => a.localeCompare(b, "de"));
+}
+
 type SnapshotDocument = {
   document: string;
   name: string;
@@ -54,6 +65,7 @@ export class DocumentLibrary {
     );
     db.exec(`
       CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY,name TEXT NOT NULL,label TEXT NOT NULL,mime TEXT NOT NULL,bytes INTEGER NOT NULL,sha256 TEXT NOT NULL UNIQUE,created TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS document_tags(document TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,tag TEXT NOT NULL,PRIMARY KEY(document,tag));
       CREATE TABLE IF NOT EXISTS application_documents(app TEXT NOT NULL REFERENCES apps(id) ON DELETE CASCADE,document TEXT NOT NULL REFERENCES documents(id) ON DELETE RESTRICT,position INTEGER NOT NULL,PRIMARY KEY(app,document));
       CREATE TABLE IF NOT EXISTS build_documents(build TEXT NOT NULL REFERENCES builds(id) ON DELETE CASCADE,document TEXT NOT NULL REFERENCES documents(id) ON DELETE RESTRICT,name TEXT NOT NULL,label TEXT NOT NULL,position INTEGER NOT NULL,PRIMARY KEY(build,document));
     `);
@@ -67,6 +79,7 @@ export class DocumentLibrary {
       bytes: Number(row.bytes),
       sha256: String(row.sha256),
       created: String(row.created),
+      tags: this.db.prepare("SELECT tag FROM document_tags WHERE document=? ORDER BY tag").all(String(row.id)).map((tag) => String(tag.tag)),
       usedBy: Number(
         this.db
           .prepare(
@@ -85,11 +98,12 @@ export class DocumentLibrary {
     );
     return file;
   }
-  list(): LibraryDocument[] {
-    return this.db
-      .prepare("SELECT * FROM documents ORDER BY created DESC,id")
-      .all()
-      .map((row) => this.metadata(row));
+  list(tag?: unknown): LibraryDocument[] {
+    if (tag !== undefined && tag !== "") {
+      const normalized = normalizeTags([tag])[0];
+      return this.db.prepare("SELECT d.* FROM documents d JOIN document_tags t ON t.document=d.id WHERE t.tag=? ORDER BY d.created DESC,d.id").all(normalized).map((row) => this.metadata(row));
+    }
+    return this.db.prepare("SELECT * FROM documents ORDER BY created DESC,id").all().map((row) => this.metadata(row));
   }
   get(id: unknown): LibraryDocument {
     check(
@@ -151,17 +165,24 @@ export class DocumentLibrary {
     return this.get(id);
   }
   rename(id: string, value: unknown) {
+    return this.update(id, { label: value });
+  }
+  update(id: string, input: Record<string, unknown>) {
     this.get(id);
-    check(
-      typeof value === "string" &&
-        value.trim().length > 0 &&
-        value.trim().length <= 200 &&
-        !/[\x00-\x1f\x7f]/.test(value),
-      "Ungültige Dokumentbezeichnung",
-    );
-    this.db
-      .prepare("UPDATE documents SET label=? WHERE id=?")
-      .run(value.trim(), id);
+    check(Object.keys(input).length > 0 && Object.keys(input).every((key) => key === "label" || key === "tags"), "Bezeichnung oder Tags erwartet");
+    if (input.label !== undefined)
+      check(typeof input.label === "string" && input.label.trim().length > 0 && input.label.trim().length <= 200 && !/[\x00-\x1f\x7f]/.test(input.label), "Ungültige Dokumentbezeichnung");
+    const tags = input.tags === undefined ? undefined : normalizeTags(input.tags);
+    this.db.exec("BEGIN");
+    try {
+      if (input.label !== undefined) this.db.prepare("UPDATE documents SET label=? WHERE id=?").run((input.label as string).trim(), id);
+      if (tags) {
+        this.db.prepare("DELETE FROM document_tags WHERE document=?").run(id);
+        const insert = this.db.prepare("INSERT INTO document_tags VALUES(?,?)");
+        tags.forEach((tag) => insert.run(id, tag));
+      }
+      this.db.exec("COMMIT");
+    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
     return this.get(id);
   }
   remove(id: string) {

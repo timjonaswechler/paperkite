@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import {
-  APPLICATION_STATUSES,
   type Application,
   type ApplicationDetail,
-  type ApplicationStatus,
   type NewApplication,
   type TemplateSummary,
 } from "../../shared/api";
@@ -49,13 +47,13 @@ export function ApplicationDialog({
   const original = request.mode === "new" ? null : request.application;
   const [company, setCompany] = useState(original?.company ?? "");
   const [role, setRole] = useState(original?.role ?? "");
-  const [status, setStatus] = useState<ApplicationStatus>(
-    request.mode === "edit" ? request.application.status : "Entwurf",
-  );
   const [posting, setPosting] = useState(original?.posting ?? "");
   const [notes, setNotes] = useState(original?.notes ?? "");
+  const master =
+    templates.find((template) => template.isDefault) ?? templates[0];
   const [profile, setProfile] = useState(
-    original?.profile ?? preferredProfile(templates[0]?.profiles ?? []),
+    original?.profile ??
+      preferredProfile(master?.profiles ?? [], master?.defaultProfile),
   );
   const [cvSource, setCvSource] = useState(
     request.mode === "copy" ? "copy" : "master",
@@ -63,9 +61,7 @@ export function ApplicationDialog({
   const [coverSource, setCoverSource] = useState(
     request.mode === "copy" ? "copy" : "neutral",
   );
-  const [profiles, setProfiles] = useState<string[]>(
-    templates[0]?.profiles ?? [],
-  );
+  const [profiles, setProfiles] = useState<string[]>(master?.profiles ?? []);
   const [documentIds, setDocumentIds] = useState(
     original?.documents.map((d) => d.id) ?? [],
   );
@@ -80,9 +76,7 @@ export function ApplicationDialog({
     const applyProfiles = (names: string[], preferred?: string) => {
       if (controller.signal.aborted) return;
       setProfiles(names);
-      setProfile((current) =>
-        names.includes(current) ? current : preferredProfile(names, preferred),
-      );
+      setProfile(preferredProfile(names, preferred));
     };
     setSourceLoading(false);
     if (request.mode === "edit" || cvSource === "copy") {
@@ -93,7 +87,7 @@ export function ApplicationDialog({
         original?.profile,
       );
     } else if (cvSource === "master") {
-      applyProfiles(templates[0]?.profiles ?? []);
+      applyProfiles(master?.profiles ?? [], master?.defaultProfile);
     } else {
       setSourceLoading(true);
       void api<ApplicationDetail>(
@@ -118,7 +112,7 @@ export function ApplicationDialog({
         });
     }
     return () => controller.abort();
-  }, [cvSource, request.mode, original, templates]);
+  }, [cvSource, request.mode, original, master]);
   const choices = applications.map((a) => ({
     value: a.id,
     label: `${a.company} · ${a.role}`,
@@ -145,16 +139,15 @@ export function ApplicationDialog({
       const facts = {
         company: company.trim(),
         role: role.trim(),
-        status,
         posting,
         notes,
-        profile:
-          request.mode === "edit"
-            ? profile || undefined
-            : profiles.includes(profile)
-              ? profile
-              : undefined,
-        documentIds,
+        ...(request.mode === "edit"
+          ? { documentIds }
+          : {
+              status: "Entwurf" as const,
+              profile: profiles.includes(profile) ? profile : undefined,
+              ...(cvSource === "copy" ? { documentIds } : {}),
+            }),
       };
       let result: ApplicationDetail;
       if (request.mode === "edit") {
@@ -170,8 +163,8 @@ export function ApplicationDialog({
             ? { source: original.id }
             : cvSource !== "master"
               ? { cvSource }
-              : templates[0]
-                ? { template: templates[0].id }
+              : master
+                ? { template: master.id }
                 : {}),
           coverSource:
             coverSource === "copy" && original
@@ -228,30 +221,6 @@ export function ApplicationDialog({
                 />
               </Field>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Status">
-                <Choice
-                  label="Status"
-                  value={status}
-                  onChange={(v) => setStatus(v as ApplicationStatus)}
-                  options={APPLICATION_STATUSES.map((s) => ({
-                    value: s,
-                    label: s,
-                  }))}
-                />
-              </Field>
-              <Field label="Profil">
-                <Choice
-                  label="Profil"
-                  value={profile}
-                  onChange={setProfile}
-                  options={[...new Set([profile, ...profiles])].map((p) => ({
-                    value: p,
-                    label: p || "Standardprofil",
-                  }))}
-                />
-              </Field>
-            </div>
             <Field label="Stellenausschreibung / URL">
               <Textarea
                 aria-label="Stellenausschreibung / URL"
@@ -270,60 +239,70 @@ export function ApplicationDialog({
               />
             </Field>
             {request.mode !== "edit" && (
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Lebenslauf als Ausgangspunkt">
-                  <Choice
-                    label="Lebenslauf als Ausgangspunkt"
-                    value={cvSource}
-                    onChange={(next) => {
-                      setProfile("");
-                      setCvSource(next);
-                    }}
-                    options={[
-                      ...(request.mode === "copy"
-                        ? [
-                            {
-                              value: "copy",
-                              label: `Kopie: ${original?.company}`,
-                            },
-                          ]
-                        : []),
-                      { value: "master", label: "Neuester Master" },
-                      ...choices,
-                    ]}
-                  />
-                </Field>
-                <Field label="Anschreiben als Ausgangspunkt">
-                  <Choice
-                    label="Anschreiben als Ausgangspunkt"
-                    value={coverSource}
-                    onChange={setCoverSource}
-                    options={[
-                      ...(request.mode === "copy"
-                        ? [
-                            {
-                              value: "copy",
-                              label: `Kopie: ${original?.company}`,
-                            },
-                          ]
-                        : []),
-                      { value: "neutral", label: "Neutraler Ausgangspunkt" },
-                      ...choices,
-                    ]}
-                  />
-                </Field>
-              </div>
+              <details>
+                <summary className="cursor-pointer text-sm text-muted-foreground">
+                  Ausgangsbasis (optional)
+                </summary>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  <Field label="Lebenslauf als Ausgangspunkt">
+                    <Choice
+                      label="Lebenslauf als Ausgangspunkt"
+                      value={cvSource}
+                      onChange={(next) => {
+                        setProfile("");
+                        setCvSource(next);
+                      }}
+                      options={[
+                        ...(request.mode === "copy"
+                          ? [
+                              {
+                                value: "copy",
+                                label: `Kopie: ${original?.company}`,
+                              },
+                            ]
+                          : []),
+                        {
+                          value: "master",
+                          label: master?.label ?? "Standard-Master",
+                        },
+                        ...choices,
+                      ]}
+                    />
+                  </Field>
+                  <Field label="Anschreiben als Ausgangspunkt">
+                    <Choice
+                      label="Anschreiben als Ausgangspunkt"
+                      value={coverSource}
+                      onChange={setCoverSource}
+                      options={[
+                        ...(request.mode === "copy"
+                          ? [
+                              {
+                                value: "copy",
+                                label: `Kopie: ${original?.company}`,
+                              },
+                            ]
+                          : []),
+                        { value: "neutral", label: "Neutraler Ausgangspunkt" },
+                        ...choices,
+                      ]}
+                    />
+                  </Field>
+                </div>
+              </details>
             )}
-            <section className="space-y-2 border-t border-border/60 pt-4">
-              <h2 className="text-sm font-medium">Zeugnisse und Anlagen</h2>
-              <DocumentLibrary
-                selected={documentIds}
-                onSelectionChange={setDocumentIds}
-                onLibrary={() => setLibrary(true)}
-                refreshKey={libraryRevision}
-                onBusyChange={setDocumentBusy}
-              />
-            </section>
+            {request.mode === "edit" && (
+              <section className="space-y-2 border-t border-border/60 pt-4">
+                <h2 className="text-sm font-medium">Zeugnisse und Anlagen</h2>
+                <DocumentLibrary
+                  selected={documentIds}
+                  onSelectionChange={setDocumentIds}
+                  onLibrary={() => setLibrary(true)}
+                  refreshKey={libraryRevision}
+                  onBusyChange={setDocumentBusy}
+                />
+              </section>
+            )}
           </DialogPanel>
           <DialogFooter>
             <Button

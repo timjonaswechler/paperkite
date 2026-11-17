@@ -334,6 +334,14 @@ class PiHarness {
     s.pending.clear();
     return this.status(app);
   }
+  async closeApp(app: string) {
+    check(!this.busy(app), "Agent arbeitet noch", 409);
+    const session = this.sessions.get(app);
+    if (!session) return;
+    this.sessions.delete(app);
+    session.pending.clear();
+    await this.runtime.runPromise(Scope.close(session.scope, Exit.void));
+  }
   async close() {
     for (const [app, s] of this.sessions) {
       this.sessions.delete(app);
@@ -406,6 +414,11 @@ export class Harness {
   }
   async interrupt(app: string) {
     return this.selected(app).interrupt(app);
+  }
+  async closeApp(app: string) {
+    check(!this.busy(app), "Agent arbeitet noch", 409);
+    await this.pi.closeApp(app);
+    await this.codex.closeApp(app);
   }
   async close() {
     await this.pi.close();
