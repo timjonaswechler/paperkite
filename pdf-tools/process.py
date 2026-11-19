@@ -59,7 +59,7 @@ def main():
     source = Path("/input")
     plan = json.loads((source / "plan.json").read_text())
     items, compression = plan["items"], plan["compression"]
-    if not isinstance(items, list) or not 1 <= len(items) <= 40 or compression not in ("lossless", "compact"):
+    if not isinstance(items, list) or not 1 <= len(items) <= 40 or compression not in ("none", "lossless", "compact"):
         raise ValueError("Ungültige PDF-Zusammenstellung")
     args = ["qpdf", "--warning-exit-0", "--empty", "--pages"]
     expected_pages = 0
@@ -93,7 +93,10 @@ def main():
             raise ValueError("Zusammenstellung zu groß")
         args += [str(file), specification or "1-z"]
     merged = Path("/tmp/merged.pdf")
-    args += ["--", "--object-streams=generate", "--recompress-flate", "--compression-level=9", str(merged)]
+    args += ["--"]
+    if compression != "none":
+        args += ["--object-streams=generate", "--recompress-flate", "--compression-level=9"]
+    args += [str(merged)]
     run(args)
     chosen, note = merged, None
     if compression == "compact":

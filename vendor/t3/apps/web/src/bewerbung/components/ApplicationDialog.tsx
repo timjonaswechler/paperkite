@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ComponentProps } from "react";
+import { JobOnboarding } from "./JobOnboarding";
 import {
   type Application,
   type ApplicationDetail,
@@ -27,7 +28,13 @@ const preferredProfile = (names: string[], preferred = "general") =>
 export type ApplicationFormRequest =
   | { mode: "new" }
   | { mode: "edit" | "copy"; application: ApplicationDetail };
-export function ApplicationDialog({
+export function ApplicationDialog(props: ComponentProps<typeof ApplicationDetailsDialog>) {
+  return props.request.mode === "new"
+    ? <JobOnboarding templates={props.templates} onClose={props.onClose} onSaved={props.onSaved} />
+    : <ApplicationDetailsDialog {...props} />;
+}
+
+function ApplicationDetailsDialog({
   request,
   applications,
   templates,

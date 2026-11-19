@@ -2,8 +2,18 @@ import type express from "express";
 import fs from "node:fs";
 import { Store } from "./store.ts";
 import { PdfJobs } from "./pdf-jobs.ts";
+import { Deliveries } from "./deliveries.ts";
 import { fileMap } from "./files.ts";
-export function workflowRoutes(api: express.Router, store: Store, pdfs: PdfJobs, editable: (id: string) => void, available: (id: string) => void) {
+export function workflowRoutes(api: express.Router, store: Store, pdfs: PdfJobs, editable: (id: string) => void, available: (id: string) => void, deliveries: Deliveries) {
+  api.get("/applications/:id/delivery-plan", (req, res) => res.json(deliveries.plan(req.params.id)));
+  api.put("/applications/:id/delivery-plan", (req, res) => { available(req.params.id); res.json(deliveries.savePlan(req.params.id, req.body)); });
+  api.get("/applications/:id/deliveries", (req, res) => res.json(deliveries.list(req.params.id)));
+  api.post("/applications/:id/deliveries", (req, res) => { available(req.params.id); res.status(202).json(deliveries.start(req.params.id, req.body.revision)); });
+  api.get("/applications/:id/deliveries/:job", (req, res) => res.json(deliveries.get(req.params.id, req.params.job)));
+  api.get("/applications/:id/deliveries/:job/file", (req, res) => {
+    const job = deliveries.get(req.params.id, req.params.job);
+    res.type(job.filename.endsWith(".zip") ? "application/zip" : "application/pdf").attachment(job.filename).sendFile(deliveries.artifact(req.params.id, req.params.job));
+  });
   api.patch("/templates/:id", (req, res) => res.json(store.templateLibrary.rename(req.params.id, req.body.label)));
   api.post("/templates/:id/default", (req, res) => res.json(store.templateLibrary.setDefault(req.params.id)));
   api.post("/templates/:id/copy", (req, res) => res.status(201).json(store.templateLibrary.copy(req.params.id, req.body.label)));

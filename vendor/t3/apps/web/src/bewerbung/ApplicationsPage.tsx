@@ -50,16 +50,17 @@ function ApplicationsPageView({
             </header>
             <section className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 pb-16 text-center">
               <FileText className="size-8 text-muted-foreground/60" />
-              <h1 className="text-xl font-medium">Deine nächste Bewerbung</h1>
+              <h1 className="text-xl font-medium">Deine Bewerbungen vorbereiten</h1>
               <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
                 {app.loading
                   ? "Arbeitsbereich wird geladen…"
-                  : "Öffne eine Bewerbung oder lege eine neue an. Jeder Bewerbung kannst du mehrere Chats zuordnen."}
+                  : "Stellen-Link erfassen, Lebenslauf und Anschreiben vorbereiten, Unterlagen als Versandpaket herunterladen. Öffne eine Bewerbung oder lege eine neue an."}
               </p>
               <Button disabled={app.loading} onClick={() => app.setForm({ mode: "new" })}>
                 <SquarePen />
                 Neue Bewerbung
               </Button>
+              {app.applications.length > 0 && <div className="grid w-full max-w-4xl gap-3 text-left sm:grid-cols-2 lg:grid-cols-3">{app.applications.map(application => <section key={application.id} className="min-w-0 space-y-3 rounded-xl border p-4"><h2 className="break-words font-medium">{application.company}</h2><p className="break-words text-sm text-muted-foreground">{application.role}</p><p className="text-xs text-muted-foreground">{application.status}</p><Button variant="outline" onClick={() => app.open(application.id)}>Bewerbung öffnen</Button></section>)}</div>}
             </section>
           </>
         )}

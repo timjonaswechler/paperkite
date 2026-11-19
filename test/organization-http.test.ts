@@ -54,6 +54,8 @@ test("organization HTTP routes protect binary uploads, create only validated app
   try {
     const defaults = await (await json("/settings")).json();
     assert.deepEqual(Object.keys(defaults).sort(), [
+      "analysisModel",
+      "applicantName",
       "autoBuild",
       "collapsedStatuses",
       "revision",

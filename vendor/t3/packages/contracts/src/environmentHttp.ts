@@ -70,6 +70,8 @@ import {
   EnvironmentSpeechTranscriptionResult,
 } from "./speech.ts";
 import { SecretReference } from "./secretReference.ts";
+import { ApplicationAnalysisInput, ApplicationAnalysisResult } from "./applicationAnalysis.ts";
+import { TextGenerationError } from "./git.ts";
 import {
   OrchestrationV2ShellHttpSnapshot,
   OrchestrationV2ShellResumable,
@@ -1063,6 +1065,15 @@ class EnvironmentWebhooksHttpApi extends HttpApiGroup.make("webhooks")
   .add(HttpApiEndpoint.patch("webhookPatch", WEBHOOK_PATH, webhookEndpoint))
   .add(HttpApiEndpoint.get("webhookGet", WEBHOOK_PATH, webhookEndpoint)) {}
 
+class ApplicationAnalysisHttpApi extends HttpApiGroup.make("applicationAnalysis").add(
+  HttpApiEndpoint.post("analyze", "/api/bewerbung/analyze", {
+    headers: OptionalBearerHeaders,
+    payload: ApplicationAnalysisInput,
+    success: ApplicationAnalysisResult,
+    error: [...EnvironmentScopedOperationErrors, TextGenerationError],
+  }).middleware(EnvironmentAuthenticatedAuth),
+) {}
+
 export class EnvironmentHttpApi extends HttpApi.make("environment")
   .add(EnvironmentMetadataHttpApi)
   .add(EnvironmentAuthHttpApi)
@@ -1070,6 +1081,7 @@ export class EnvironmentHttpApi extends HttpApi.make("environment")
   .add(EnvironmentOrchestrationHttpApi)
   .add(EnvironmentPullRequestsHttpApi)
   .add(EnvironmentProjectsHttpApi)
+  .add(ApplicationAnalysisHttpApi)
   .add(EnvironmentVoiceHttpApi)
   .add(EnvironmentConnectHttpApi)
   .add(EnvironmentWebhooksHttpApi) {}

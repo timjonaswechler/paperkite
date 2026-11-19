@@ -30,6 +30,7 @@ export interface ApplicationChatProjects {
   navigation(context: NativeProjectContext): Promise<ApplicationNavigation>;
   remove(id: string, context: NativeProjectContext): Promise<void>;
   busy(id: string): boolean;
+  analyze?(input: import("./job-postings.ts").AnalysisRequest, context: NativeProjectContext, signal: AbortSignal): ReturnType<import("./job-postings.ts").AnalysisRunner>;
 }
 
 // File disposal waits for T3's committed cleanup effects, not only its command acknowledgement.
@@ -190,10 +191,14 @@ export class NativeT3Projects implements ApplicationChatProjects {
     if (previous && previous.fingerprint !== fingerprint) this.store.bump(id);
     else this.recordWorkspace(id, fingerprint);
   }
+  analyze(input: import("./job-postings.ts").AnalysisRequest, context: NativeProjectContext, signal: AbortSignal) {
+    return this.request<{ company: string; role: string; requirements: string[] }>("/api/bewerbung/analyze", context, { ...input }, signal);
+  }
   private async request<T>(
     endpoint: string,
     context: NativeProjectContext,
     body?: Record<string, unknown>,
+    signal?: AbortSignal,
   ): Promise<T> {
     const headers: Record<string, string> = {
       Accept: "application/json",
@@ -221,7 +226,7 @@ export class NativeT3Projects implements ApplicationChatProjects {
         {
           method: body === undefined ? "GET" : "POST",
           headers,
-          signal: AbortSignal.timeout(60000),
+          signal: signal ?? AbortSignal.timeout(60000),
         },
         (incoming) => {
           const chunks: Buffer[] = [];

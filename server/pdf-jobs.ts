@@ -16,7 +16,7 @@ import type { PdfRunner } from "./pdf-runner.ts";
 const OUTPUT_LIMIT = 180 * 1024 * 1024;
 const uuid = /^[a-f0-9-]{36}$/;
 function compressionOf(value: unknown): PdfCompression {
-  check(value === "lossless" || value === "compact", "Ungültige Komprimierung");
+  check(value === "none" || value === "lossless" || value === "compact", "Ungültige Komprimierung");
   return value;
 }
 export function pdfInputs(value: unknown, allowEmpty = false): PdfInput[] {
@@ -286,9 +286,13 @@ export class PdfJobs {
       );
     return this.plan(app);
   }
-  start(input: Record<string, unknown>) {
+  capacity(count: number) {
+    if (count === 0) return;
     check(this.available, "PDF-Werkzeuge sind noch nicht eingerichtet", 503);
-    check(this.pending < 8, "PDF-Warteschlange voll. Bitte warten.", 429);
+    check(this.pending + count <= 8, "PDF-Warteschlange voll. Bitte warten.", 429);
+  }
+  start(input: Record<string, unknown>) {
+    this.capacity(1);
     const items = pdfInputs(input.items),
       compression = compressionOf(input.compression);
     check(

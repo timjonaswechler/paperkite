@@ -4,7 +4,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { check } from "./files.ts";
 
 const uuid = /^[a-f0-9-]{36}$/;
-const folders = new Set(["applications", "sessions", "codex", "builds", "pdf-jobs"]);
+const folders = new Set(["applications", "sessions", "codex", "builds", "pdf-jobs", "delivery-jobs"]);
 export function deletionSchema(db: DatabaseSync) {
   db.exec("CREATE TABLE IF NOT EXISTS pending_deletions(app TEXT PRIMARY KEY,paths TEXT NOT NULL)");
 }
@@ -23,6 +23,7 @@ export function cleanDeletions(db: DatabaseSync, root: string) {
         check(parts.length === 2 && folders.has(folder) && uuid.test(id || ""), "Ungültiger Löschpfad");
         if (["applications", "sessions", "codex"].includes(folder)) check(id === app, "Fremde Bewerbung im Löschauftrag");
         if (folder === "builds") check(!db.prepare("SELECT id FROM builds WHERE id=?").get(id), "Build wird noch verwendet");
+        if (folder === "delivery-jobs") check(!db.prepare("SELECT id FROM delivery_jobs WHERE id=?").get(id), "Versandpaket wird noch verwendet");
         const parent = path.join(root, folder);
         check(!fs.lstatSync(parent, { throwIfNoEntry: false })?.isSymbolicLink(), "Löschordner ist ein Symlink");
         fs.rmSync(path.join(parent, id), { recursive: true, force: true });
@@ -42,15 +43,17 @@ export function removeApplication(db: DatabaseSync, root: string, id: string, re
   check(!db.prepare("SELECT id FROM builds WHERE app=? AND status IN ('queued','running')").get(id), "PDF-Build läuft noch", 409);
   const tables = new Set(db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((row) => String(row.name)));
   if (tables.has("pdf_jobs")) check(!db.prepare("SELECT id FROM pdf_jobs WHERE app=? AND status IN ('queued','running')").get(id), "PDF-Aufbereitung läuft noch", 409);
+  if (tables.has("delivery_jobs")) check(!db.prepare("SELECT id FROM delivery_jobs WHERE app=? AND status IN ('queued','running')").get(id), "Versandpaket wird noch erstellt", 409);
+  const deliveries = tables.has("delivery_jobs") ? db.prepare("SELECT id FROM delivery_jobs WHERE app=?").all(id).map(row => String(row.id)) : [];
   const builds = db.prepare("SELECT id FROM builds WHERE app=?").all(id).map((row) => String(row.id));
   const jobs = tables.has("pdf_jobs") ? db.prepare("SELECT id FROM pdf_jobs WHERE app=?").all(id).map((row) => String(row.id)) : [];
-  check([...builds, ...jobs].every((value) => uuid.test(value)), "Ungültiger Dokumentstand");
-  const paths = [`applications/${id}`, `sessions/${id}`, `codex/${id}`, ...builds.map((value) => `builds/${value}`), ...jobs.map((value) => `pdf-jobs/${value}`)];
+  check([...builds, ...jobs, ...deliveries].every((value) => uuid.test(value)), "Ungültiger Dokumentstand");
+  const paths = [`applications/${id}`, `sessions/${id}`, `codex/${id}`, ...builds.map((value) => `builds/${value}`), ...jobs.map((value) => `pdf-jobs/${value}`), ...deliveries.map(value => `delivery-jobs/${value}`)];
   db.exec("BEGIN");
   try {
     db.prepare("INSERT INTO pending_deletions VALUES(?,?)").run(id, JSON.stringify(paths));
     db.prepare("DELETE FROM build_documents WHERE build IN (SELECT id FROM builds WHERE app=?)").run(id);
-    for (const table of ["pdf_plans", "pdf_jobs", "application_documents", "composer_drafts", "open_applications", "harness_choice", "codex_sessions", "sessions", "events", "builds"])
+    for (const table of ["delivery_plans", "delivery_jobs", "pdf_plans", "pdf_jobs", "application_documents", "composer_drafts", "open_applications", "harness_choice", "codex_sessions", "sessions", "events", "builds"])
       if (tables.has(table)) db.prepare(`DELETE FROM ${table} WHERE app=?`).run(id);
     db.prepare("DELETE FROM apps WHERE id=?").run(id);
     db.exec("COMMIT");

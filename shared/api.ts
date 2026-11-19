@@ -11,6 +11,8 @@ export type Settings = {
   revision: number;
   autoBuild: boolean;
   collapsedStatuses: ApplicationStatus[];
+  analysisModel: { instanceId: string; model: string } | null;
+  applicantName: string;
 };
 export type UiState = { openIds: string[] };
 export type ApplicationChat = {
@@ -88,6 +90,7 @@ export type ApplicationDetail = Application & {
   files: { name: string; size: number; text: boolean }[];
   documents: LibraryDocument[];
   builds: Build[];
+  documentStatus?: Record<"cv" | "cover", "missing" | "current" | "outdated">;
   harness: {
     provider: Provider;
     busy: boolean;
@@ -107,7 +110,39 @@ export type PdfInput = {
   id: string;
   pages?: string;
 };
-export type PdfCompression = "lossless" | "compact";
+export type PdfCompression = "none" | "lossless" | "compact";
+export type ProfileValue = string | number | boolean | ProfileValue[] | { [key: string]: ProfileValue };
+export type CoverLetter = { sender: string; recipient: string; subject: string; salutation: string; body: string; closing: string };
+export type JobAnalysis = {
+  company: string;
+  role: string;
+  requirements: string[];
+  text: string;
+  url: string;
+  capturedAt: string;
+};
+export type DeliveryOutput = {
+  id: string;
+  label: string;
+  mode: "merge" | "original";
+  items: PdfInput[];
+  compression: PdfCompression;
+};
+export type DeliveryPlan = {
+  revision: number;
+  format: "pdf" | "zip";
+  outputs: DeliveryOutput[];
+};
+export type DeliveryJob = {
+  id: string;
+  app: string;
+  status: "queued" | "running" | "success" | "failed";
+  created: string;
+  filename: string;
+  sourceRevision: number;
+  outputs: { filename: string; pdfJob?: string; original?: string }[];
+  error?: string;
+};
 export type PdfPlan = {
   revision: number;
   items: PdfInput[];

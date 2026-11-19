@@ -16,6 +16,8 @@ export async function checkApplicationSettings(
   ).json();
   const initial = await settings();
   assert.deepEqual(Object.keys(initial).sort(), [
+    "analysisModel",
+    "applicantName",
     "autoBuild",
     "collapsedStatuses",
     "revision",

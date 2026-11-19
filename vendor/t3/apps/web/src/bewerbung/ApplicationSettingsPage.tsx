@@ -13,6 +13,8 @@ import { api, errorMessage, requireBusiness } from "./api";
 import { ErrorNotice } from "./components/Controls";
 import { DocumentLibrary } from "./components/DocumentLibrary";
 import { TemplatesManager } from "./components/TemplatesManager";
+import { AnalysisModelSettings } from "./components/AnalysisModelSettings";
+import type { Settings } from "./shared/api";
 
 export function ApplicationSettingsPage() {
   const app = useApplications();
@@ -20,12 +22,12 @@ export function ApplicationSettingsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  async function saveAutoBuild(autoBuild: boolean) {
+  async function saveSettings(patch: Partial<Settings>) {
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      await app.saveSettings({ autoBuild });
+      await app.saveSettings(patch);
       setNotice("Gespeichert.");
     } catch (error) {
       setError(errorMessage(error));
@@ -56,13 +58,14 @@ export function ApplicationSettingsPage() {
   return (
     <SettingsPageContainer>
       <p className="px-3 text-sm text-muted-foreground sm:px-4">
-        Diese Einstellungen gelten für die gesamte Bewerbungsverwaltung. Darstellung, Modelle und
-        Chatbedienung werden ausschließlich in den jeweiligen T3-Einstellungen verwaltet.
+        Diese Einstellungen gelten für die gesamte Bewerbungsverwaltung. Darstellung, Chatmodelle und
+        Chatbedienung bleiben in den jeweiligen T3-Einstellungen.
       </p>
       <ErrorNotice error={error} onClose={() => setError("")} />
       <p role="status" className="px-3 text-xs text-muted-foreground sm:px-4">
         {notice}
       </p>
+      <AnalysisModelSettings settings={app.settings} busy={busy} save={saveSettings} />
       <SettingsSection id="bewerbung-pdf" title="PDF-Erstellung">
         <SettingsRow
           {...searchableSetting("bewerbung-auto-build")}
@@ -72,7 +75,7 @@ export function ApplicationSettingsPage() {
               aria-label="Nach dem Speichern bauen"
               checked={app.settings?.autoBuild ?? false}
               disabled={busy || app.settings === null}
-              onCheckedChange={(autoBuild) => void saveAutoBuild(autoBuild)}
+              onCheckedChange={(autoBuild) => void saveSettings({ autoBuild })}
             />
           }
         />
@@ -109,7 +112,7 @@ export function ApplicationSettingsPage() {
         <div className="space-y-4 p-3 sm:p-4">
           <p className="text-sm text-muted-foreground">
             Zeugnisse und Anlagen zentral verwalten. Die Auswahl je Bewerbung änderst du in deren
-            Details.
+            Versandpaket oder in deren Details.
           </p>
           <DocumentLibrary />
         </div>

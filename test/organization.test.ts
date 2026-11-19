@@ -363,6 +363,8 @@ test("business preferences migrate retired T3 fields once without losing busines
     store = new Store(root);
     const migrated = {
       revision: 18,
+      analysisModel: null,
+      applicantName: "",
       autoBuild: true,
       collapsedStatuses: ["In Arbeit", "Fertig", "Zusage"],
     };

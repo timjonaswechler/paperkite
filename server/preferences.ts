@@ -9,6 +9,8 @@ import { check } from "./files.ts";
 const defaults: Settings = {
   revision: 1,
   autoBuild: false,
+  analysisModel: null,
+  applicantName: "",
   collapsedStatuses: ["Fertig", "Gesendet", "Absage", "Zusage"],
 };
 
@@ -30,6 +32,14 @@ export class Preferences {
         delete normalized[key];
         changed = true;
       }
+    if (normalized.analysisModel === undefined) {
+      normalized.analysisModel = null;
+      changed = true;
+    }
+    if (normalized.applicantName === undefined) {
+      normalized.applicantName = "";
+      changed = true;
+    }
     if ((stored.collapsedStatuses as string[]).includes("Entwurf")) {
       normalized.collapsedStatuses = [
         ...new Set(
@@ -72,6 +82,12 @@ export class Preferences {
       Object.keys(patch).every((key) => Object.hasOwn(defaults, key)),
       "Unbekannte Einstellung",
     );
+    if (patch.analysisModel !== undefined && patch.analysisModel !== null) {
+      const model = patch.analysisModel as Record<string, unknown>;
+      check(typeof model === "object" && !Array.isArray(model) && Object.keys(model).every(key => key === "instanceId" || key === "model") && [model.instanceId, model.model].every(value => typeof value === "string" && value.trim().length > 0 && value.length <= 300), "Ungültiges Analysemodell");
+    }
+    if (patch.applicantName !== undefined)
+      check(typeof patch.applicantName === "string" && patch.applicantName.length <= 120 && !/[\x00-\x1f\x7f]/.test(patch.applicantName), "Ungültiger Bewerbername");
     if (patch.autoBuild !== undefined)
       check(
         typeof patch.autoBuild === "boolean",

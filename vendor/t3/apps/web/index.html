@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -7,8 +7,14 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
     />
     <meta name="theme-color" content="#000000" />
-    <link rel="icon" href="/favicon.ico" sizes="48x48" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" href="/bewerbung-icon.svg" type="image/svg+xml" />
+    <link
+      rel="icon"
+      href="/bewerbung-icon-32.png"
+      type="image/png"
+      sizes="32x32"
+    />
+    <link rel="apple-touch-icon" href="/bewerbung-icon-180.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <script>
       (() => {
@@ -682,12 +688,43 @@
     </script>
     <!-- vite.config.ts stamps the web build's channel into this title. -->
     <title>T3 Code</title>
+    <link rel="stylesheet" href="/bewerbung-boot.css?v=1" />
   </head>
   <body>
     <div id="root">
       <div id="boot-shell">
-        <div id="boot-shell-card" aria-label="T3 Code splash screen">
-          <img id="boot-shell-logo" src="/apple-touch-icon.png" alt="T3 Code" />
+        <div id="boot-shell-card" aria-label="Bewerbungen werden geladen">
+          <div class="mappe-emblem" aria-hidden="true">
+            <div class="mappe-sheet mappe-sheet-back">
+              <div class="mappe-line"></div>
+              <div class="mappe-line"></div>
+              <div class="mappe-line mappe-line-short"></div>
+            </div>
+            <div class="mappe-sheet mappe-sheet-middle">
+              <div class="mappe-line"></div>
+              <div class="mappe-line"></div>
+              <div class="mappe-line mappe-line-short"></div>
+            </div>
+            <div class="mappe-sheet mappe-sheet-front">
+              <div class="mappe-portrait"></div>
+              <div class="mappe-line"></div>
+              <div class="mappe-line"></div>
+              <div class="mappe-line mappe-line-short"></div>
+            </div>
+            <div class="mappe-cover">
+              <div class="mappe-mark"><i></i><i></i><i></i></div>
+            </div>
+          </div>
+          <div class="mappe-copy">
+            <h1 class="mappe-title">Bewerbungen</h1>
+            <p class="mappe-caption">
+              Alles bereit für deinen nächsten Schritt.
+            </p>
+          </div>
+          <p class="mappe-status" role="status">
+            <span class="mappe-dot" aria-hidden="true"></span
+            ><span>Dein Arbeitsplatz wird geladen …</span>
+          </p>
         </div>
       </div>
     </div>

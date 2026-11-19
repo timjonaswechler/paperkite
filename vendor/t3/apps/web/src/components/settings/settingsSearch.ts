@@ -268,6 +268,18 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["model workspace environments projects inheritance checkout"],
   },
   {
+    id: "bewerbung-analysis-model",
+    title: "Modell für Stellenanalysen",
+    to: "/settings/projects",
+    searchTerms: ["bewerbung onboarding stellenanzeige analyse link ki modell"],
+  },
+  {
+    id: "bewerbung-applicant-name",
+    title: "Name für Dateinamen",
+    to: "/settings/projects",
+    searchTerms: ["bewerbung download paket pdf zip benennung vorname nachname"],
+  },
+  {
     id: "bewerbung-auto-build",
     title: "Nach dem Speichern bauen",
     to: "/settings/projects",

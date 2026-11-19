@@ -1,4 +1,5 @@
 import type {
+  ApplicationAnalysisResult,
   BranchNamingOptions,
   ChatAttachment,
   ModelSelection,
@@ -115,6 +116,10 @@ export interface TranscriptionPostProcessingResult {
 }
 
 export interface ProviderTextGeneration {
+  readonly generateApplicationAnalysis?: (
+    input: { cwd: string; text: string; sourceUrl: string; modelSelection: ModelSelection },
+  ) => Effect.Effect<ApplicationAnalysisResult, TextGenerationError>;
+
   readonly generateTranscriptionPostProcessing: (
     input: TranscriptionPostProcessingInput,
   ) => Effect.Effect<TranscriptionPostProcessingResult, TextGenerationError>;

@@ -99,7 +99,7 @@ function ApplicationEntry({ application }: { application: Application }) {
     )
     .map(([draftId, draft]) => ({ ...draft, draftId }));
   const active = app.currentId === application.id;
-  const open = expanded ?? active;
+  const open = expanded ?? (active && app.routeTarget !== null);
   const closeMobile = () => {
     if (isMobile) setOpenMobile(false);
   };
@@ -138,14 +138,6 @@ function ApplicationEntry({ application }: { application: Application }) {
               <span className="block truncate text-sm">{application.role}</span>
             </span>
           </SidebarMenuButton>
-          <Button
-            size="icon-micro"
-            variant="ghost"
-            aria-label={`Neuer Chat: ${application.company}`}
-            onClick={newChat}
-          >
-            <Plus className="size-3.5" />
-          </Button>
         </ContextMenu.Trigger>
         <ContextMenu.Portal>
           <ContextMenu.Positioner className="z-[130]" sideOffset={4}>
