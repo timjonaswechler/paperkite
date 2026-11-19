@@ -135,15 +135,11 @@ function App() {
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const apply = () =>
-      document.documentElement.classList.toggle(
-        "dark",
-        settings?.theme === "dark" ||
-          ((!settings || settings.theme === "system") && media.matches),
-      );
+      document.documentElement.classList.toggle("dark", media.matches);
     apply();
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
-  }, [settings?.theme]);
+  }, []);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (
@@ -360,7 +356,7 @@ function App() {
                 key={id}
                 id={id}
                 applications={applications}
-                settings={settings ?? { sendOnEnter: true, autoBuild: false }}
+                settings={settings ?? { autoBuild: false }}
                 refreshKey={refreshKey}
                 panel={panel}
                 onPanel={setPanel}

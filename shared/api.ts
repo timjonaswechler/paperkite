@@ -1,5 +1,4 @@
 export const APPLICATION_STATUSES = [
-  "Entwurf",
   "In Arbeit",
   "Fertig",
   "Gesendet",
@@ -10,13 +9,24 @@ export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 export type Provider = "pi" | "codex";
 export type Settings = {
   revision: number;
-  theme: "system" | "light" | "dark";
-  defaultProvider: Provider;
   autoBuild: boolean;
-  sendOnEnter: boolean;
   collapsedStatuses: ApplicationStatus[];
 };
 export type UiState = { openIds: string[] };
+export type ApplicationChat = {
+  id: string;
+  title: string;
+  status: string;
+  updatedAt: string;
+};
+export type ApplicationNavigation = {
+  environmentId: string;
+  applications: {
+    id: string;
+    projectId: string | null;
+    chats: ApplicationChat[];
+  }[];
+};
 export type LibraryDocument = {
   id: string;
   name: string;

@@ -1,19 +1,7 @@
 // Layout slots adapted from T3 settings/settingsLayout.tsx and SettingsSidebarNav.tsx.
 import { useRef, useState, type ReactNode } from "react";
-import {
-  ArrowLeft,
-  Bot,
-  BookOpen,
-  FileInput,
-  Palette,
-  Settings2,
-} from "lucide-react";
-import type {
-  Application,
-  Provider,
-  Settings,
-  TemplateSummary,
-} from "../../shared/api";
+import { ArrowLeft, BookOpen, FileInput, Settings2 } from "lucide-react";
+import type { Application, Settings, TemplateSummary } from "../../shared/api";
 import { api, errorMessage } from "../api";
 import {
   Dialog,
@@ -30,7 +18,7 @@ import {
   SidebarMenuItem,
 } from "./ui/sidebar";
 import { SettingsGroup } from "./settings/SettingsGroup";
-import { Choice, ErrorNotice } from "./Controls";
+import { ErrorNotice } from "./Controls";
 import { DocumentLibrary } from "./DocumentLibrary";
 import { TemplatesManager } from "./TemplatesManager";
 import license from "../T3-LICENSE.txt?raw";
@@ -70,8 +58,6 @@ function SettingsRow({
 }
 const sections = [
   { id: "general", label: "Allgemein", icon: Settings2 },
-  { id: "appearance", label: "Darstellung", icon: Palette },
-  { id: "ai", label: "KI", icon: Bot },
   { id: "files", label: "Eigene Dateien", icon: BookOpen },
   { id: "templates", label: "Vorlagen", icon: FileInput },
 ];
@@ -131,7 +117,7 @@ export function SettingsDialog({
           </Button>
           <DialogTitle className="text-base">Einstellungen</DialogTitle>
           <DialogDescription className="sr-only">
-            Darstellung, KI, eigene Dateien und Vorlagen verwalten.
+            PDF-Erstellung, eigene Dateien und Vorlagen verwalten.
           </DialogDescription>
         </header>
         <div className="flex min-h-0 flex-1">
@@ -173,20 +159,6 @@ export function SettingsDialog({
                 <>
                   <SettingsGroup>
                     <SettingsRow
-                      title="Mit Enter senden"
-                      description="Shift+Enter fügt immer eine neue Zeile ein. Wenn ausgeschaltet: Strg/⌘+Enter zum Senden."
-                      control={
-                        <Switch
-                          aria-label="Mit Enter senden"
-                          checked={settings.sendOnEnter}
-                          disabled={busy}
-                          onCheckedChange={(sendOnEnter) =>
-                            void save({ sendOnEnter })
-                          }
-                        />
-                      }
-                    />
-                    <SettingsRow
                       title="Nach dem Speichern bauen"
                       description="Nach manuellem Speichern einer CV- oder Anschreiben-Quelldatei automatisch ein PDF bauen."
                       control={
@@ -210,57 +182,6 @@ export function SettingsDialog({
                     </pre>
                   </details>
                 </>
-              )}
-              {section === "appearance" && (
-                <SettingsGroup>
-                  <SettingsRow
-                    title="Farbschema"
-                    description="System folgt dem Farbschema deines Geräts."
-                    control={
-                      <Choice
-                        label="Farbschema"
-                        value={settings.theme}
-                        disabled={busy}
-                        onChange={(theme) =>
-                          void save({ theme: theme as Settings["theme"] })
-                        }
-                        options={[
-                          { value: "system", label: "System" },
-                          { value: "light", label: "Hell" },
-                          { value: "dark", label: "Dunkel" },
-                        ]}
-                      />
-                    }
-                  />
-                </SettingsGroup>
-              )}
-              {section === "ai" && (
-                <SettingsGroup>
-                  <SettingsRow
-                    title="Standard-Harness"
-                    description="Wird nur für neue Bewerbungen verwendet. Den Anbieter und das Modell der aktuellen Bewerbung wählst du im Composer."
-                    control={
-                      <Choice
-                        label="Standard-Harness"
-                        value={settings.defaultProvider}
-                        disabled={busy}
-                        onChange={(defaultProvider) =>
-                          void save({
-                            defaultProvider: defaultProvider as Provider,
-                          })
-                        }
-                        options={[
-                          { value: "pi", label: "Pi" },
-                          { value: "codex", label: "Codex" },
-                        ]}
-                      />
-                    }
-                  />
-                  <SettingsRow
-                    title="Getrennte Sitzungen, einzelne Freigaben"
-                    description="Pi und Codex verwenden je Bewerbung ihre eigene Sitzung. Ein Wechsel überträgt keinen Gesprächskontext. Modellanfragen gehen an den gewählten Anbieter. Dokumentänderungen benötigen eine einmalige Freigabe; Shell und Sandbox-Erweiterungen sind nicht verfügbar."
-                  />
-                </SettingsGroup>
               )}
               {section === "files" && (
                 <>

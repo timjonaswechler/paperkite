@@ -50,6 +50,7 @@ export function fileMap(root: string): Record<string, Buffer> {
   const walk = (dir: string, prefix = "") => {
     if (!fs.existsSync(dir)) return;
     for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (item.name === ".git") continue;
       check(!item.isSymbolicLink(), "Symlink nicht erlaubt");
       const p = prefix + item.name;
       if (item.isDirectory()) walk(path.join(dir, item.name), p + "/");
@@ -79,6 +80,7 @@ export function checkFileChanges(root: string, files: Record<string, Buffer>) {
   const walk = (dir: string, prefix = "") => {
     if (!fs.existsSync(dir)) return;
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === ".git") continue;
       check(!entry.isSymbolicLink(), "Symlink nicht erlaubt");
       const name = prefix + entry.name;
       if (entry.isDirectory()) walk(path.join(dir, entry.name), name + "/");

@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
+    "build": "node scripts/build-native.mjs",
+    "build:legacy-tests": "vite build",
+    "pretest": "npm run build:legacy-tests --silent",
     "start": "tsx server/main.ts",
     "test": "tsx --test test/*.test.ts",
     "check": "tsc --noEmit"

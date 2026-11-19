@@ -1,25 +1,29 @@
 # Bewerbungen auf srv
 
-Unabhängige Einzelbenutzer-Webapp mit eigener SQLite, lokalen Dokumenten und Pi-/Codex-Assistent. Erreichbar unter **https://srv.devices.teejayslab.de/bewerbung/** ausschließlich über NetBird. Der Dienst bindet nur **127.0.0.1:3119**; Caddy erhält das `/bewerbung`-Prefix.
+Private Bewerbungsverwaltung auf Basis des **vollständigen T3 Code v0.1.10** mit angepasster Bewerbungsnavigation und originalem Chat-Backend. **https://bewerbung.teejayslab.de** öffnet direkt die Bewerbungsverwaltung, ohne Anmeldung oder Pairing, ausschließlich über NetBird. Der bisherige `/bewerbung/`-Einstieg leitet dorthin weiter.
+
+T3 startet als eigener, gepinnter Prozess mit eigener Datenhaltung unter `data/native-t3/`; die bestehende T3-Installation und ihre Gespräche werden nicht als App-Datenbank verwendet. Provider, Modelle, Werkzeugrechte und Berechtigungsmodi bleiben unter Kontrolle des originalen Backends. Eine einzige T3-Seitenleiste enthält Bewerbungen mit mehreren Chats; eine zusätzliche Fach-Seitenleiste gibt es nicht.
 
 ## Benutzen
 
 1. **Eigene Dateien:** Zeugnisse und Anlagen einmal zentral hochladen, mit Tags versehen und filtern. Die relevanten Dateien später unter **Unterlagen** in der jeweiligen Bewerbung auswählen. Das ist keine Liste interner Lua-/TeX-Dateien.
-2. **Neue Bewerbung** fragt Unternehmen und Rolle ab, optional Ausschreibung/URL, Notizen und eine Ausgangsbasis. Status, technisches CV-Profil und Anlagen werden beim Anlegen nicht abgefragt. Neue Bewerbungen/Kopien starten als Entwurf; der Standardmaster beziehungsweise das gewählte Quellprofil wird intern gewählt. Erst „Bewerbung anlegen“ erzeugt eine Bewerbung; Abbrechen/Escape nicht. Der vorhandene Mac-Master wird angeboten, `general` bevorzugt. Ohne Master ist ein neutrales Anschreiben möglich.
-3. Der Hauptbereich ist der **Chat**. Anbieter und Modell im Composer wählen; Schreiben/Bearbeiten verlangt jeweils eine sichtbare Einzelfreigabe. Nicht abgesendete Texte bleiben pro Bewerbung gespeichert. Die Einstellungen bestimmen Enter-Verhalten, Farbschema und Standard-Harness für neue Bewerbungen.
+2. **Neue Bewerbung** fragt Unternehmen und Rolle ab, optional Ausschreibung/URL, Notizen und eine Ausgangsbasis. Status, technisches CV-Profil und Anlagen werden beim Anlegen nicht abgefragt. Neue Bewerbungen/Kopien starten **In Arbeit**; der Standardmaster beziehungsweise das gewählte Quellprofil wird intern gewählt. Erst „Bewerbung anlegen“ erzeugt eine Bewerbung; Abbrechen/Escape nicht. Der vorhandene Mac-Master wird angeboten, `general` bevorzugt. Ohne Master ist ein neutrales Anschreiben möglich.
+3. **Neuer Chat** am Bewerbungseintrag oder in den Bewerbungsdetails öffnet einen weiteren nativen Chat. Die aufklappbare Bewerbung zeigt ihre vorhandenen Chats und ungesendeten Chatentwürfe. Gespräche bleiben getrennt; alle Chats einer Bewerbung verwenden dieselben Quellen und Unterlagen im unabhängigen Bewerbungsarbeitsverzeichnis. Chatentwürfe mit Inhalt werden nicht durch einen neuen Chat überschrieben. Composer, Verlauf, Werkzeuge, Anhänge, Kontext, Modelle, Provider und Berechtigungsmodi verwenden weiterhin die native T3-Chatengine. Es gibt keine zusätzliche Dokument-Tool-Allowlist und keine von dieser App erzwungene Einzelgenehmigung. Die Auswahl des nativen T3-Modus bestimmt die Rechte. Neue Chatentwürfe verwaltet T3 selbst.
 4. **Unterlagen** im Kopfbereich öffnet rechts PDF-Builds, Vorschau, Logs, Verlauf, Downloads und die ausgewählten Anlagen. Auch unfertige Entwürfe sind erlaubt. Beide TeX-Engines laufen zweimal; Fehler ersetzen keinen erfolgreichen Stand. „Festhalten“ markiert einen erfolgreichen, unveränderlichen Dokumentstand.
-5. **Rechtsklick auf eine Bewerbung:** Details, Status, unabhängige Kopie, Unterlagen/Quellen und bestätigtes Löschen. Eine Kopie übernimmt keine KI-Sitzung oder Builds. **Entwürfe stehen ohne Gruppenüberschrift immer oben** als offene Einträge, die auf Bearbeitung warten. Weitere geöffnete Bewerbungen bleiben dort erreichbar; darunter stehen In Arbeit, Fertig, Gesendet, Absage und Zusage.
+5. **Rechtsklick auf eine Bewerbung:** Details, Status, unabhängige Kopie, Unterlagen/Quellen und bestätigtes Löschen. Eine Kopie übernimmt keine KI-Sitzung oder Builds. Es gibt genau fünf Statusgruppen: **In Arbeit, Fertig, Gesendet, Absage, Zusage**. Der frühere Status Entwurf wird einmalig mit In Arbeit zusammengeführt. Der Status gilt für die Bewerbung, nicht für ihre einzelnen Chats; eine Bewerbung erscheint nur einmal.
 6. **Lebenslauf / Quellen bearbeiten** ist der separate erweiterte Lua-/TeX-Editor mit Datei- und CV-Eintragsübernahme. Das Profil benennt `cv/profiles/<name>.lua` ohne Endung. Der optionale automatische Build gilt nach manuellem Speichern einer Quelldatei.
 
 Zum Versenden **Dokumentpaket** verwenden: Es enthält nur die neuesten erfolgreichen CV-/Anschreiben-PDFs und die aktuell ausgewählten Anlagen. **Quellen-ZIP und Buildquellen enthalten interne Bewerbungsdaten einschließlich Notizen und sind nicht zum Versand bestimmt.** Buildquellen behalten ihre damalige Anlagenauswahl; spätere Auswahl- oder Bezeichnungsänderungen ändern diesen Stand nicht. Ein früheres erfolgreiches PDF kann gegenüber den aktuellen Quellen veraltet sein – Vorschau und Revision vor dem Versand prüfen. Status „Gesendet“ verschickt keine E-Mail.
 
-Tastenkürzel bei Seitenfokus: Strg/⌘+K Suche, Strg/⌘+N neue Bewerbung, Strg/⌘+, Einstellungen. Die Suche umfasst Unternehmen, Rolle, Notizen, Ausschreibung und gespeicherte Chatnachrichten, mit Statusfilter; keine Volltextsuche in hochgeladenen PDFs.
+Die vorhandenen Chat-/Modell-Tastenkürzel bleiben nutzbar; Suche und neue Chats beziehen sich auf Bewerbungen. Kürzel der entfernten Frontend-Funktionen werden nicht mehr angeboten. Die separate Bewerbungssuche umfasst Unternehmen, Rolle, Notizen, Ausschreibung und gespeicherte alte Chatnachrichten, mit Statusfilter; keine Volltextsuche in hochgeladenen PDFs. PDF-Autobuild, Vorlagen und die zentrale Unterlagenbibliothek stehen direkt unter **Settings → Bewerbungen**, ohne zusätzlichen Einstellungsdialog; auch die Einstellungssuche führt zu diesen Abschnitten. Darstellung, Sendetastenkombination sowie Provider-/Modell-/Berechtigungsvorgaben bleiben ausschließlich in den jeweiligen T3-Einstellungen. Die früheren Fachfelder `theme`, `sendOnEnter` und `defaultProvider` werden beim Start einmalig entfernt, ohne PDF-Autobuild, eingeklappte Statusgruppen oder native T3-Einstellungen zu überschreiben. Die markierten Einstellungsseiten und mehrere zugehörige Menü-/Shortcut-/Dialog-Einstiege sind entfernt. Der vollständige Funktionsabbau einschließlich verbleibender Frontend-Einstiege und des gepinnten nativen Backends ist noch offen.
 
 ### Zentrale Anlagen
 
 Erlaubt sind PDF, JPG und PNG mit passendem Dateikopf und Dateiendung: maximal **25 MiB pro Datei**, **1 GiB Ablage**, **100 MiB und 40 Anlagen pro Bewerbung**. Identische Bytes werden anhand SHA-256 nur einmal gespeichert. Dateiinhalte bleiben unverändert; jede Bewerbung hat ihre eigene Auswahl. Bezeichnungen gelten zentral. Hochladen ist eine eigene Aktion: bereits hochgeladene Dateien bleiben auch nach Abbrechen eines Bewerbungsformulars in der Ablage.
 
 Tags gelten zentral und werden ohne Änderung der Dateibytes gespeichert: maximal 20 Tags mit je 40 Zeichen, Leerraum bereinigt, Kleinschreibung und ohne Duplikate. Suche und Tagfilter lassen sich kombinieren.
+
+Ausgewählte Anlagen erhalten unabhängige Arbeitskopien im nativen Workspace unter `bewerbungsunterlagen/`; `auswahl.json` beschreibt die aktuelle Auswahl. Eigene Änderungen und bewusst gelöschte Kopien werden nicht automatisch überschrieben beziehungsweise wiederhergestellt. Zentrale Originale bleiben erhalten. Änderungen an diesen Arbeitskopien werden **nicht automatisch** als Bibliotheksdatei gespeichert oder ins Versandpaket aufgenommen.
 
 Nur unbenutzte Anlagen lassen sich entfernen. Verweise aus anderen Bewerbungen oder erfolgreichen gespeicherten Builds verhindern das Löschen. Die Sicherung muss deshalb Datenbank, Quellen, Builds **und** `data/documents/` gemeinsam enthalten.
 
@@ -36,7 +40,7 @@ In **Eigene Dateien** Dateien auswählen oder eine einzelne Datei optimieren. In
 
 ### Vorlagen verwalten und Bewerbungen löschen
 
-Unter **Einstellungen → Vorlagen** Vorlagen benennen, duplizieren, exportieren, als Standard setzen oder bestätigt löschen. **Aus Bewerbung als Vorlage speichern** hält eine neue unabhängige Kopie der bearbeiteten CV-/TeX-Quellen fest, ohne interne Bewerbungsmetadaten. Erst die erste Vorlage wird automatisch Standard; spätere Kopien/Importe wechseln einen vorhandenen Standard nicht ungefragt. Löschen einer Vorlage verändert bestehende Bewerbungen nicht.
+Unter **Settings → Bewerbungen → Vorlagen** Vorlagen benennen, duplizieren, exportieren, als Standard setzen oder bestätigt löschen. **Aus Bewerbung als Vorlage speichern** hält eine neue unabhängige Kopie der bearbeiteten CV-/TeX-Quellen fest, ohne interne Bewerbungsmetadaten. Erst die erste Vorlage wird automatisch Standard; spätere Kopien/Importe wechseln einen vorhandenen Standard nicht ungefragt. Löschen einer Vorlage verändert bestehende Bewerbungen nicht.
 
 **Bewerbung löschen** verlangt eine Bestätigung und den aktuellen Datenstand. Chat, Arbeitsdateien, Sitzungen und eigene Build-/PDF-Ergebnisse werden entfernt; zentrale Uploads und andere Bewerbungen bleiben erhalten. Aktive Agenten, Freigaben oder PDF-Aufträge verhindern Löschen. Dateibereinigung ist dauerhaft protokolliert und wird nach einem Prozessabbruch beim nächsten Start fortgesetzt; Symlink-Ziele außerhalb des Bestands werden nicht verfolgt. Es gibt keine Wiederherstellungsschaltfläche; vorhandene Betriebsbackups werden nicht mitgelöscht.
 
@@ -57,7 +61,14 @@ Alte importierte Anschreiben bleiben ausschließlich im Vorlagenbestand als Refe
 Das Importformat ist eine Datei-Map mit Base64-Inhalten:
 
 ```json
-{"format":"bewerbung-template-v1","files":{"cv/Lebenslauf.tex":"<base64>","cv/lua/loader.lua":"<base64>","fonts/SourceSans3-Light.ttf":"<base64>"}}
+{
+  "format": "bewerbung-template-v1",
+  "files": {
+    "cv/Lebenslauf.tex": "<base64>",
+    "cv/lua/loader.lua": "<base64>",
+    "fonts/SourceSans3-Light.ttf": "<base64>"
+  }
+}
 ```
 
 Vom Mac über die bestehende NetBird-Verbindung direkt per HTTPS:
@@ -66,10 +77,10 @@ Vom Mac über die bestehende NetBird-Verbindung direkt per HTTPS:
 curl --fail-with-body \
   -H 'Content-Type: application/json' -H 'X-Bewerbung-Request: 1' \
   --data-binary @template.json \
-  https://srv.devices.teejayslab.de/bewerbung/api/templates/import
+  https://bewerbung.teejayslab.de/bewerbung/api/templates/import
 ```
 
-Keine SSH-Zugangsdaten nötig. Alternativ unter „Einstellungen“ → „Vorlagen“ → „JSON importieren“ auswählen. Der importierte Master enthält 38 Quellen, Bilder und Schriftdateien (rund 7,8 MB dekodiert). Der tatsächliche allgemeine Lebenslauf wurde auf srv gebaut: zwei A4-Seiten, eingebettete SourceSans3-Schriften und identische Textextraktion einschließlich Reihenfolge und Umbrüchen wie die lokale Referenz. Die Quelldateien auf dem Mac wurden nicht verändert; vorhandene Bewerbungsarchive wurden nicht migriert.
+Über diese NetBird-Origin ist kein eigener Zugriffstoken nötig. Der Gateway stellt die native Anmeldung intern bereit; explizit mitgesendete T3-API-Tokens behalten ihre eigenen Dateirechte. Keine Zugangsdaten in Dateien oder Shell-History eintragen. Der Import über die Browseroberfläche ist einfacher: unter „Settings“ → „Bewerbungen“ → „Vorlagen“ → „JSON importieren“ auswählen. Der importierte Master enthält 38 Quellen, Bilder und Schriftdateien (rund 7,8 MB dekodiert). Der tatsächliche allgemeine Lebenslauf wurde auf srv gebaut: zwei A4-Seiten, eingebettete SourceSans3-Schriften und identische Textextraktion einschließlich Reihenfolge und Umbrüchen wie die lokale Referenz. Die Quelldateien auf dem Mac wurden nicht verändert; vorhandene Mac-Bewerbungsarchive wurden nicht migriert.
 
 Grenzen: 24 MiB HTTP-JSON, 16 MiB dekodiert insgesamt, 4 MiB je Datei, 160 Dateien. UTF-8 für Texte, kanonisches Base64, keine Symlinks/Archive/Skripte/absoluten Pfade oder `..`. Erlaubt sind:
 
@@ -84,39 +95,50 @@ Grenzen: 24 MiB HTTP-JSON, 16 MiB dekodiert insgesamt, 4 MiB je Datei, 160 Datei
 
 Die Servervorlage lädt die mitgelieferten SourceSans3-TTFs direkt: In `cv/preamble/fonts.tex` tragen alle SourceSans3-Familien `Path=../fonts/, Extension=.ttf`. Nur diese Pfadangabe wurde gegenüber dem Mac-Master angepasst; Latin Modern Roman bleibt eine Systemschrift des Builder-Images. Bei einem erneuten Import eines unveränderten Mac-Masters diese Anpassung mitnehmen. Der Importer schreibt Fontdefinitionen nicht automatisch um.
 
-Die 16-MiB-Gesamtgrenze gilt auch für spätere Änderungen einschließlich `application.json`, Datei-/Eintragsübernahmen und KI-Schreibzugriffe. Überschreitungen werden vor dem Ersetzen von Dateien oder Ändern der Revision abgelehnt. Pi prüft die tatsächliche Mutation nach der Einzelfreigabe; Schreiben/Bearbeiten laufen nacheinander.
+Die 16-MiB-Gesamtgrenze und Dateiauswahl gelten für verwaltete Quellenimporte, Fach-Editor, Datei-/Eintragsübernahmen und Build-Snapshots einschließlich `application.json`. Das ist **keine zusätzliche Beschränkung der nativen T3-Werkzeuge**. Änderungen verwalteter Quellen durch native Werkzeuge werden vor fachlichen Änderungen abgeglichen; veraltete Editorstände werden mit Revisionskonflikt abgelehnt. `application.json` ist eine generierte Sicht der fachlichen Metadaten, kein alternativer Schreibzugriff auf die SQLite.
 
-## Pi, Codex und Grenzen
+## Originales T3 und vorhandene Gespräche
 
-Der installierte Pi läuft als bestehender Nutzer mit eigenem Arbeitsverzeichnis und eigenen Sitzungsdateien pro Bewerbung. Die App kopiert keine Zugangsdaten und nutzt weder T3-API noch T3-Datenbank. Der Hostprozess liest seine vorhandene native Authentifizierung. Modellanfragen können Dokumente an den ausgewählten Modellanbieter übertragen; **die App-Datenhaltung** bleibt lokal, Anbieter-Retention wird dadurch nicht kontrolliert.
+Verwendet wird der vollständige Originalserver v0.1.10 mit exakt geprüftem Linux-x64-Programm, nicht nur ein App-Server-Client oder extrahierte Chatkomponenten. Quelle und Prüfsummen: [PROVENIENZ.md](PROVENIENZ.md), `native-t3/source.json`, `native-t3/source-audit.json`. Der Start schlägt ohne gültige Runtime-Konfiguration fehl; es gibt keinen Rückfall auf den früheren Chat.
 
-Nur `read`, `edit`, `write` auf erlaubte Bewerbungsdateien; jede Änderung verlangt eine einzelne UI-Freigabe. Keine Shell, MCP, fremden Extensions, Skills oder Kontextdateien. Ohne geladenes Freigabe-Modul startet kein Turn. Das ist eine Werkzeuggrenze im vertrauenswürdigen Pi-Prozess, kein vollständiger OS-Sandbox für den Harness selbst. Stoppen/Neustart verwirft offene Freigaben; diese werden nicht automatisch wieder genehmigt.
+Jede Bewerbung erhält ein eigenes lokales Git-Repository, damit die nativen Git-/Worktree-Funktionen nicht das übergeordnete App-Repository verwenden. Die Vorbereitung erzeugt **keinen Commit und keinen Remote**. Native Git-Metadaten werden nicht als fachliche Quellen exportiert; spätere native Checkpoints/Git-Aktionen bleiben original.
 
-Im Composer kann zwischen **Pi** und dem installierten **Codex CLI 0.167.0** gewechselt werden. Jeder Harness hat seine eigene native Sitzung innerhalb derselben Bewerbung; Gesprächskontext wird nicht zwischen Harnesses übertragen. Providerwahl und Sitzungen bleiben nach Neustart erhalten. Kopieren übernimmt weder Providerwahl noch Sitzungsidentität.
+Der Zugriffsschutz der Bewerbungs-Origin ist NetBird, nicht ein zusätzliches Browser-Pairing. Der Gateway verwendet dafür eine eigene, vom originalen T3-CLI ausgestellte Sitzung mit dessen normalen Clientrechten. Ihr Token bleibt nur im Arbeitsspeicher des Wrappers und wird vor Ablauf bei Bedarf erneuert; keine Zugangsdaten der installierten T3-Instanz werden übernommen. Host-/Origin-Prüfungen gelten für HTTP und WebSockets. Alle über diese NetBird-Origin zugelassenen Nutzer erhalten dieselben normalen Clientrechte. Explizite API-Tokens behalten ihre eigenen Scopes. Die Fach-API prüft weiter die native Anmeldung: Lesen verlangt `filesystem:read`, Änderungen `filesystem:write`; native Projektänderungen autorisiert T3 zusätzlich selbst. Native Provider und Berechtigungsmodi bleiben unverändert.
 
-Codex verwendet den echten gepinnten T3-App-Server-Client über stdio, nicht die T3-Server-API. `data/codex/<Bewerbung>/` enthält eine getrennte native Codex-Home mit eigener Konfiguration und Sitzungen; `auth.json` ist ein Verweis auf die vorhandene native Anmeldung. Die App liest/kopiert keine Tokeninhalte. Ein benanntes Berechtigungsprofil erlaubt native Dateizugriffe nur lesend im jeweiligen Arbeitsbereich, ohne Werkzeug-Netzwerk. Shell, Subagents, MCP/Apps und fremde Skills sind nicht eingebunden. Native Shell-/Patch-/Sandbox-Erweiterungen werden **abgelehnt**, nicht automatisch genehmigt. Änderungen laufen ausschließlich über `bewerbung_write` mit sichtbarer Einzelentscheidung; `bewerbung_read` und `bewerbung_write` prüfen die Dokument-Allowlist. `application.json` ist nur lesbar. Es gibt kein „für Sitzung erlauben“.
+Pi schreibt native Sitzungen in die eigene App-Ablage. Codex verwendet eine eigene native Home; ausschließlich die vorhandene normale Anmeldung wird gegebenenfalls über einen Auth-Dateiverweis genutzt. Tokeninhalte werden nicht kopiert. Eigene Provider-Einstellungen bleiben danach unter Kontrolle der originalen T3-Einstellungen. Die Modi können umfassende Hostzugriffe erlauben: **Das ist keine zusätzliche OS-Sandbox.** Modellanfragen können Inhalte an den gewählten Anbieter übertragen.
 
-Codex-Initialisierung/Resume prüft Provider-Thread-ID, Arbeitsverzeichnis, eigenen Sitzungsdateipfad und bestätigte Berechtigungsrichtlinie. Ein fremder Thread wird nicht fortgesetzt. Der Codex-Prozess und sein nativer Tool-Host sind vertrauenswürdige Hostprogramme; dies ist keine Behauptung einer vollständigen OS-Sandbox für diese Prozesse selbst.
+Der bisherige vollständige Ereignisverlauf und alte ungesendete Entwürfe bleiben unter **Alter Chatverlauf · nur lesbar → Archiv laden** erreichbar; Entwürfe lassen sich von dort kopieren. Sie werden nicht als native T3-Ereignisse oder Entwürfe umgeschrieben.
 
-Geprüft mit vorhandener Anmeldung: Pi `openai/gpt-6.1-sol`, Codex `gpt-6.1-sol`; Streaming, Resume, Stoppen und erlaubte/abgelehnte Schreibanfragen. Der Modellkatalog ist keine allgemeine Zusage der Kontofreigabe: frühere Pi-Anfragen an `gpt-4.1-mini` und `gpt-5.4-mini` wurden vom ChatGPT-Zugang abgelehnt. Claude wird nicht angeboten.
+Eine einmalige Offline-Vorbereitung kopiert bestehende Bewerbungssitzungen in die unabhängige native Ablage. Anschließend importiert die **unveränderte T3-Willkommensoberfläche** die ausgewählten Projekte/Gespräche. Pi behält die Sitzungs-UUID mit neuem Kopie-Dateipfad; Codex die native UUID in einem eigenen Altverlaufs-Profil. Kopierte Codex-Indizes werden auf die Kopien umgestellt; alte `config.toml`-Werkzeugrichtlinien und Zugangsdaten werden nicht kopiert. Originale bleiben erhalten.
 
-Umfangreiche strukturierte CV-Formulare fehlen weiterhin; Inhalte werden im Lua-/TeX-Editor bearbeitet, Metadaten im Formular. Kein automatischer Versand. Bewerbungen lassen sich nur nach ausdrücklicher Bestätigung löschen. Lange gespeicherte Chatverläufe werden vollständig seitenweise geladen und mit laufenden Ereignissen ohne Duplikate zusammengeführt.
+Der originale Import zeigt begrenzte Historie, nicht garantiert alle alten Werkzeug-/Anhangdetails. Ältere, durch die originale Suchfrist nicht gefundene Gespräche bleiben im vollständigen Facharchiv. Historischer Gesprächskontext kann erhalten bleiben; es werden keine erfundenen Prompts zur Kontextrekonstruktion abgesendet. Neue Gespräche verwenden die nativen T3-Defaults. Kein automatischer E-Mail-Versand.
 
 ## Betrieb und Backup
 
-Voraussetzungen: Node 22.23.2, Docker sowie vorhandenes Pi und Codex. Host-Node wurde nicht geändert.
+Laufzeit: Node 22.23.2, Docker und vorhandenes Pi/Codex. Der native Originalserver liegt getrennt unter `native-t3/runtime/`; sein Zustand unter `data/native-t3/`. Für den vollständigen Original-Frontend-Build braucht es **isoliert Node 26.13.1 und pnpm 12.14.0**, entsprechend `vendor/t3/package.json`; Host-/Dienst-Node nicht ersetzen. Runtime-/Clientänderungen nur bei gestopptem `bewerbung.service` und nach konsistenter Sicherung anwenden.
 
 ```sh
 cd /home/redjoker/workspace/containers/bewerbung
 npm ci
-npm run check && npm test && npm run build
-systemctl --user restart bewerbung.service
-systemctl --user status bewerbung.service
+npm run check && npm test
+# Einmalig: Original-Runtime nur lesen/kopieren, niemals mit deren Datenhome starten.
+node scripts/prepare-native-runtime.mjs /home/redjoker/.t3/runtime/versions/0.1.10
+# Vorher mit der isolierten Original-Toolchain in vendor/t3:
+# pnpm install --filter @t3tools/web... --frozen-lockfile
+T3_BUILD_NODE=/absoluter/pfad/zum/isolierten/node-26.13.1 npm run build
+# Erst nach konsistentem Backup und Offline-Migration wieder starten.
+systemctl --user start bewerbung.service
 ```
 
-Nur diesen Dienst neu starten, nicht T3. `bewerbung.service` ist unter `~/.config/systemd/user/` verlinkt und aktiviert. `PORT` und `DATA_DIR` sind überschreibbar; Standard ist `3119` bzw. `./data`.
+Nur `bewerbung.service` verwaltet die neue App samt eigenem Originalserver; **nicht `t3code.service` neu starten**. Die früheren zusätzlichen Dienstgrenzen (2 GiB, 256 Tasks, `NoNewPrivileges`) entfallen entsprechend dem laufenden T3; `KillMode=mixed` erlaubt dessen geordnetes Beenden. Die ursprünglichen nativen T3-Ressourcen-/Berechtigungsfunktionen bleiben maßgeblich, die separaten Dokument-Container unverändert geschützt. Listener sind ausschließlich Loopback: Gateway `3120`, Originalserver `3121`, bisheriger Weiterleitungs-/API-Einstieg `3119`. Variablen: `PUBLIC_PORT`, `T3_NATIVE_PORT`, `LEGACY_PORT`, `PUBLIC_ORIGIN`, `DATA_DIR`.
 
-`data/` enthält `bewerbung.sqlite` einschließlich WAL/SHM, Vorlagen, Bewerbungsdateien, zentrale Anlagen (`documents/`), native Pi-/Codex-Sitzungen sowie Build-Eingaben/-Ausgaben. Einstellungen, geöffnete Bewerbungen, Chatentwürfe, Tags, Vorlagenbezeichnungen/Standard, PDF-Pläne, Aufträge und Anlagenverweise liegen in derselben SQLite. `data/pdf-jobs/` enthält Ergebnisdateien; Eingabekopien werden nach Verarbeitung entfernt. Beim Update werden fehlende Organisationstabellen ergänzt; vorhandene Bewerbungen und native Sitzungen werden nicht neu angelegt. Beim Sichern Symlinks erhalten, **nicht dereferenzieren**: Codex verweist auf die vorhandene native Anmeldung außerhalb der App. Für konsistente Sicherungen den Bewerbungsdienst stoppen, **das gesamte Verzeichnis** kopieren und anschließend wieder starten. Rücksicherung nur bei gestopptem Dienst; Rechte 0700/0600 beibehalten. Dazu Quellcode, Lockfile und das Docker-Image sichern:
+`npm run build` baut den vollständigen nativen Client. `src/` und der kleine alte Build bleiben ausschließlich Kompatibilitäts-/Testbestand; `npm test` erzeugt diese Fixture über `build:legacy-tests`. Sie werden vom neuen Gateway nicht als Chat ausgeliefert. Original-Binärdateien direkt aufrufen; `pnpm exec` ist für die installierte Toolchain kein notwendiger Prüfschritt.
+
+**Erstmigration:** laufende Fachaufträge/Agenten beenden, nur `bewerbung.service` stoppen und den aktuellen vollständigen Bestand konsistent sichern. Danach `node --import tsx scripts/migrate-native-sessions.ts --offline` ausführen, starten und in T3 die gewünschten Projekte/Threads importieren. Das Skript verweigert eine Erstmigration über eine schon gestartete native Datenbank. Nie ein älteres Betriebsbackup über zwischenzeitliche Benutzeränderungen zurückspielen.
+
+**Öffnen:** mit NetBird verbinden und `https://bewerbung.teejayslab.de/` aufrufen. `/` und `/pair` leiten ohne Codeeingabe nach `/bewerbungen`. Auch ein frischer Browser oder ein veraltetes T3-Cookie benötigt kein Pairing. Der Originalserver auf Loopback bleibt authentifizierungspflichtig; nur der vorgelagerte Bewerbungs-Gateway übernimmt den NetBird-Zugang. CLI-Aufrufe dieser Instanz immer mit ihrem eigenen `--base-dir`, nie versehentlich mit der bestehenden `~/.t3`-Datenbank.
+
+`data/` enthält `bewerbung.sqlite` einschließlich WAL/SHM, Vorlagen, Bewerbungsdateien, zentrale Anlagen (`documents/`), native Pi-/Codex-Sitzungen sowie Build-Eingaben/-Ausgaben. Fachliche Einstellungen, geöffnete Bewerbungen, alte Chatentwürfe, Tags, Vorlagenbezeichnungen/Standard, PDF-Pläne, Aufträge und Anlagenverweise liegen in derselben Fach-SQLite. Native T3-Daten liegen getrennt in `data/native-t3/`; native Browser-/Draft-Zustände bleiben unter Kontrolle des Originalclients. `data/pdf-jobs/` enthält Ergebnisdateien; Eingabekopien werden nach Verarbeitung entfernt. Beim Update werden fehlende Organisationstabellen ergänzt; vorhandene Bewerbungen und native Sitzungen werden nicht neu angelegt. Beim Sichern Symlinks erhalten, **nicht dereferenzieren**: Codex verweist auf die vorhandene native Anmeldung außerhalb der App. Für konsistente Sicherungen den Bewerbungsdienst stoppen, **das gesamte Verzeichnis** kopieren und anschließend wieder starten. Rücksicherung nur bei gestopptem Dienst; Rechte 0700/0600 beibehalten. Dazu Quellcode, Lockfile und das Docker-Image sichern:
 
 ```sh
 docker save bewerbung-tex:2026-11-16 -o bewerbung-tex.tar
@@ -133,26 +155,10 @@ docker image inspect bewerbung-pdf:workflow-v1 --format '{{.Id}}' > pdf-tools/im
 
 `pdf-tools/image-id` und das zugehörige Docker-Image mitsichern. Ohne konfiguriertes Image meldet die API fehlende PDF-Verfügbarkeit; die Oberfläche bietet keine scheinbar funktionierende Verarbeitung. Der Runtime-Container erhält nur die konkreten Eingabekopien und seinen Ausgabeordner, ohne Netzwerk, beschreibbares Root-Dateisystem oder Host-Geheimnisse; mit Zeit-, Prozess-, CPU-, RAM- und Ausgabegrenzen. Quelle: qpdf, Ghostscript, img2pdf/Pillow aus dem Image.
 
-## Caddy – angewendet
+## Privates Routing
 
-Innerhalb des vorhandenen `handle @netbird` im **443-Hostblock**, vor dem T3-Fallback:
+`bewerbung.teejayslab.de` besitzt einen eigenen DNS-A-Eintrag auf die NetBird-Adresse `100.87.56.89`. Der dedizierte Caddy-Host verwendet das vorhandene vertrauenswürdige Wildcard-Zertifikat, prüft NetBird-Quell- **und** Zieladresse und leitet ohne Prefix-/WebSocket-/Authentifizierungsanpassungen an `127.0.0.1:3120` weiter. Nicht-NetBird-Anfragen werden abgewiesen. Das alte `/bewerbung/api` bleibt der Fach-API-Pfad auf der neuen Origin; originale T3-Endpunkte bleiben unverändert an `/api`, `/ws` und den übrigen nativen Root-Pfaden.
 
-```caddy
-@bewerbung path /bewerbung /bewerbung/*
-handle @bewerbung {
-    reverse_proxy 127.0.0.1:3119 {
-        flush_interval -1
-    }
-}
-```
+Bestehende Caddy-/DNS-Einträge anderer Anwendungen nicht ersetzen. Rücknahme nur als gezielte Entfernung des eigenen Hostblocks und DNS-Eintrags, niemals durch Rückspielen eines alten Gesamt-Caddyfiles oder einer alten DNS-Zone.
 
-Kein `handle_path`: Das Prefix bleibt erhalten. Am 16.11.2026 autorisiert angewendet; bestehende NetBird-Quell-/Zielprüfung, `/interface`, T3-Fallback, 403-Fallback und Port 8443 unverändert. Backup: `/containers/caddy/backups/Caddyfile.before-bewerbung-20261116-191623`. Erfolgreich validiert und heiß geladen:
-
-```sh
-docker exec caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-docker exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
-```
-
-T3 wurde nicht neu gestartet. HTTPS-App, Assets, API, SSE und echte PDF-/ZIP-Downloads geprüft; fremde Quelle oder falsche Zieladresse weiterhin 403. Einzelheiten und Grenzen stehen in der Verifikation.
-
-Quellherkunft: [PROVENIENZ.md](PROVENIENZ.md). Prüfungen: [VERIFIKATION.md](VERIFIKATION.md).
+Quellherkunft: [PROVENIENZ.md](PROVENIENZ.md). Prüfungen und historischer Stand: [VERIFIKATION.md](VERIFIKATION.md).

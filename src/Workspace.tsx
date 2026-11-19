@@ -29,7 +29,7 @@ export function Workspace({
 }: {
   id: string;
   applications: Application[];
-  settings: Pick<Settings, "sendOnEnter" | "autoBuild">;
+  settings: Pick<Settings, "autoBuild">;
   refreshKey: number;
   panel: "documents" | "source" | null;
   onPanel: (panel: "documents" | "source" | null) => void;
@@ -205,11 +205,7 @@ export function Workspace({
       />
       {app && (
         <>
-          <ChatComposer
-            app={app}
-            sendOnEnter={settings.sendOnEnter}
-            onRefresh={refresh}
-          />
+          <ChatComposer app={app} sendOnEnter onRefresh={refresh} />
           <DocumentsPanel
             app={app}
             open={panel === "documents"}

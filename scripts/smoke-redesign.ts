@@ -131,10 +131,7 @@ try {
   const initialSettings = await api<Settings>("/settings");
   await api("/settings", "PUT", {
     revision: initialSettings.revision,
-    theme: "light",
-    sendOnEnter: true,
     autoBuild: false,
-    defaultProvider: process.env.SMOKE_HARNESS === "codex" ? "codex" : "pi",
   });
   await page.goto(`${url.origin}/bewerbung/`);
   await expect(page.locator("aside [data-app-sidebar]")).toBeVisible();
@@ -399,13 +396,14 @@ try {
   ).toHaveText("Last edit survives immediate navigation");
 
   await settings();
-  const enterSwitch = page.getByRole("switch", { name: "Mit Enter senden" });
-  if (await enterSwitch.isChecked()) await enterSwitch.click();
-  await expect(enterSwitch).not.toBeChecked();
-  await page.getByRole("button", { name: "Darstellung", exact: true }).click();
-  await choice("Farbschema", "Dunkel");
-  await expect(page.locator("html")).toHaveClass(/dark/);
-  await capture("settings-dark");
+  const autoBuildSwitch = page.getByRole("switch", {
+    name: "Nach dem Speichern bauen",
+  });
+  await autoBuildSwitch.click();
+  await expect(autoBuildSwitch).toBeChecked();
+  await autoBuildSwitch.click();
+  await expect(autoBuildSwitch).not.toBeChecked();
+  await capture("settings-autobuild");
   await page
     .getByRole("button", { name: "Eigene Dateien", exact: true })
     .click();
@@ -637,18 +635,17 @@ try {
   await capture("templates-managed");
   await page.getByRole("button", { name: "Zurück zum Chat" }).click();
   await page.reload();
-  await expect(page.locator("html")).toHaveClass(/dark/);
-  expect((await api<Settings>("/settings")).sendOnEnter).toBe(false);
+  expect((await api<Settings>("/settings")).autoBuild).toBe(false);
   await page
     .getByRole("textbox", { name: "Nachricht an Assistent" })
     .press("End");
   await page
     .getByRole("textbox", { name: "Nachricht an Assistent" })
-    .press("Enter");
+    .press("Shift+Enter");
   expect(
     (await api<ApplicationDetail>(`/applications/${id}`)).harness.busy,
   ).toBe(false);
-  await capture("chat-dark");
+  await capture("chat-settings");
 
   await page
     .getByRole("button", {

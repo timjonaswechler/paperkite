@@ -8,10 +8,7 @@ import { check } from "./files.ts";
 
 const defaults: Settings = {
   revision: 1,
-  theme: "system",
-  defaultProvider: "pi",
   autoBuild: false,
-  sendOnEnter: true,
   collapsedStatuses: ["Fertig", "Gesendet", "Absage", "Zusage"],
 };
 
@@ -25,6 +22,30 @@ export class Preferences {
     db.prepare("INSERT OR IGNORE INTO preferences VALUES(1,?)").run(
       JSON.stringify(defaults),
     );
+    const stored = this.settings();
+    const normalized: Settings & Record<string, unknown> = { ...stored };
+    let changed = false;
+    for (const key of ["theme", "sendOnEnter", "defaultProvider"])
+      if (Object.hasOwn(normalized, key)) {
+        delete normalized[key];
+        changed = true;
+      }
+    if ((stored.collapsedStatuses as string[]).includes("Entwurf")) {
+      normalized.collapsedStatuses = [
+        ...new Set(
+          (stored.collapsedStatuses as string[]).map((status) =>
+            status === "Entwurf" ? "In Arbeit" : status,
+          ),
+        ),
+      ] as Settings["collapsedStatuses"];
+      changed = true;
+    }
+    if (changed) {
+      normalized.revision = stored.revision + 1;
+      db.prepare("UPDATE preferences SET value=? WHERE singleton=1").run(
+        JSON.stringify(normalized),
+      );
+    }
   }
   settings(): Settings {
     return JSON.parse(
@@ -51,21 +72,11 @@ export class Preferences {
       Object.keys(patch).every((key) => Object.hasOwn(defaults, key)),
       "Unbekannte Einstellung",
     );
-    if (patch.theme !== undefined)
+    if (patch.autoBuild !== undefined)
       check(
-        patch.theme === "system" ||
-          patch.theme === "light" ||
-          patch.theme === "dark",
-        "Ungültiges Farbschema",
+        typeof patch.autoBuild === "boolean",
+        "Ungültige Einstellung: autoBuild",
       );
-    if (patch.defaultProvider !== undefined)
-      check(
-        patch.defaultProvider === "pi" || patch.defaultProvider === "codex",
-        "Ungültiger Harness",
-      );
-    for (const key of ["autoBuild", "sendOnEnter"] as const)
-      if (patch[key] !== undefined)
-        check(typeof patch[key] === "boolean", "Ungültige Einstellung: " + key);
     if (patch.collapsedStatuses !== undefined) {
       const values = patch.collapsedStatuses;
       check(

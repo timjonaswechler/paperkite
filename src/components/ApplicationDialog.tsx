@@ -144,7 +144,7 @@ export function ApplicationDialog({
         ...(request.mode === "edit"
           ? { documentIds }
           : {
-              status: "Entwurf" as const,
+              status: "In Arbeit" as const,
               profile: profiles.includes(profile) ? profile : undefined,
               ...(cvSource === "copy" ? { documentIds } : {}),
             }),

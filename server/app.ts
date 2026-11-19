@@ -10,12 +10,19 @@ import { organizationRoutes } from "./organization-routes.ts";
 import { workflowRoutes } from "./workflow-routes.ts";
 import { PdfJobs } from "./pdf-jobs.ts";
 import type { PdfRunner } from "./pdf-runner.ts";
+import type { ApplicationChatProjects } from "./t3-projects.ts";
+
+type AppOptions = {
+  extraHosts?: string[];
+  nativeChat?: (store: Store) => ApplicationChatProjects;
+};
 
 export function createApp(
   root: string,
   runner: Runner,
   port = 3119,
   pdfRunner?: PdfRunner,
+  options: AppOptions = {},
 ) {
   const store = new Store(root),
     web = express();
@@ -31,7 +38,13 @@ export function createApp(
   const pdfs = new PdfJobs(store, builds, pdfRunner, (app) =>
     publish(app, { type: "pdf" }),
   );
-  const deleting = new Set<string>();
+  const nativeChat = options.nativeChat?.(store);
+  const deleting = new Set<string>(),
+    openingNative = new Map<string, number>();
+  const harnessStatus = (id: string) => ({
+    ...harness.status(id),
+    busy: harness.busy(id) || Boolean(nativeChat?.busy(id)),
+  });
   const available = (id: string) => {
     check(
       typeof id === "string" && /^[a-f0-9-]{36}$/.test(id),
@@ -43,7 +56,7 @@ export function createApp(
   const editable = (id: string) => {
     available(id);
     check(
-      !harness.busy(id),
+      !harness.busy(id) && !nativeChat?.busy(id),
       "Agent arbeitet. Erst stoppen oder abwarten.",
       409,
     );
@@ -52,6 +65,7 @@ export function createApp(
     `127.0.0.1:${port}`,
     `localhost:${port}`,
     "srv.devices.teejayslab.de",
+    ...(options.extraHosts || []),
   ]);
   web.disable("x-powered-by");
   web.enable("strict routing");
@@ -67,9 +81,10 @@ export function createApp(
     });
     const origin = req.headers.origin;
     const expected =
-      req.headers.host === "srv.devices.teejayslab.de"
-        ? "https://srv.devices.teejayslab.de"
-        : `http://${req.headers.host}`;
+      req.headers.host?.startsWith("127.0.0.1:") ||
+      req.headers.host?.startsWith("localhost:")
+        ? `http://${req.headers.host}`
+        : `https://${req.headers.host}`;
     if (origin && origin !== expected)
       return res.status(403).json({ error: "Origin nicht erlaubt" });
     if (req.headers["sec-fetch-site"] === "cross-site")
@@ -106,36 +121,70 @@ export function createApp(
     next();
   });
   web.use("/bewerbung/api", api);
+  if (nativeChat)
+    api.use("/applications/:id", (req, res, next) => {
+      if (
+        req.method === "POST" &&
+        /^\/(?:models|prompt|interrupt|approvals(?:\/|$))/.test(req.path)
+      )
+        return res.status(410).json({
+          error:
+            "Der frühere Chat wurde durch den vollständigen T3-Chat ersetzt. Bitte die neue Oberfläche öffnen.",
+        });
+      next();
+    });
+  if (nativeChat)
+    api.use((req, _res, next) => {
+      if (["GET", "HEAD"].includes(req.method) && req.path === "/health")
+        return next();
+      const read =
+        ["GET", "HEAD"].includes(req.method) ||
+        (req.method === "POST" &&
+          /^\/applications\/[^/]+\/t3-project$/.test(req.path));
+      void nativeChat
+        .authorize({ headers: req.headers }, read ? "read" : "write")
+        .then(() => next(), next);
+    });
   organizationRoutes(api, store, builds);
   workflowRoutes(api, store, pdfs, editable, available);
   api.get("/health", (_req, res) =>
     res.json({
       ok: true,
       pdfProcessing: pdfs.available,
+      ...(nativeChat ? { nativeChat: true } : {}),
       storage: "SQLite + lokale Dateien",
       templateImported: store.templates().length > 0,
-      harnesses: [
-        {
-          id: "pi",
-          available: true,
-          auth: "Erst mit Modellanfrage geprüft",
-          policy: "Dokumentwerkzeuge mit Einzelfreigabe",
-        },
-        {
-          id: "codex",
-          available: true,
-          auth: "Native Anmeldung; Modellanfrage erforderlich",
-          policy:
-            "Nur Dokumentwerkzeuge, Schreiben mit Einzelfreigabe; keine Sandbox-Erweiterung",
-        },
-      ],
+      harnesses: nativeChat
+        ? []
+        : [
+            {
+              id: "pi",
+              available: true,
+              auth: "Erst mit Modellanfrage geprüft",
+              policy: "Dokumentwerkzeuge mit Einzelfreigabe",
+            },
+            {
+              id: "codex",
+              available: true,
+              auth: "Native Anmeldung; Modellanfrage erforderlich",
+              policy:
+                "Nur Dokumentwerkzeuge, Schreiben mit Einzelfreigabe; keine Sandbox-Erweiterung",
+            },
+          ],
     }),
   );
   api.get("/templates", (_req, res) => res.json(store.templates()));
   api.post("/templates/import", (req, res) =>
     res.status(201).json(store.import(req.body)),
   );
-  api.get("/applications", (_req, res) => res.json(store.list()));
+  if (nativeChat)
+    api.get("/navigation", async (req, res) =>
+      res.json(await nativeChat.navigation({ headers: req.headers })),
+    );
+  api.get("/applications", (_req, res) => {
+    if (nativeChat) for (const app of store.list()) nativeChat.busy(app.id);
+    res.json(store.list());
+  });
   api.post("/applications", (req, res) => {
     check(
       typeof req.body.company === "string" &&
@@ -152,23 +201,38 @@ export function createApp(
     }
     const application = store.create(req.body);
     store.preferences.open(application.id);
-    harness.setProvider(
-      application.id,
-      store.preferences.settings().defaultProvider,
-    );
     res.status(201).json(application);
   });
-  api.get("/applications/:id", (req, res) =>
+  api.get("/applications/:id", (req, res) => {
+    const status = harnessStatus(req.params.id);
     res.json({
       ...store.app(req.params.id),
       files: store.files(req.params.id),
       documents: store.documents.selected(req.params.id),
       builds: store.builds(req.params.id),
-      harness: harness.status(req.params.id),
-    }),
-  );
+      harness: status,
+    });
+  });
+  if (nativeChat)
+    api.post("/applications/:id/t3-project", async (req, res) => {
+      available(req.params.id);
+      openingNative.set(
+        req.params.id,
+        (openingNative.get(req.params.id) || 0) + 1,
+      );
+      try {
+        res.json(
+          await nativeChat.ensure(req.params.id, { headers: req.headers }),
+        );
+      } finally {
+        const remaining = (openingNative.get(req.params.id) || 1) - 1;
+        if (remaining) openingNative.set(req.params.id, remaining);
+        else openingNative.delete(req.params.id);
+      }
+    });
   api.delete("/applications/:id", async (req, res) => {
     editable(req.params.id);
+    check(!openingNative.has(req.params.id), "Chat wird gerade geöffnet", 409);
     check(
       harness.status(req.params.id).pending.length === 0,
       "Offene Freigabe zuerst beantworten",
@@ -191,6 +255,7 @@ export function createApp(
     deleting.add(req.params.id);
     try {
       await harness.closeApp(req.params.id);
+      await nativeChat?.remove(req.params.id, { headers: req.headers });
       store.remove(req.params.id, req.body.revision);
       for (const stream of streams.get(req.params.id) || []) stream.end();
       streams.delete(req.params.id);
@@ -204,6 +269,11 @@ export function createApp(
     res.json(store.update(req.params.id, req.body));
   });
   api.get("/applications/:id/file", (req, res) => {
+    nativeChat?.busy(req.params.id);
+    res.setHeader(
+      "X-Bewerbung-Revision",
+      String(store.app(req.params.id).revision),
+    );
     const name = String(req.query.path || "");
     const bytes = store.read(req.params.id, name);
     res.type("text/plain; charset=utf-8");
@@ -305,7 +375,7 @@ export function createApp(
     set.add(res);
     streams.set(req.params.id, set);
     res.write(
-      `data: ${JSON.stringify({ type: "connected", harness: harness.status(req.params.id) })}\n\n`,
+      `data: ${JSON.stringify({ type: "connected", harness: harnessStatus(req.params.id) })}\n\n`,
     );
     const heartbeat = setInterval(() => res.write(": keepalive\n\n"), 20000);
     req.on("close", () => {

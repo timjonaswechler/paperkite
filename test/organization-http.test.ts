@@ -53,12 +53,32 @@ test("organization HTTP routes protect binary uploads, create only validated app
     });
   try {
     const defaults = await (await json("/settings")).json();
+    assert.deepEqual(Object.keys(defaults).sort(), [
+      "autoBuild",
+      "collapsedStatuses",
+      "revision",
+    ]);
+    for (const patch of [
+      { theme: "dark" },
+      { defaultProvider: "codex" },
+      { sendOnEnter: true },
+    ]) {
+      assert.equal(
+        (
+          await json("/settings", "PUT", {
+            revision: defaults.revision,
+            ...patch,
+          })
+        ).status,
+        400,
+      );
+      assert.deepEqual(await (await json("/settings")).json(), defaults);
+    }
     assert.equal(
       (
         await json("/settings", "PUT", {
           revision: defaults.revision,
-          defaultProvider: "codex",
-          theme: "dark",
+          autoBuild: true,
         })
       ).status,
       200,
@@ -126,7 +146,13 @@ test("organization HTTP routes protect binary uploads, create only validated app
     assert.equal(response.status, 201);
     const created = await response.json();
     const detail = await (await json("/applications/" + created.id)).json();
-    assert.equal(detail.harness.provider, "codex");
+    assert.equal(detail.harness.provider, "pi");
+    assert.equal(
+      app.store.db
+        .prepare("SELECT provider FROM harness_choice WHERE app=?")
+        .get(created.id),
+      undefined,
+    );
     assert.deepEqual(
       detail.documents.map((entry: { id: string }) => entry.id),
       [document.id],
@@ -268,7 +294,7 @@ test("organization HTTP routes protect binary uploads, create only validated app
       copy.id,
     ]);
     assert.deepEqual(
-      (await (await json("/search?q=KOPIE&status=Entwurf")).json()).map(
+      (await (await json("/search?q=KOPIE&status=In%20Arbeit")).json()).map(
         (entry: { id: string }) => entry.id,
       ),
       [copy.id],

@@ -1,5 +1,5 @@
 [Unit]
-Description=Unabhängige Bewerbungs-Webapp
+Description=Bewerbungsverwaltung mit originalem T3 Code
 After=network.target
 
 [Service]
@@ -7,14 +7,12 @@ Type=simple
 WorkingDirectory=/home/redjoker/workspace/containers/bewerbung
 ExecStart=/home/redjoker/.local/bin/node --import tsx server/main.ts
 Environment=PATH=/home/redjoker/.local/bin:/usr/local/bin:/usr/bin:/bin
-Environment=PORT=3119
+Environment=PUBLIC_ORIGIN=https://bewerbung.teejayslab.de
 UMask=0077
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=150
-MemoryMax=2G
-TasksMax=256
-NoNewPrivileges=yes
+KillMode=mixed
 
 [Install]
 WantedBy=default.target

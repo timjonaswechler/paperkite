@@ -9,8 +9,15 @@
 /dist/
 *.log
 
-# Read-only upstream reference checkout/archive; extracted code and licenses are tracked
-/vendor/t3/
+# Full pinned upstream source is tracked; native binaries and generated dependencies are not
+/native-t3/runtime/
+/native-t3/.runtime-*/
+/vendor/t3/.git/
+/vendor/t3/.repos/
+/vendor/t3/node_modules/
+/vendor/t3/apps/*/node_modules/
+/vendor/t3/packages/*/node_modules/
+/vendor/t3/apps/*/dist/
 /vendor/*.tar
 /vendor/*.tar.gz
 

@@ -22,7 +22,7 @@ const app: ApplicationDetail = {
   id: "app",
   company: "Synthetic",
   role: "Example",
-  status: "Entwurf",
+  status: "In Arbeit",
   posting: "",
   notes: "",
   profile: "general",

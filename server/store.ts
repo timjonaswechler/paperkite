@@ -13,7 +13,11 @@ import {
 import { DocumentLibrary } from "./documents.ts";
 import { Preferences } from "./preferences.ts";
 import { Templates } from "./templates.ts";
-import { deletionSchema, cleanDeletions, removeApplication } from "./application-deletion.ts";
+import {
+  deletionSchema,
+  cleanDeletions,
+  removeApplication,
+} from "./application-deletion.ts";
 import {
   parseProfile,
   serializeProfile,
@@ -36,6 +40,8 @@ export class Store {
   documents: DocumentLibrary;
   preferences: Preferences;
   templateLibrary: Templates;
+  onWorkspaceCommit?: (id: string) => void;
+  initializeWorkspace?: (id: string) => void;
   constructor(public root: string) {
     fs.mkdirSync(root, { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(path.join(root, "bewerbung.sqlite"));
@@ -60,8 +66,17 @@ export class Store {
     );
     deletionSchema(this.db);
     cleanDeletions(this.db, root);
+    for (const row of this.db
+      .prepare("SELECT id,revision FROM apps WHERE status='Entwurf'")
+      .all())
+      this.update(String(row.id), {
+        revision: row.revision,
+        status: "In Arbeit",
+      });
   }
-  remove(id: string, revision: unknown) { return removeApplication(this.db, this.root, id, revision); }
+  remove(id: string, revision: unknown) {
+    return removeApplication(this.db, this.root, id, revision);
+  }
   app(id: string): Application {
     const row = this.db.prepare("SELECT * FROM apps WHERE id=?").get(id);
     check(row, "Bewerbung nicht gefunden", 404);
@@ -145,8 +160,12 @@ export class Store {
         };
       });
   }
-  templates(): TemplateSummary[] { return this.templateLibrary.list(); }
-  import(input: unknown) { return this.templateLibrary.import(input); }
+  templates(): TemplateSummary[] {
+    return this.templateLibrary.list();
+  }
+  import(input: unknown) {
+    return this.templateLibrary.import(input);
+  }
   private factsFiles(a: Application, files: Record<string, Buffer> = {}) {
     return {
       ...files,
@@ -267,7 +286,7 @@ export class Store {
       id,
       company,
       role,
-      status: input.status === undefined ? "Entwurf" : input.status,
+      status: input.status === undefined ? "In Arbeit" : input.status,
       posting: input.posting ?? posting,
       notes: input.notes ?? notes,
       profile,
@@ -302,12 +321,14 @@ export class Store {
           now,
         );
       this.documents.assign(id, documents);
+      this.initializeWorkspace?.(id);
       this.db.exec("COMMIT");
     } catch (error) {
       this.db.exec("ROLLBACK");
       fs.rmSync(path.dirname(workspace), { recursive: true, force: true });
       throw error;
     }
+    this.onWorkspaceCommit?.(id);
     return this.app(id);
   }
   update(id: string, input: Record<string, unknown>) {
@@ -363,6 +384,7 @@ export class Store {
       this.db.exec("ROLLBACK");
       throw error;
     }
+    this.onWorkspaceCommit?.(id);
     return this.app(id);
   }
   bump(id: string, changes: Record<string, Buffer> = {}) {
@@ -377,6 +399,7 @@ export class Store {
       .prepare("UPDATE apps SET revision=revision+1,updated=? WHERE id=?")
       .run(updated, id);
     putMap(this.workspace(id), files);
+    this.onWorkspaceCommit?.(id);
   }
   files(id: string) {
     return Object.entries(fileMap(this.workspace(id))).map(([name, b]) => ({

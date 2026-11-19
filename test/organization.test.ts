@@ -234,7 +234,7 @@ test("creation chooses CV and cover independently, never inherits company facts 
     assert.equal(neutral.posting, "");
     assert.deepEqual(store.documents.ids(neutral.id), []);
     const fullCopy = store.create({ source: fresh.id });
-    assert.equal(fullCopy.status, "Entwurf");
+    assert.equal(fullCopy.status, "In Arbeit");
     assert.deepEqual(store.documents.ids(fullCopy.id), [attachment.id]);
     assert.equal(
       store.read(fullCopy.id, "anschreiben/Anschreiben.tex").toString(),
@@ -279,10 +279,7 @@ test("settings, opened applications and per-application chat drafts persist inde
     const defaults = store.preferences.settings();
     const saved = store.preferences.update({
       revision: defaults.revision,
-      theme: "dark",
-      defaultProvider: "codex",
       autoBuild: true,
-      sendOnEnter: false,
       collapsedStatuses: ["Absage"],
     });
     assert.equal(saved.revision, defaults.revision + 1);
@@ -290,14 +287,17 @@ test("settings, opened applications and per-application chat drafts persist inde
       () =>
         store.preferences.update({
           revision: defaults.revision,
-          theme: "light",
+          autoBuild: false,
         }),
       /inzwischen geändert/,
     );
     for (const input of [
-      { theme: ["dark"] },
+      { autoBuild: "true" },
+      { theme: "dark" },
+      { sendOnEnter: false },
+      { defaultProvider: "codex" },
       { collapsedStatuses: ["Working"] },
-      { collapsedStatuses: ["Entwurf", "Entwurf"] },
+      { collapsedStatuses: ["In Arbeit", "In Arbeit"] },
       { shell: true },
     ])
       assert.throws(() =>
@@ -321,6 +321,92 @@ test("settings, opened applications and per-application chat drafts persist inde
     assert.equal(store.preferences.draft(a.id).text, "Entwurf A");
     assert.equal(store.preferences.draft(b.id).text, "Entwurf B");
     assert.equal(store.app(a.id).status, "Gesendet");
+  } finally {
+    store.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("business preferences migrate retired T3 fields once without losing business values or touching native settings", () => {
+  const root = temporary();
+  let store = new Store(root);
+  try {
+    const application = store.create({
+      company: "Migration fixture",
+      role: "Engineer",
+    });
+    const source = store.read(application.id, "anschreiben/Anschreiben.tex");
+    store.preferences.open(application.id);
+    store.preferences.saveDraft(application.id, "Unsent migration fixture");
+    const nativeSettings = path.join(
+      root,
+      "native-t3",
+      "userdata",
+      "settings.json",
+    );
+    fs.mkdirSync(path.dirname(nativeSettings), { recursive: true });
+    const nativeBytes = Buffer.from(
+      '{"providerInstances":{},"defaultModelSelection":null}\n',
+    );
+    fs.writeFileSync(nativeSettings, nativeBytes);
+    store.db.prepare("UPDATE preferences SET value=? WHERE singleton=1").run(
+      JSON.stringify({
+        revision: 17,
+        theme: "dark",
+        sendOnEnter: false,
+        defaultProvider: "codex",
+        autoBuild: true,
+        collapsedStatuses: ["Entwurf", "Fertig", "Zusage"],
+      }),
+    );
+    store.close();
+    store = new Store(root);
+    const migrated = {
+      revision: 18,
+      autoBuild: true,
+      collapsedStatuses: ["In Arbeit", "Fertig", "Zusage"],
+    };
+    assert.deepEqual(store.preferences.settings(), migrated);
+    assert.deepEqual(
+      JSON.parse(
+        String(store.db.prepare("SELECT value FROM preferences").get()!.value),
+      ),
+      migrated,
+    );
+    assert.deepEqual(fs.readFileSync(nativeSettings), nativeBytes);
+    assert.deepEqual(store.app(application.id), application);
+    assert.deepEqual(
+      store.read(application.id, "anschreiben/Anschreiben.tex"),
+      source,
+    );
+    assert.deepEqual(store.preferences.ui().openIds, [application.id]);
+    assert.equal(
+      store.preferences.draft(application.id).text,
+      "Unsent migration fixture",
+    );
+    for (const patch of [
+      { theme: "light" },
+      { sendOnEnter: true },
+      { defaultProvider: "pi" },
+    ])
+      assert.throws(
+        () =>
+          store.preferences.update({ revision: migrated.revision, ...patch }),
+        /Unbekannte Einstellung/,
+      );
+    assert.throws(
+      () => store.preferences.update({ revision: 17, autoBuild: false }),
+      /inzwischen geändert/,
+    );
+    store.close();
+    store = new Store(root);
+    assert.deepEqual(store.preferences.settings(), migrated);
+    const saved = store.preferences.update({
+      revision: migrated.revision,
+      autoBuild: false,
+    });
+    assert.deepEqual(saved, { ...migrated, revision: 19, autoBuild: false });
+    assert.deepEqual(fs.readFileSync(nativeSettings), nativeBytes);
   } finally {
     store.close();
     fs.rmSync(root, { recursive: true, force: true });
