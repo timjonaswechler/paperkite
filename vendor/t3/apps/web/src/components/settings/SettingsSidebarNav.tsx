@@ -52,6 +52,7 @@ import {
 import { useAvailableSettingsSearchItems } from "./useAvailableSettingsSearchItems";
 import { handleSettingsSectionKeyDown } from "./settingsSectionNavigation";
 import { workspaceAreaProps } from "../../lib/workspaceFocus";
+import { isRetiredSettingsPath } from "~/bewerbung/retiredFeatures";
 
 const SnapShotIcon = createLucideIcon("snap-shot", [
   [
@@ -378,30 +379,33 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
                         {/* The heading stays outside the group it names so NVDA does not read the name twice. */}
                         <div role="group" aria-labelledby={`settings-nav-group-${index}`}>
                           <SidebarMenu>
-                            {group.paths.map((to) => {
-                              const Icon = SETTINGS_SECTION_ICONS[to];
-                              const isActive = activePath === to || activePath.startsWith(`${to}/`);
-                              return (
-                                <SidebarMenuItem key={to}>
-                                  <SidebarMenuButton
-                                    data-settings-section={to}
-                                    aria-current={isActive ? "page" : undefined}
-                                    isActive={isActive}
-                                    onClick={() => handleSectionClick(to)}
-                                  >
-                                    <Icon />
-                                    <span
-                                      className={cn(
-                                        "truncate",
-                                        !compactSearchOpen && "max-md:sr-only",
-                                      )}
+                            {group.paths
+                              .filter((to) => !isRetiredSettingsPath(to))
+                              .map((to) => {
+                                const Icon = SETTINGS_SECTION_ICONS[to];
+                                const isActive =
+                                  activePath === to || activePath.startsWith(`${to}/`);
+                                return (
+                                  <SidebarMenuItem key={to}>
+                                    <SidebarMenuButton
+                                      data-settings-section={to}
+                                      aria-current={isActive ? "page" : undefined}
+                                      isActive={isActive}
+                                      onClick={() => handleSectionClick(to)}
                                     >
-                                      {m(SETTINGS_SECTION_LABELS[to])}
-                                    </span>
-                                  </SidebarMenuButton>
-                                </SidebarMenuItem>
-                              );
-                            })}
+                                      <Icon />
+                                      <span
+                                        className={cn(
+                                          "truncate",
+                                          !compactSearchOpen && "max-md:sr-only",
+                                        )}
+                                      >
+                                        {m(SETTINGS_SECTION_LABELS[to])}
+                                      </span>
+                                    </SidebarMenuButton>
+                                  </SidebarMenuItem>
+                                );
+                              })}
                           </SidebarMenu>
                         </div>
                       </div>

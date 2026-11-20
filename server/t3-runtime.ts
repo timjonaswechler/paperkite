@@ -61,7 +61,7 @@ export function assertIndependentT3Home(
     }
 }
 
-// Owns only a pinned, unmodified T3 server process; provider policy stays entirely in T3.
+// Owns only the pinned app-local T3 process; chat and provider policy stay in the native engine.
 export class NativeT3Runtime {
   private child?: ChildProcess;
   private stopped?: Promise<unknown>;

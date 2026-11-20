@@ -4,7 +4,9 @@ import { ModelSelection } from "./modelSelection.ts";
 export const ApplicationAnalysisResult = Schema.Struct({
   company: Schema.String.check(Schema.isMaxLength(200)),
   role: Schema.String.check(Schema.isMaxLength(200)),
-  requirements: Schema.Array(Schema.String.check(Schema.isMaxLength(600))).check(Schema.isMaxLength(20)),
+  requirements: Schema.Array(Schema.String.check(Schema.isMaxLength(600))).check(
+    Schema.isMaxLength(20),
+  ),
 });
 export type ApplicationAnalysisResult = typeof ApplicationAnalysisResult.Type;
 

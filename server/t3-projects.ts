@@ -30,7 +30,11 @@ export interface ApplicationChatProjects {
   navigation(context: NativeProjectContext): Promise<ApplicationNavigation>;
   remove(id: string, context: NativeProjectContext): Promise<void>;
   busy(id: string): boolean;
-  analyze?(input: import("./job-postings.ts").AnalysisRequest, context: NativeProjectContext, signal: AbortSignal): ReturnType<import("./job-postings.ts").AnalysisRunner>;
+  analyze?(
+    input: import("./job-postings.ts").AnalysisRequest,
+    context: NativeProjectContext,
+    signal: AbortSignal,
+  ): ReturnType<import("./job-postings.ts").AnalysisRunner>;
 }
 
 // File disposal waits for T3's committed cleanup effects, not only its command acknowledgement.
@@ -191,8 +195,16 @@ export class NativeT3Projects implements ApplicationChatProjects {
     if (previous && previous.fingerprint !== fingerprint) this.store.bump(id);
     else this.recordWorkspace(id, fingerprint);
   }
-  analyze(input: import("./job-postings.ts").AnalysisRequest, context: NativeProjectContext, signal: AbortSignal) {
-    return this.request<{ company: string; role: string; requirements: string[] }>("/api/bewerbung/analyze", context, { ...input }, signal);
+  analyze(
+    input: import("./job-postings.ts").AnalysisRequest,
+    context: NativeProjectContext,
+    signal: AbortSignal,
+  ) {
+    return this.request<{
+      company: string;
+      role: string;
+      requirements: string[];
+    }>("/api/bewerbung/analyze", context, { ...input }, signal);
   }
   private async request<T>(
     endpoint: string,
@@ -255,7 +267,9 @@ export class NativeT3Projects implements ApplicationChatProjects {
           ? value.message
           : typeof value.error === "string"
             ? value.error
-            : "T3 hat den Vorgang abgelehnt. Anmeldung und native Berechtigungen prüfen.",
+            : typeof value.detail === "string"
+              ? value.detail
+              : "T3 hat den Vorgang abgelehnt. Anmeldung und native Berechtigungen prüfen.",
       );
     return value as T;
   }

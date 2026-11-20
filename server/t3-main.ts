@@ -11,7 +11,9 @@ import { check } from "./files.ts";
 import { prepareNativeProviderHome } from "./t3-home.ts";
 import { createNetworkT3Access } from "./t3-access.ts";
 
-export async function startT3Application() {
+export async function startT3Application(
+  options: { logNative?: (line: string) => void } = {},
+) {
   process.umask(0o077);
   const config = JSON.parse(
     fs.readFileSync("native-t3/config.json", "utf8"),
@@ -27,7 +29,7 @@ export async function startT3Application() {
     home: path.join(data, "native-t3"),
     cwd: path.join(data, "applications"),
     port: Number(process.env.T3_NATIVE_PORT || 3121),
-    log: (line) => process.stdout.write(line),
+    log: options.logNative ?? ((line) => process.stdout.write(line)),
   });
   prepareNativeProviderHome(native.options.home);
   await native.start();

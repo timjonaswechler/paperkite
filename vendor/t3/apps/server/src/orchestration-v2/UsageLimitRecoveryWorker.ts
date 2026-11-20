@@ -108,7 +108,7 @@ const makeSweep = Effect.gen(function* () {
     const candidates = yield* projections.getLimitRecoveryCandidates({
       now,
       autoResume: preferences.autoResumeLimitedThreads,
-      snooze: preferences.snoozeLimitedThreads,
+      snooze: false,
     });
     let acted = false;
     for (const thread of candidates) {
@@ -116,7 +116,7 @@ const makeSweep = Effect.gen(function* () {
         thread,
         preferences.autoResumeLimitedThreads,
         nowMs,
-        preferences.snoozeLimitedThreads,
+        false,
       );
       if (command === null) continue;
       acted = true;

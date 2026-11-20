@@ -25,6 +25,26 @@ describe("thread details items", () => {
     expect(visibility.servers).toBe(true);
   });
 
+  it("does not restore retired workspace or git controls from saved choices", () => {
+    const visibility = resolveThreadDetailsVisibility({
+      threadDetailsItems: {
+        environment: true,
+        branch: true,
+        gitActions: true,
+        changes: true,
+        servers: false,
+        context: true,
+      },
+      threadDetailsUsageEnabled: false,
+    });
+    for (const id of ["environment", "branch", "gitActions", "changes"]) {
+      expect(visibility).not.toHaveProperty(id);
+      expect(THREAD_DETAILS_ITEMS.map((item) => item.id)).not.toContain(id);
+    }
+    expect(visibility.servers).toBe(false);
+    expect(visibility.context).toBe(true);
+  });
+
   it("stores only choices that differ from the default", () => {
     const legacyOn = { threadDetailsItems: {}, threadDetailsUsageEnabled: true };
     expect(setThreadDetailsItem(legacyOn, usage, false)).toEqual({ usage: false });

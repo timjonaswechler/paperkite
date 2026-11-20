@@ -18,8 +18,6 @@ import {
 import {
   DEFAULT_UNIFIED_SETTINGS,
   type DiffLayout,
-  MAX_SIDEBAR_AUTO_SETTLE_AFTER_DAYS,
-  MIN_SIDEBAR_AUTO_SETTLE_AFTER_DAYS,
   type ResponseStreamingMode,
   type QuitConfirmationMode,
   SidebarProjectSortOrder,
@@ -34,7 +32,6 @@ import * as Schema from "effect/Schema";
 import { APP_VERSION, HOSTED_APP_CHANNEL, HOSTED_APP_CHANNEL_LABEL } from "../../branding";
 import { AboutVersionTitle } from "./AboutVersionTitle";
 import { CliCommandSettingsRow } from "./CliCommandSettingsRow";
-import { MobileAppSettingsRow } from "./MobileAppSettingsRow";
 import {
   canCheckForUpdate,
   getDesktopUpdateButtonTooltip,
@@ -63,7 +60,6 @@ import { useOptionalSettingsScope, useSettingsScope } from "./SettingsScopeConte
 import { scopedIdleCompaction } from "./scopedSettings";
 import { ProjectDefaultsSettings } from "./ProjectDefaultsSettings";
 import { ThreadTitleInstructionsSettings } from "./ThreadTitleInstructionsSettings";
-import { SnoozePresetsRow } from "./SnoozePresetsSettings";
 import { useDesktopUpdateState } from "../../state/desktopUpdate";
 import { managedTelemetryOffMessage, usePrimaryManagedPolicy } from "../../state/managedPolicy";
 import {
@@ -82,18 +78,12 @@ import {
 import { EMPTY_SERVER_PROVIDERS } from "../../state/server";
 import { Button } from "../ui/button";
 import { DraftInput } from "../ui/draft-input";
-import { Input } from "../ui/input";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
 import { ScopedSwitch } from "./ScopedSwitch";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import {
-  autoSettleDaysField,
-  cancelAutoSettleDaysField,
-  commitAutoSettleDaysField,
-  editAutoSettleDaysField,
-  failAutoSettleDaysField,
   getChangedBrowserSettingLabels,
   getChangedTypographySettingLabels,
   hasChangedBackgroundActivitySettings,
@@ -101,7 +91,6 @@ import {
   projectGroupingModeFromToggle,
   readLastEnabledProjectGroupingMode,
   rememberEnabledProjectGroupingMode,
-  syncAutoSettleDaysField,
 } from "./SettingsPanels.logic";
 import {
   SETTINGS_PICKER_TRIGGER_CLASSNAME,
@@ -496,24 +485,8 @@ export function useSettingsRestore(onRestored?: () => void) {
     ...(settings.sidebarWorkingShelfEnabled !== DEFAULT_UNIFIED_SETTINGS.sidebarWorkingShelfEnabled
       ? ["Working section"]
       : []),
-    ...(settings.sidebarAutoSettleAfterDays !== DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleAfterDays
-      ? ["Auto-settle inactive threads"]
-      : []),
-    ...(settings.sidebarAutoSettleKeepPullRequests !==
-    DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleKeepPullRequests
-      ? ["Keep threads with a PR"]
-      : []),
-    ...(settings.sidebarAutoSettleOnMerge !== DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleOnMerge
-      ? ["Auto-settle merged threads"]
-      : []),
     ...(settings.autoResumeLimitedThreads !== DEFAULT_UNIFIED_SETTINGS.autoResumeLimitedThreads
       ? ["Resume after usage limits"]
-      : []),
-    ...(settings.snoozeLimitedThreads !== DEFAULT_UNIFIED_SETTINGS.snoozeLimitedThreads
-      ? ["Snooze until limits reset"]
-      : []),
-    ...(!Equal.equals(settings.snoozePresets, DEFAULT_UNIFIED_SETTINGS.snoozePresets)
-      ? ["Snooze options"]
       : []),
     ...(settings.wordWrap !== DEFAULT_UNIFIED_SETTINGS.wordWrap ? ["Word wrap"] : []),
     ...(settings.persistComposerContextStrip !==
@@ -563,9 +536,6 @@ export function useSettingsRestore(onRestored?: () => void) {
     ...(isBackgroundActivityDirty ? ["Background activity"] : []),
     ...(settings.keepAwakeWhileAgentsWork !== DEFAULT_UNIFIED_SETTINGS.keepAwakeWhileAgentsWork
       ? ["Keep awake while agents work"]
-      : []),
-    ...(settings.defaultThreadEnvMode !== DEFAULT_UNIFIED_SETTINGS.defaultThreadEnvMode
-      ? ["New thread mode"]
       : []),
     ...(settings.newWorktreesStartFromOrigin !==
     DEFAULT_UNIFIED_SETTINGS.newWorktreesStartFromOrigin
@@ -677,12 +647,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       sidebarProjectGroupingMode: DEFAULT_UNIFIED_SETTINGS.sidebarProjectGroupingMode,
       sidebarProjectSortOrder: DEFAULT_UNIFIED_SETTINGS.sidebarProjectSortOrder,
       sidebarWorkingShelfEnabled: DEFAULT_UNIFIED_SETTINGS.sidebarWorkingShelfEnabled,
-      sidebarAutoSettleAfterDays: DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleAfterDays,
-      sidebarAutoSettleKeepPullRequests: DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleKeepPullRequests,
-      sidebarAutoSettleOnMerge: DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleOnMerge,
       autoResumeLimitedThreads: DEFAULT_UNIFIED_SETTINGS.autoResumeLimitedThreads,
-      snoozeLimitedThreads: DEFAULT_UNIFIED_SETTINGS.snoozeLimitedThreads,
-      snoozePresets: DEFAULT_UNIFIED_SETTINGS.snoozePresets,
       responseStreamingMode: DEFAULT_UNIFIED_SETTINGS.responseStreamingMode,
       enableProviderUpdateChecks: DEFAULT_UNIFIED_SETTINGS.enableProviderUpdateChecks,
       continueThreadsAfterServerUpdate: DEFAULT_UNIFIED_SETTINGS.continueThreadsAfterServerUpdate,
@@ -691,7 +656,6 @@ export function useSettingsRestore(onRestored?: () => void) {
       backgroundActivityProfile: DEFAULT_UNIFIED_SETTINGS.backgroundActivityProfile,
       automaticGitFetchInterval: DEFAULT_UNIFIED_SETTINGS.automaticGitFetchInterval,
       providerHealthRefreshInterval: DEFAULT_UNIFIED_SETTINGS.providerHealthRefreshInterval,
-      defaultThreadEnvMode: DEFAULT_UNIFIED_SETTINGS.defaultThreadEnvMode,
       newWorktreesStartFromOrigin: DEFAULT_UNIFIED_SETTINGS.newWorktreesStartFromOrigin,
       addProjectBaseDirectory: DEFAULT_UNIFIED_SETTINGS.addProjectBaseDirectory,
       ghqCloneLayout: DEFAULT_UNIFIED_SETTINGS.ghqCloneLayout,
@@ -729,54 +693,6 @@ export function useSettingsRestore(onRestored?: () => void) {
     changedSettingLabels,
     restoreDefaults,
   };
-}
-
-const AUTO_SETTLE_DEFAULT_DAYS = DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleAfterDays ?? 7;
-
-function AutoSettleDaysInput({
-  value,
-  onCommit,
-}: {
-  value: number;
-  onCommit: (days: number, options: { onFailed: () => void }) => void;
-}) {
-  const [stored, setField] = useState(() => autoSettleDaysField(value));
-  const field = syncAutoSettleDaysField(stored, value);
-  if (field !== stored) setField(field);
-
-  const commit = () => {
-    const next = commitAutoSettleDaysField(field);
-    setField(next.field);
-    if (next.submit === null) return;
-    const { revision } = next.field;
-    onCommit(next.submit, {
-      onFailed: () => setField((current) => failAutoSettleDaysField(current, revision)),
-    });
-  };
-
-  return (
-    <Input
-      size="sm"
-      type="number"
-      min={MIN_SIDEBAR_AUTO_SETTLE_AFTER_DAYS}
-      max={MAX_SIDEBAR_AUTO_SETTLE_AFTER_DAYS}
-      className="w-full sm:w-24"
-      value={field.draft}
-      onChange={(event) => setField(editAutoSettleDaysField(field, event.target.value))}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.nativeEvent.isComposing) return;
-        if (event.key === "Enter") commit();
-        if (event.key === "Escape" && field.dirty) {
-          // An unhandled Escape closes the settings page, and the blur that follows would save.
-          event.preventDefault();
-          event.stopPropagation();
-          setField(cancelAutoSettleDaysField(field));
-        }
-      }}
-      aria-label="Days of inactivity before auto-settle"
-    />
-  );
 }
 
 /** Row anchor props with the registry title in the active language. */
@@ -1722,8 +1638,7 @@ export function ThreadsSettingsPanel() {
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   const navigate = useNavigate();
-  const { environment, connectedEnvironments, target, scope } = useSettingsScope();
-  const isProjectScope = scope.kind === "project" || scope.kind === "checkout";
+  const { environment, connectedEnvironments, target } = useSettingsScope();
   const environmentId = environment?.environmentId ?? null;
   const hasServerTargets = connectedEnvironments.length > 0;
   const mixedResponseStreamingMode = useScopedSettingsMixed(["responseStreamingMode"]);
@@ -1732,10 +1647,6 @@ export function ThreadsSettingsPanel() {
     (environment?.serverConfig
       ? providersByEnvironment.get(environment.environmentId)
       : undefined) ?? EMPTY_SERVER_PROVIDERS;
-  const supportsAutoSettlementScope = connectedEnvironments.every(
-    (target) => target.serverConfig?.environment.capabilities.threadAutoSettlementScope === true,
-  );
-
   const textGenerationTargets = useTextGenerationTargets({
     environmentId,
     settings,
@@ -1840,12 +1751,6 @@ export function ThreadsSettingsPanel() {
 
       <ProjectDefaultsSettings category="general" />
 
-      {!isProjectScope ? (
-        <SettingsSection id="snooze" title="Snooze">
-          <SnoozePresetsRow />
-        </SettingsSection>
-      ) : null}
-
       <SettingsSection id="usage-limits" title="Usage limits">
         <SettingsRow
           serverScoped
@@ -1863,124 +1768,7 @@ export function ThreadsSettingsPanel() {
             />
           }
         />
-        <SettingsRow
-          serverScoped
-          {...searchableSetting("snooze-limited-threads")}
-          description="Snooze threads until their usage limits reset. Enable auto-resume to continue the agent after the reset."
-          settingKeys={["snoozeLimitedThreads"]}
-          control={
-            <ScopedSwitch
-              settingKeys={["snoozeLimitedThreads"]}
-              checked={settings.snoozeLimitedThreads}
-              onCheckedChange={(checked) =>
-                updateSettings({ snoozeLimitedThreads: Boolean(checked) })
-              }
-              aria-label="Snooze until limits reset"
-            />
-          }
-        />
       </SettingsSection>
-
-      {hasServerTargets ? (
-        <SettingsSection id="auto-settle" title="Auto-settle">
-          <SettingsRow
-            serverScoped
-            settingKeys={["sidebarAutoSettleOnMerge"]}
-            {...searchableSetting("auto-settle-merged-threads")}
-            description="Settle a thread when its pull request merges. Closed pull requests still settle automatically."
-            resetAction={
-              settings.sidebarAutoSettleOnMerge !==
-              DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleOnMerge ? (
-                <SettingResetButton
-                  label="auto-settle on merge"
-                  onClick={() =>
-                    updateSettings({
-                      sidebarAutoSettleOnMerge: DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleOnMerge,
-                    })
-                  }
-                />
-              ) : null
-            }
-            control={
-              <ScopedSwitch
-                settingKeys={["sidebarAutoSettleOnMerge"]}
-                checked={settings.sidebarAutoSettleOnMerge}
-                onCheckedChange={(checked) =>
-                  updateSettings({ sidebarAutoSettleOnMerge: Boolean(checked) })
-                }
-                aria-label="Auto-settle merged threads"
-              />
-            }
-          />
-
-          <SettingsRow
-            serverScoped
-            settingKeys={["sidebarAutoSettleAfterDays"]}
-            {...searchableSetting("auto-settle-inactive-threads")}
-            description="Sidebar threads with no activity for this long settle automatically."
-            resetAction={
-              settings.sidebarAutoSettleAfterDays !==
-              DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleAfterDays ? (
-                <SettingResetButton
-                  label="auto-settle"
-                  onClick={() =>
-                    updateSettings({
-                      sidebarAutoSettleAfterDays:
-                        DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleAfterDays,
-                    })
-                  }
-                />
-              ) : null
-            }
-            control={
-              <ScopedSwitch
-                settingKeys={["sidebarAutoSettleAfterDays"]}
-                checked={settings.sidebarAutoSettleAfterDays !== null}
-                onCheckedChange={(checked) =>
-                  updateSettings({
-                    sidebarAutoSettleAfterDays: checked ? AUTO_SETTLE_DEFAULT_DAYS : null,
-                  })
-                }
-                aria-label="Auto-settle inactive threads"
-              />
-            }
-          />
-          {settings.sidebarAutoSettleAfterDays !== null ? (
-            <SettingsRow
-              serverScoped
-              settingKeys={["sidebarAutoSettleAfterDays"]}
-              title={searchableSetting("days-before-auto-settle").title}
-              description="Any new activity un-settles a thread automatically."
-              control={
-                <AutoSettleDaysInput
-                  value={settings.sidebarAutoSettleAfterDays}
-                  onCommit={(days, options) =>
-                    updateSettings({ sidebarAutoSettleAfterDays: days }, options)
-                  }
-                />
-              }
-            />
-          ) : null}
-          {settings.sidebarAutoSettleAfterDays !== null && supportsAutoSettlementScope ? (
-            <SettingsRow
-              serverScoped
-              settingKeys={["sidebarAutoSettleKeepPullRequests"]}
-              title="Keep threads with a PR"
-              description="Inactivity does not settle threads with a pull request. Merge and close still do."
-              control={
-                <ScopedSwitch
-                  settingKeys={["sidebarAutoSettleKeepPullRequests"]}
-                  checked={settings.sidebarAutoSettleKeepPullRequests}
-                  onCheckedChange={(checked) =>
-                    updateSettings({ sidebarAutoSettleKeepPullRequests: checked })
-                  }
-                  aria-label="Keep threads with a PR"
-                />
-              }
-            />
-          ) : null}
-        </SettingsSection>
-      ) : null}
 
       <SettingsSection id="text-generation" title="Text generation">
         <SettingsRow
@@ -2151,9 +1939,7 @@ export function ThreadsSettingsPanel() {
 export function MaintenanceSettingsPanel() {
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
-  const { scope, environment, connectedEnvironments } = useSettingsScope();
-  const environmentId = environment?.environmentId ?? null;
-  const isEnvironmentScope = scope.environmentIds.length === 1 && environmentId !== null;
+  const { connectedEnvironments } = useSettingsScope();
   const hasServerTargets = connectedEnvironments.length > 0;
 
   return (
@@ -2261,28 +2047,6 @@ export function MaintenanceSettingsPanel() {
       </SettingsSection>
 
       <StorageCleanupSections />
-
-      <SettingsSection id="diagnostics-section" title="Diagnostics">
-        <SettingsRow
-          {...searchableSetting("diagnostics")}
-          description={
-            isEnvironmentScope
-              ? "Inspect processes, resource use, and logs on this environment."
-              : "Inspect processes, resource use, and logs on one environment at a time."
-          }
-          control={
-            <Button
-              render={
-                <Link to="/settings/diagnostics" search={{ machine: environmentId ?? undefined }} />
-              }
-              size="sm"
-              variant="outline"
-            >
-              View diagnostics
-            </Button>
-          }
-        />
-      </SettingsSection>
     </SettingsPageContainer>
   );
 }
@@ -2325,7 +2089,6 @@ export function AboutSettingsPanel() {
             />
           </>
         )}
-        <MobileAppSettingsRow />
         {primaryEnvironmentId === null ? null : (
           <SettingsRow
             {...searchableSetting("welcome-page")}

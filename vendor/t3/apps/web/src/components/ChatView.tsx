@@ -1242,17 +1242,16 @@ export default function ChatView(props: ChatViewProps) {
       console.warn("Failed to link the checked-out pull request to its thread.", error);
     });
   });
-  const { handlePreparedPullRequestThreadStable, openPullRequestDialogStable } =
-    usePullRequestDraftThread({
-      routeKind,
-      draftId,
-      settings,
-      projectGroupingSettings,
-      activeProject,
-      activeThreadKey,
-      isServerThread,
-      canCheckoutPullRequestIntoThread,
-    });
+  const { handlePreparedPullRequestThreadStable } = usePullRequestDraftThread({
+    routeKind,
+    draftId,
+    settings,
+    projectGroupingSettings,
+    activeProject,
+    activeThreadKey,
+    isServerThread,
+    canCheckoutPullRequestIntoThread,
+  });
   const serverConfig = activeThread
     ? (activeEnvironment?.serverConfig ?? null)
     : (primaryEnvironment?.serverConfig ?? null);
@@ -1821,8 +1820,6 @@ export default function ChatView(props: ChatViewProps) {
     needsLoadBalancing,
     loadBalancing,
     refreshBeforeSend,
-    onAutoEnvironmentStable,
-    autoEnvironmentLabel,
     isEnvironmentChanging,
     readPendingEnvironmentChange,
     onEnvironmentChangeStable,
@@ -2237,9 +2234,6 @@ export default function ChatView(props: ChatViewProps) {
     pendingServerThreadBranchEntry?.threadId === activeThread?.id
       ? pendingServerThreadBranchEntry
       : null;
-  const setPendingServerThreadBranch = (branch: string | null) => {
-    if (activeThread) setPendingServerThreadBranchEntry({ threadId: activeThread.id, branch });
-  };
   const envMode: DraftThreadEnvMode = canOverrideServerThreadEnvMode
     ? (pendingServerThreadEnvMode ?? draftThread?.envMode ?? derivedEnvMode)
     : derivedEnvMode;
@@ -2388,7 +2382,6 @@ export default function ChatView(props: ChatViewProps) {
     moveRightPanelSurfaceStable,
     onOpenToolDiffStable,
     onOpenTurnDiffStable,
-    openChangesFromThreadPanelStable,
     openFileSurfaceStable,
     toggleRightPanelMaximizedStable,
     toggleRightPanelStable,
@@ -2871,9 +2864,7 @@ export default function ChatView(props: ChatViewProps) {
   const {
     getModelDisabledReason,
     handleRuntimeModeChangeStable,
-    onEnvModeChangeStable,
     onProviderModelSelectStable,
-    onStartFromOriginChange,
     openProviderSetupStable,
   } = useComposerSelection({
     environmentId,
@@ -3827,15 +3818,9 @@ export default function ChatView(props: ChatViewProps) {
                 <ThreadDetailsPanel
                   anchor={threadPanelPopoverAnchorRef}
                   handle={threadPanelPopoverHandle}
-                  forceNewWorktree={multipleModelSelections !== null}
                   environmentId={activeThread.environmentId}
                   threadId={activeThread.id}
-                  projectId={activeThread.projectId}
-                  worktreePath={activeThread.worktreePath}
-                  isServerThread={isServerThread}
                   {...(draftId ? { draftId } : {})}
-                  composerDraftTarget={composerDraftTarget}
-                  activeProjectName={activeProject?.title}
                   activeProjectScripts={activeProject ? activeProjectScripts : undefined}
                   preferredScriptId={
                     activeProject ? (lastInvokedScriptByProjectId[activeProject.id] ?? null) : null
@@ -3851,39 +3836,6 @@ export default function ChatView(props: ChatViewProps) {
                     )
                   }
                   gitCwd={gitCwd}
-                  workspaceMutationId={workspaceMutationId}
-                  isGitRepo={isGitRepo}
-                  envLocked={envLocked}
-                  availableEnvironments={logicalProjectEnvironments}
-                  autoEnvironmentLabel={autoEnvironmentLabel}
-                  onAutoEnvironment={
-                    draftId &&
-                    !envLocked &&
-                    canAutoBalanceEnvironments &&
-                    loadBalancingSettings.loadBalancingEnabled
-                      ? onAutoEnvironmentStable
-                      : undefined
-                  }
-                  {...(canChangeEnvironment
-                    ? { onEnvironmentChange: onEnvironmentChangeStable }
-                    : {})}
-                  onEnvModeChange={onEnvModeChangeStable}
-                  envMode={envMode}
-                  {...(canOverrideServerThreadEnvMode
-                    ? {
-                        activeThreadBranchOverride: activeThreadBranch,
-                        onActiveThreadBranchOverrideChange: setPendingServerThreadBranch,
-                      }
-                    : {})}
-                  startFromOrigin={startFromOrigin}
-                  onStartFromOriginChange={onStartFromOriginChange}
-                  {...(canCheckoutPullRequestIntoThread
-                    ? { onCheckoutPullRequestRequest: openPullRequestDialogStable }
-                    : {})}
-                  onComposerFocusRequest={scheduleComposerFocusStable}
-                  {...(isServerThread && isGitRepo
-                    ? { onOpenChanges: openChangesFromThreadPanelStable }
-                    : {})}
                   onRunProjectScript={runProjectScriptStable}
                   onAddProjectScript={saveProjectScriptStable}
                   onUpdateProjectScript={updateProjectScriptStable}

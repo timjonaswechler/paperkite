@@ -161,13 +161,24 @@ export const make = Effect.gen(function* () {
     );
   });
   return TextGeneration.of({
-    generateApplicationAnalysis: Effect.fn("TextGeneration.generateApplicationAnalysis")(function (input) {
-      return generate("generateApplicationAnalysis", input.modelSelection, null, (service, modelSelection) =>
-        service.generateApplicationAnalysis
-          ? service.generateApplicationAnalysis({ ...input, modelSelection })
-          : Effect.fail(new TextGenerationError({ operation: "generateApplicationAnalysis", detail: "This provider does not support application analysis." })),
-      );
-    }),
+    generateApplicationAnalysis: Effect.fn("TextGeneration.generateApplicationAnalysis")(
+      function (input) {
+        return generate(
+          "generateApplicationAnalysis",
+          input.modelSelection,
+          null,
+          (service, modelSelection) =>
+            service.generateApplicationAnalysis
+              ? service.generateApplicationAnalysis({ ...input, modelSelection })
+              : Effect.fail(
+                  new TextGenerationError({
+                    operation: "generateApplicationAnalysis",
+                    detail: "This provider does not support application analysis.",
+                  }),
+                ),
+        );
+      },
+    ),
     generateCommitMessage: Effect.fn("TextGeneration.generateCommitMessage")(function (input) {
       return generate(
         "generateCommitMessage",

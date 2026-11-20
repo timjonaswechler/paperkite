@@ -1,5 +1,9 @@
 import { HOSTED_APP_CHANNEL } from "~/branding";
-import { isRetiredSettingsPath, isRetiredShortcut } from "~/bewerbung/retiredFeatures";
+import {
+  isRetiredSettingsPath,
+  isRetiredSettingsItem,
+  isRetiredShortcut,
+} from "~/bewerbung/retiredFeatures";
 import { isElectron, isSecretsFeatureEnabled } from "~/env";
 import { isMacPlatform, isWindowsPlatform, normalizeSearchText } from "~/lib/utils";
 import { STATIC_KEYBINDING_COMMANDS, type KeybindingCommand } from "@t3tools/contracts";
@@ -132,12 +136,7 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
   },
   {
     heading: msg("Agents"),
-    paths: [
-      "/settings/providers",
-      "/settings/threads",
-      "/settings/browser",
-      "/settings/scheduled-tasks",
-    ],
+    paths: ["/settings/providers", "/settings/threads", "/settings/scheduled-tasks"],
   },
   {
     heading: msg("Bewerbungen"),
@@ -1528,6 +1527,7 @@ export function filterAvailableSettingsSearchItems(
   return items.filter(
     (item) =>
       !isRetiredSettingsPath(item.to) &&
+      !isRetiredSettingsItem(item.id) &&
       (!item.cloudOnly || availability.hasCloudPublicConfig) &&
       (!item.environmentOnly || availability.hasEnvironment) &&
       (!item.providerSettingsOnly || availability.hasProviderSettingsEnvironment) &&
@@ -1552,6 +1552,7 @@ export function settingsForThisPlatform(
   return items.filter(
     (item) =>
       !isRetiredSettingsPath(item.to) &&
+      !isRetiredSettingsItem(item.id) &&
       (isElectron || item.desktopOnly !== true) &&
       (!item.releaseChannelOnly || isElectron || HOSTED_APP_CHANNEL !== null) &&
       (!item.secretsFeatureOnly || isSecretsFeatureEnabled) &&

@@ -1,11 +1,9 @@
 import {
   EnvironmentId,
-  ProjectId,
   ThreadId,
   type ScopedThreadRef,
   type ThreadPullRequestLink,
 } from "@t3tools/contracts";
-import { AsyncResult, Atom } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 
@@ -57,30 +55,6 @@ vi.mock(import("~/state/entities"), async (importOriginal) => ({
         : [],
     )) as never,
 }));
-// Neither folder is a repository, which is what the server reports for both.
-vi.mock(import("~/state/vcs"), async (importOriginal) => {
-  const actual = await importOriginal();
-  const notARepo = Atom.make(
-    AsyncResult.success({
-      isRepo: false,
-      hasPrimaryRemote: false,
-      isDefaultRef: false,
-      refName: null,
-      hasWorkingTreeChanges: false,
-      workingTree: { files: [], insertions: 0, deletions: 0 },
-      hasUpstream: false,
-      aheadCount: 0,
-      behindCount: 0,
-      aheadOfDefaultCount: 0,
-      pr: null,
-    }),
-  );
-  return {
-    ...actual,
-    vcsEnvironment: { ...actual.vcsEnvironment, status: (() => notARepo) as never },
-  };
-});
-
 import { render } from "../../../test/render";
 import { useRightPanelStore } from "../../rightPanelStore";
 import { PopoverCreateHandle } from "../ui/popover";
@@ -147,11 +121,6 @@ function Panel({ fixture }: { fixture: ReturnType<typeof setup> }) {
         handle={fixture.handle}
         environmentId={threadRef.environmentId}
         threadId={threadRef.threadId}
-        projectId={ProjectId.make("project")}
-        composerDraftTarget={threadRef}
-        worktreePath={state.folder}
-        isServerThread
-        activeProjectName={state.workspaceRoot === SCRATCH_ROOT ? "No project" : "plain"}
         activeProjectScripts={undefined}
         preferredScriptId={null}
         keybindings={[]}
@@ -159,15 +128,6 @@ function Panel({ fixture }: { fixture: ReturnType<typeof setup> }) {
         showOpenInPicker={false}
         openInShortcutEnabled={false}
         gitCwd={state.folder}
-        workspaceMutationId={null}
-        isGitRepo={false}
-        envLocked
-        availableEnvironments={[]}
-        onEnvModeChange={noop}
-        envMode="local"
-        startFromOrigin={false}
-        onStartFromOriginChange={noop}
-        onComposerFocusRequest={noop}
         onRunProjectScript={noop}
         onAddProjectScript={scriptResult}
         onUpdateProjectScript={scriptResult}
@@ -178,39 +138,42 @@ function Panel({ fixture }: { fixture: ReturnType<typeof setup> }) {
   );
 }
 
-it("offers no git controls in a No project thread, but shows its linked pull request", async () => {
+it("offers no workspace or git controls in a No project thread with a linked pull request", async () => {
   using fixture = setup({
     workspaceRoot: SCRATCH_ROOT,
     folder: `${SCRATCH_ROOT}/thread`,
     pullRequests: [linkedPullRequest],
   });
   await using _screen = await render(<Panel fixture={fixture} />);
-  await expect.element(page.getByText("#27513")).toBeVisible();
+  await expect.element(page.getByText("#27513")).not.toBeInTheDocument();
+  await expect.element(page.getByRole("region", { name: "Workspace" })).not.toBeInTheDocument();
   await expect
-    .element(page.getByRole("button", { name: "Initialize Git" }))
+    .element(page.getByRole("region", { name: "Version Control" }))
     .not.toBeInTheDocument();
 });
 
-it("shows a linked pull request in a folder that is not a git repository", async () => {
+it("does not offer git initialization in a plain workspace", async () => {
   using fixture = setup({
     workspaceRoot: "/work/plain",
     folder: "/work/plain",
     pullRequests: [linkedPullRequest],
   });
   await using _screen = await render(<Panel fixture={fixture} />);
-  await expect.element(page.getByRole("region", { name: "Workspace" })).toBeVisible();
-  await expect.element(page.getByText("#27513")).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "Initialize Git" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Workspace" })).not.toBeInTheDocument();
+  await expect.element(page.getByText("#27513")).not.toBeInTheDocument();
+  await expect
+    .element(page.getByRole("button", { name: "Initialize Git" }))
+    .not.toBeInTheDocument();
 });
 
-it("offers no Initialize Git before the server config says where No project lives", async () => {
+it("does not restore workspace controls while the server config is loading", async () => {
   using fixture = setup({
     workspaceRoot: SCRATCH_ROOT,
     folder: `${SCRATCH_ROOT}/thread`,
     configLoaded: false,
   });
   await using _screen = await render(<Panel fixture={fixture} />);
-  await expect.element(page.getByRole("region", { name: "Workspace" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Workspace" })).not.toBeInTheDocument();
   await expect
     .element(page.getByRole("button", { name: "Initialize Git" }))
     .not.toBeInTheDocument();

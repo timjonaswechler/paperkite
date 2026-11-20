@@ -12,17 +12,41 @@ it.effect("extracts structured application facts instead of treating them as a t
       assert.strictEqual(request.modelSelection.model, "fixture-model");
       const data = JSON.parse(request.prompt.split("\n").at(-1)!);
       assert.deepEqual(data, { sourceUrl: "https://jobs.example/job/42", advertisement: source });
-      return decodeJsonReply(request, "Stub", '{"company":"Acme GmbH","role":"Software Engineer","requirements":["TypeScript"]}');
+      return decodeJsonReply(
+        request,
+        "Stub",
+        '{"company":"Acme GmbH","role":"Software Engineer","requirements":["TypeScript"]}',
+      );
     });
-    const result = yield* (textGeneration.generateApplicationAnalysis?.({ cwd: "/tmp", text: source, sourceUrl: "https://jobs.example/job/42", modelSelection: { instanceId: ProviderInstanceId.make("pi"), model: "fixture-model" } }) ?? Effect.die("Analysis operation missing"));
-    assert.deepEqual(result, { company: "Acme GmbH", role: "Software Engineer", requirements: ["TypeScript"] });
+    const result = yield* (
+      textGeneration.generateApplicationAnalysis?.({
+        cwd: "/tmp",
+        text: source,
+        sourceUrl: "https://jobs.example/job/42",
+        modelSelection: { instanceId: ProviderInstanceId.make("pi"), model: "fixture-model" },
+      }) ?? Effect.die("Analysis operation missing")
+    );
+    assert.deepEqual(result, {
+      company: "Acme GmbH",
+      role: "Software Engineer",
+      requirements: ["TypeScript"],
+    });
   }),
 );
 
 it.effect("rejects a title-only response for application analysis", () =>
   Effect.gen(function* () {
-    const textGeneration = fromRunner("Stub", request => decodeJsonReply(request, "Stub", '{"title":"Acme Engineer"}'));
-    const result = yield* (textGeneration.generateApplicationAnalysis?.({ cwd: "/tmp", text: "Job advertisement", sourceUrl: "", modelSelection: { instanceId: ProviderInstanceId.make("pi"), model: "fixture-model" } }) ?? Effect.die("Analysis operation missing")).pipe(Effect.flip);
+    const textGeneration = fromRunner("Stub", (request) =>
+      decodeJsonReply(request, "Stub", '{"title":"Acme Engineer"}'),
+    );
+    const result = yield* (
+      textGeneration.generateApplicationAnalysis?.({
+        cwd: "/tmp",
+        text: "Job advertisement",
+        sourceUrl: "",
+        modelSelection: { instanceId: ProviderInstanceId.make("pi"), model: "fixture-model" },
+      }) ?? Effect.die("Analysis operation missing")
+    ).pipe(Effect.flip);
     assert.instanceOf(result, TextGenerationError);
   }),
 );

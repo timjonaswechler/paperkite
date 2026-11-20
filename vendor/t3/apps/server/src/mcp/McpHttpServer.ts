@@ -49,10 +49,6 @@ import * as McpToolAccess from "./McpToolAccess.ts";
 import * as McpToolExposure from "./McpToolExposure.ts";
 import { MCP_TOOL_EXPOSURE_HEADER } from "@t3tools/provider-core/server/mcpSession";
 import * as OrchestratorMcpService from "./OrchestratorMcpService.ts";
-import { PreviewControlsToolkit } from "./toolkits/previewControls/tools.ts";
-import * as PreviewControlsHandlers from "./toolkits/previewControls/handlers.ts";
-import { EnvironmentToolkit } from "./toolkits/environment/tools.ts";
-import * as EnvironmentHandlers from "./toolkits/environment/handlers.ts";
 import { ThemeToolkit } from "./toolkits/theme/tools.ts";
 import * as ThemeHandlers from "./toolkits/theme/handlers.ts";
 import { ProjectToolkit } from "./toolkits/project/tools.ts";
@@ -1267,16 +1263,6 @@ const layerWorktreeToolkitRegistration = toolkitRegistration(
   WorktreeHandlers.layer,
 ).pipe(Layer.provide(WorktreeMcpService.layer));
 
-const layerPreviewControlsRegistration = toolkitRegistration(
-  PreviewControlsToolkit,
-  PreviewControlsHandlers.layer,
-);
-
-const layerEnvironmentToolkit = toolkitRegistration(
-  EnvironmentToolkit,
-  EnvironmentHandlers.layer,
-).pipe(Layer.provide(ThreadCommandExecutor.layer));
-
 const layerThemeToolkit = toolkitRegistration(ThemeToolkit, ThemeHandlers.layer).pipe(
   Layer.provide(ThreadCommandExecutor.layer),
 );
@@ -1340,18 +1326,13 @@ export const layerMcpTransport = <RA, RE, RR>(registrations: Layer.Layer<RA, RE,
 
 /** Every tool the T3 MCP server advertises. AgentContextBudget.test.ts measures this set. */
 export const layerTools = Layer.mergeAll(
-  layerPreviewToolkit,
   layerOrchestratorToolkit,
   layerThreadToolkit,
   layerAttachmentToolkit,
   layerProjectRegistration,
-  layerEnvironmentToolkit,
   layerThemeToolkit,
-  layerPreviewControlsRegistration,
   layerWorktreeToolkitRegistration,
   layerPullRequestsToolkit,
-  layerDeviceToolkit,
-  layerHtmlToolkit,
   layerMessageToolkit,
 );
 

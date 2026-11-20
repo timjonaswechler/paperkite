@@ -5,7 +5,13 @@ import { zipSync } from "fflate";
 import { Store } from "./store.ts";
 import { Builds, type Runner } from "./builds.ts";
 import { Harness } from "./harness.ts";
-import { check, fileMap, HttpError, JSON_LIMIT, neutralCover } from "./files.ts";
+import {
+  check,
+  fileMap,
+  HttpError,
+  JSON_LIMIT,
+  neutralCover,
+} from "./files.ts";
 import { decodeCover, encodeCover } from "./cover-letter.ts";
 import { parseProfile, serializeProfile, type Profile } from "./lua-profile.ts";
 import { organizationRoutes } from "./organization-routes.ts";
@@ -43,7 +49,9 @@ export function createApp(
   const pdfs = new PdfJobs(store, builds, pdfRunner, (app) =>
     publish(app, { type: "pdf" }),
   );
-  const deliveries = new Deliveries(store, builds, pdfs, app => publish(app, { type: "delivery" }));
+  const deliveries = new Deliveries(store, builds, pdfs, (app) =>
+    publish(app, { type: "delivery" }),
+  );
   const nativeChat = options.nativeChat?.(store);
   const deleting = new Set<string>(),
     openingNative = new Map<string, number>();
@@ -153,16 +161,32 @@ export function createApp(
     });
   const analyses = new Set<AbortController>();
   api.post("/job-analysis", async (req, res) => {
-    check(analyses.size < 2, "Es laufen bereits zwei Stellenanalysen. Bitte kurz warten.", 429);
+    check(
+      analyses.size < 2,
+      "Es laufen bereits zwei Stellenanalysen. Bitte kurz warten.",
+      429,
+    );
     const nativeAnalyze = nativeChat?.analyze;
-    check(options.analysisRunner || nativeAnalyze, "Stellenanalyse ist noch nicht verfügbar. Bitte Angaben manuell ergänzen.", 503);
+    check(
+      options.analysisRunner || nativeAnalyze,
+      "Stellenanalyse ist noch nicht verfügbar. Bitte Angaben manuell ergänzen.",
+      503,
+    );
     const controller = new AbortController();
     analyses.add(controller);
     const cancel = () => controller.abort();
     res.once("close", cancel);
     try {
-      const run: AnalysisRunner = options.analysisRunner ?? ((input, signal) => nativeChat!.analyze!(input, { headers: req.headers }, signal));
-      const result = await analyzePosting(req.body, store.preferences.settings().analysisModel, run, AbortSignal.any([controller.signal, AbortSignal.timeout(120_000)]));
+      const run: AnalysisRunner =
+        options.analysisRunner ??
+        ((input, signal) =>
+          nativeChat!.analyze!(input, { headers: req.headers }, signal));
+      const result = await analyzePosting(
+        req.body,
+        store.preferences.settings().analysisModel,
+        run,
+        AbortSignal.any([controller.signal, AbortSignal.timeout(120_000)]),
+      );
       if (!controller.signal.aborted) res.json(result);
     } finally {
       analyses.delete(controller);
@@ -330,24 +354,70 @@ export function createApp(
     );
   });
   api.get("/applications/:id/cover-letter", (req, res) => {
-    const app = store.app(req.params.id), source = store.read(app.id, "anschreiben/Anschreiben.tex").toString("utf8"), fields = decodeCover(source);
-    res.json({ revision: app.revision, requiresConversion: !fields && source !== neutralCover, fields: fields ?? { sender: store.preferences.settings().applicantName, recipient: app.company, subject: "Bewerbung als " + app.role, salutation: "Sehr geehrte Damen und Herren,", body: "", closing: "Mit freundlichen Grüßen" } });
+    const app = store.app(req.params.id),
+      source = store
+        .read(app.id, "anschreiben/Anschreiben.tex")
+        .toString("utf8"),
+      fields = decodeCover(source);
+    res.json({
+      revision: app.revision,
+      requiresConversion: !fields && source !== neutralCover,
+      fields: fields ?? {
+        sender: store.preferences.settings().applicantName,
+        recipient: app.company,
+        subject: "Bewerbung als " + app.role,
+        salutation: "Sehr geehrte Damen und Herren,",
+        body: "",
+        closing: "Mit freundlichen Grüßen",
+      },
+    });
   });
   api.put("/applications/:id/cover-letter", (req, res) => {
     editable(req.params.id);
-    const source = store.read(req.params.id, "anschreiben/Anschreiben.tex").toString("utf8");
-    check(decodeCover(source) || source === neutralCover || req.body.replaceExisting === true, "Vorhandene TeX-Vorlage zuerst ausdrücklich zum Ersetzen bestätigen.", 409);
-    res.json(store.save(req.params.id, "anschreiben/Anschreiben.tex", encodeCover(req.body.fields), req.body.revision));
+    const source = store
+      .read(req.params.id, "anschreiben/Anschreiben.tex")
+      .toString("utf8");
+    check(
+      decodeCover(source) ||
+        source === neutralCover ||
+        req.body.replaceExisting === true,
+      "Vorhandene TeX-Vorlage zuerst ausdrücklich zum Ersetzen bestätigen.",
+      409,
+    );
+    res.json(
+      store.save(
+        req.params.id,
+        "anschreiben/Anschreiben.tex",
+        encodeCover(req.body.fields),
+        req.body.revision,
+      ),
+    );
   });
   api.put("/applications/:id/profile", (req, res) => {
     editable(req.params.id);
     const target = store.profile(req.params.id, req.body.path);
     let nodes = 0;
-    const valid = (value: unknown, depth: number): boolean => ++nodes <= 10_000 && depth <= 16 && (typeof value === "string" || typeof value === "boolean" || typeof value === "number" && Number.isFinite(value) || value !== null && typeof value === "object" && Object.values(value).every(child => valid(child, depth + 1)));
-    check(valid(req.body.entries, 0) && req.body.entries && typeof req.body.entries === "object" && !Array.isArray(req.body.entries), "Ungültige Lebenslaufdaten");
+    const valid = (value: unknown, depth: number): boolean =>
+      ++nodes <= 10_000 &&
+      depth <= 16 &&
+      (typeof value === "string" ||
+        typeof value === "boolean" ||
+        (typeof value === "number" && Number.isFinite(value)) ||
+        (value !== null &&
+          typeof value === "object" &&
+          Object.values(value).every((child) => valid(child, depth + 1))));
+    check(
+      valid(req.body.entries, 0) &&
+        req.body.entries &&
+        typeof req.body.entries === "object" &&
+        !Array.isArray(req.body.entries),
+      "Ungültige Lebenslaufdaten",
+    );
     const content = serializeProfile(req.body.entries as Profile);
     parseProfile(content);
-    res.json(store.save(req.params.id, target.path, content, req.body.revision));
+    res.json(
+      store.save(req.params.id, target.path, content, req.body.revision),
+    );
   });
   api.get("/applications/:id/profile", (req, res) => {
     editable(req.params.id);

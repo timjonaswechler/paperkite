@@ -3547,6 +3547,73 @@ const writeHtmlRenderRun = Effect.fn("test.writeHtmlRenderRun")(function* (input
 });
 
 it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
+  it.effect("rejects removed settlement and snooze commands without changing the thread", () =>
+    Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const threadId = ThreadId.make("web-only-thread");
+      const projectId = ProjectId.make("web-only-project");
+      yield* seedProject({
+        projectId,
+        title: "Single server",
+        workspaceRoot: "/workspace/web-only",
+        defaultModelSelection: null,
+        createdAt: "2026-09-07T00:00:00.000Z",
+      });
+      yield* orchestrator.dispatch({
+        type: "thread.create",
+        createdBy: "user",
+        creationSource: "web",
+        commandId: CommandId.make("web-only-create"),
+        threadId,
+        projectId,
+        title: "Synthetic",
+        modelSelection,
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        branch: null,
+        worktreePath: null,
+      });
+      const before = yield* orchestrator.getThreadProjection(threadId);
+      const commands = [
+        { type: "thread.settle" as const, commandId: CommandId.make("web-only-settle"), threadId },
+        {
+          type: "thread.unsettle" as const,
+          commandId: CommandId.make("web-only-unsettle"),
+          threadId,
+          reason: "user" as const,
+        },
+        {
+          type: "thread.auto-settle" as const,
+          commandId: CommandId.make("web-only-auto"),
+          threadId,
+          snapshotAt: before.thread.updatedAt,
+        },
+        {
+          type: "thread.auto-settle.set" as const,
+          commandId: CommandId.make("web-only-enable"),
+          threadId,
+          enabled: true,
+        },
+        {
+          type: "thread.snooze" as const,
+          commandId: CommandId.make("web-only-snooze"),
+          threadId,
+          snoozedUntil: "2099-01-01T00:00:00.000Z",
+        },
+        {
+          type: "thread.unsnooze" as const,
+          commandId: CommandId.make("web-only-unsnooze"),
+          threadId,
+          reason: "user" as const,
+        },
+      ];
+      for (const command of commands) {
+        const error = yield* orchestrator.dispatch(command).pipe(Effect.flip);
+        assert.instanceOf(error, Orchestrator.OrchestratorDispatchError);
+        assert.deepEqual(yield* orchestrator.getThreadProjection(threadId), before);
+      }
+    }),
+  );
   it.effect("applies lifecycle commands idempotently and emits archive/removal shell deltas", () =>
     Effect.gen(function* () {
       const orchestrator = yield* Orchestrator.OrchestratorV2;

@@ -108,8 +108,20 @@ export type PdfInput = {
   pages?: string;
 };
 export type PdfCompression = "none" | "lossless" | "compact";
-export type ProfileValue = string | number | boolean | ProfileValue[] | { [key: string]: ProfileValue };
-export type CoverLetter = { sender: string; recipient: string; subject: string; salutation: string; body: string; closing: string };
+export type ProfileValue =
+  | string
+  | number
+  | boolean
+  | ProfileValue[]
+  | { [key: string]: ProfileValue };
+export type CoverLetter = {
+  sender: string;
+  recipient: string;
+  subject: string;
+  salutation: string;
+  body: string;
+  closing: string;
+};
 export type JobAnalysis = {
   company: string;
   role: string;

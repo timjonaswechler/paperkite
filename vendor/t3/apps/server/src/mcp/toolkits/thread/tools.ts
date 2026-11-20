@@ -12,7 +12,6 @@ import {
   ProviderInteractionMode,
   RuntimeRequestId,
   ProviderUserInputAnswers,
-  IsoDateTime,
   OrchestratorMcpFailure,
   OrchestrationV2DispatchCommandResult,
   ThreadId,
@@ -31,28 +30,13 @@ import * as ThreadManagementService from "../../../orchestration-v2/ThreadManage
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
 
 const ThreadOrganizeTool = Tool.make("t3_thread_organize", {
-  description:
-    "Pin, snooze, settle, archive, or mark a thread unread. Omit `threadId` for this thread. `snooze` needs `snoozedUntil`. Settling this thread applies at turn end. A failed turn or queued message leaves it active.",
+  description: "Pin, archive, or mark a thread unread. Omit `threadId` for this thread.",
   parameters: Schema.Struct({
     environmentId: OrchestratorMcpEnvironmentTarget,
     threadId: Schema.optional(ThreadId),
-    action: Schema.Literals([
-      "pin",
-      "unpin",
-      "snooze",
-      "unsnooze",
-      "settle",
-      "unsettle",
-      "archive",
-      "unarchive",
-      "mark_unread",
-    ]),
-    snoozedUntil: Schema.optional(IsoDateTime),
+    action: Schema.Literals(["pin", "unpin", "archive", "unarchive", "mark_unread"]),
   }),
-  success: Schema.Union([
-    OrchestrationV2DispatchCommandResult,
-    Schema.Struct({ settlesWhenTurnEnds: Schema.Literal(true) }),
-  ]),
+  success: OrchestrationV2DispatchCommandResult,
   failure: OrchestratorMcpFailure,
   failureMode: "return" as const,
   dependencies: [

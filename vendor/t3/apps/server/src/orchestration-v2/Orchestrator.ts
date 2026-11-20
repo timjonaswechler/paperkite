@@ -4845,7 +4845,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
                     ...command.limitRecovery,
                     autoResume:
                       command.limitRecovery.autoResume ?? previousRecovery?.autoResume ?? false,
-                    snooze: command.limitRecovery.snooze ?? previousRecovery?.snooze ?? false,
+                    snooze: false,
                     requestId: command.commandId,
                   };
           return {
@@ -14932,6 +14932,18 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       "orchestration_v2.command_type": command.type,
       "orchestration_v2.thread_id": commandThreadId(command),
     });
+
+    if (
+      [
+        "thread.settle",
+        "thread.unsettle",
+        "thread.auto-settle",
+        "thread.auto-settle.set",
+        "thread.snooze",
+        "thread.unsnooze",
+      ].includes(command.type)
+    )
+      return yield* dispatchUnsupported(command);
 
     const events = yield* Ref.make<Array<OrchestrationV2DomainEvent>>([]);
     const effects = yield* Ref.make<Array<PendingOrchestrationEffectV2>>([]);

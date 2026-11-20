@@ -29,9 +29,11 @@ export type ApplicationFormRequest =
   | { mode: "new" }
   | { mode: "edit" | "copy"; application: ApplicationDetail };
 export function ApplicationDialog(props: ComponentProps<typeof ApplicationDetailsDialog>) {
-  return props.request.mode === "new"
-    ? <JobOnboarding templates={props.templates} onClose={props.onClose} onSaved={props.onSaved} />
-    : <ApplicationDetailsDialog {...props} />;
+  return props.request.mode === "new" ? (
+    <JobOnboarding templates={props.templates} onClose={props.onClose} onSaved={props.onSaved} />
+  ) : (
+    <ApplicationDetailsDialog {...props} />
+  );
 }
 
 function ApplicationDetailsDialog({

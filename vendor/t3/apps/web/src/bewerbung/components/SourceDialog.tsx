@@ -127,7 +127,7 @@ export function SourceDialog({
     >
       <DialogPopup className="max-w-5xl h-[90dvh]" showCloseButton={!busy}>
         <DialogHeader>
-          <DialogTitle>Lebenslauf / Quellen bearbeiten</DialogTitle>
+          <DialogTitle>Erweiterte Quellen</DialogTitle>
           <DialogDescription>
             Erweiterter Editor für Lua-Profile und TeX. Dies sind interne Bewerbungsquellen, keine
             Zeugnisse oder Anlagen.

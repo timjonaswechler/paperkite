@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { BrowserSettingsPanel } from "../components/settings/IntegrationsSettings";
+import { createFileRoute, notFound } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_chat/settings/browser")({
-  component: BrowserSettingsPanel,
+  beforeLoad: () => {
+    throw notFound();
+  },
 });

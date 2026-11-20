@@ -1,7 +1,12 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import { ApplicationAnalysisResult, type ChatAttachment, type ModelSelection, TextGenerationError } from "@t3tools/contracts";
+import {
+  ApplicationAnalysisResult,
+  type ChatAttachment,
+  type ModelSelection,
+  TextGenerationError,
+} from "@t3tools/contracts";
 import { buildApplicationAnalysisPrompt } from "./applicationAnalysisPrompt.ts";
 import { formatGeneratedBranchName, sanitizeFeatureBranchName } from "@t3tools/shared/git";
 import { extractJsonObject } from "@t3tools/shared/schemaJson";
@@ -196,7 +201,9 @@ export function fromRunner(name: string, run: Runner): ProviderTextGeneration {
   });
 
   return {
-    generateApplicationAnalysis: Effect.fn(`${name}.generateApplicationAnalysis`)(function (input: Parameters<NonNullable<ProviderTextGeneration["generateApplicationAnalysis"]>>[0]) {
+    generateApplicationAnalysis: Effect.fn(`${name}.generateApplicationAnalysis`)(function (
+      input: Parameters<NonNullable<ProviderTextGeneration["generateApplicationAnalysis"]>>[0],
+    ) {
       return run({
         operation: "generateApplicationAnalysis",
         cwd: input.cwd,

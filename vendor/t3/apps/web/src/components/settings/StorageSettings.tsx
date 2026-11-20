@@ -17,7 +17,6 @@ import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { formatRelativeTimeLabel } from "../../timestampFormat";
 import { useNowMinute } from "../../hooks/useNowMinute";
-import { useDebouncedValue } from "../../state/queries";
 import { AnimatedHeight } from "../AnimatedHeight";
 import { Button } from "../ui/button";
 import { toastManager } from "../ui/toast";
@@ -796,35 +795,12 @@ export function WorktreeCleanupSection() {
   );
 }
 
-/** Retention for logs and captures, and the manual cleanup run, which covers worktrees too. */
+/** Log retention and manual cleanup for the local server. */
 export function StorageCleanupSections() {
-  const { scope, connectedEnvironments, targets } = useSettingsScope();
+  const { scope, connectedEnvironments } = useSettingsScope();
   const scopedSettings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   const settings = scopedSettings.storageCleanup;
-  const targetIdsKey = environmentIdsKey(targets.map((target) => target.environmentId).sort());
-  const artifactsMixed =
-    targets.length > 1 &&
-    targets.some(
-      (target) =>
-        target.settings.storageCleanup.browserArtifactsAfterDays !==
-        settings.browserArtifactsAfterDays,
-    );
-  const logsMixed =
-    targets.length > 1 &&
-    targets.some(
-      (target) => target.settings.storageCleanup.logsAfterDays !== settings.logsAfterDays,
-    );
-  const settledArtifactsStatus = useDebouncedValue(`${targetIdsKey}:${artifactsMixed}`, 300);
-  const settledLogsStatus = useDebouncedValue(`${targetIdsKey}:${logsMixed}`, 300);
-  const artifactsStatus =
-    targets.length > 1 && settledArtifactsStatus === `${targetIdsKey}:true`
-      ? "Mixed across selected machines"
-      : undefined;
-  const logsStatus =
-    targets.length > 1 && settledLogsStatus === `${targetIdsKey}:true`
-      ? "Mixed across selected machines"
-      : undefined;
   if (scope.kind === "project" || scope.kind === "checkout") return null;
   const update = (patch: Partial<StorageCleanupSettings>, options: SaveOptions) =>
     updateSettings({ storageCleanup: patch }, options);
@@ -853,26 +829,7 @@ export function StorageCleanupSections() {
       <SettingsSection id="storage-artifacts" title="Artifacts and logs">
         <AnimatedHeight>
           <SettingsRow
-            title="Delete old browser artifacts"
-            status={artifactsStatus}
-            managedPaths={["storageCleanup.browserArtifactsAfterDays"]}
-            description="Delete saved browser captures after this many days. Older capture links will no longer open."
-            serverScoped
-            control={
-              <RetentionControl
-                label="Delete old browser artifacts"
-                value={settings.browserArtifactsAfterDays}
-                onChange={(browserArtifactsAfterDays, onFailed) =>
-                  update({ browserArtifactsAfterDays }, { onFailed })
-                }
-              />
-            }
-          />
-        </AnimatedHeight>
-        <AnimatedHeight>
-          <SettingsRow
             title="Delete old rotated logs"
-            status={logsStatus}
             managedPaths={["storageCleanup.logsAfterDays"]}
             description="Delete inactive rotated log files after this many days. Current logs are kept."
             serverScoped

@@ -276,9 +276,18 @@ export const makeManagedCodexProvider = Effect.fn("makeManagedCodexProvider")(fu
       ),
     );
   const textGeneration: ProviderInstance["textGeneration"] = {
-    generateApplicationAnalysis: (value) => protect("generateApplicationAnalysis", nativeGeneration.generateApplicationAnalysis
-      ? nativeGeneration.generateApplicationAnalysis(value)
-      : Effect.fail(new TextGenerationError({ operation: "generateApplicationAnalysis", detail: "Analysis unavailable." }))),
+    generateApplicationAnalysis: (value) =>
+      protect(
+        "generateApplicationAnalysis",
+        nativeGeneration.generateApplicationAnalysis
+          ? nativeGeneration.generateApplicationAnalysis(value)
+          : Effect.fail(
+              new TextGenerationError({
+                operation: "generateApplicationAnalysis",
+                detail: "Analysis unavailable.",
+              }),
+            ),
+      ),
     generateCommitMessage: (value) =>
       protect("generateCommitMessage", nativeGeneration.generateCommitMessage(value)),
     generatePrContent: (value) =>

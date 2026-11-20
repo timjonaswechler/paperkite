@@ -58,8 +58,8 @@ export function ApplicationSettingsPage() {
   return (
     <SettingsPageContainer>
       <p className="px-3 text-sm text-muted-foreground sm:px-4">
-        Diese Einstellungen gelten für die gesamte Bewerbungsverwaltung. Darstellung, Chatmodelle und
-        Chatbedienung bleiben in den jeweiligen T3-Einstellungen.
+        Diese Einstellungen gelten für die gesamte Bewerbungsverwaltung. Darstellung, Chatmodelle
+        und Chatbedienung bleiben in den jeweiligen T3-Einstellungen.
       </p>
       <ErrorNotice error={error} onClose={() => setError("")} />
       <p role="status" className="px-3 text-xs text-muted-foreground sm:px-4">

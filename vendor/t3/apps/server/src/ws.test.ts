@@ -28,7 +28,6 @@ import {
   RunId,
   SourceControlRepositoryError,
   WS_METHODS,
-  WsRpcGroup,
   WsServerRefreshProvidersRpc,
   WsSubscribeServerConfigRpc,
   type AuthAccessStreamEvent,
@@ -62,6 +61,7 @@ import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as VcsProcess from "./vcs/VcsProcess.ts";
 import * as ProviderInstallationGate from "./provider/ProviderInstallationGate.ts";
 import * as Ws from "./ws.ts";
+import { ApplicationWsRpcGroup as WsRpcGroup } from "./ws.ts";
 import { RpcGroup, RpcMessage, RpcServer } from "effect/rpc";
 import * as RpcTest from "effect/rpc/RpcTest";
 import * as SqlClient from "effect/sql/SqlClient";
@@ -1135,8 +1135,6 @@ it.effect.each([
               scopes: [],
             },
             {},
-            yield* ServerBrowser.ServerBrowser,
-            () => Effect.void,
             { secretReferences: true },
           ).pipe(Layer.provide(configRpcServices)),
         ),
@@ -1290,8 +1288,6 @@ it.effect("access changes made while the snapshot loads reach the client after i
             scopes: [],
           },
           {},
-          yield* ServerBrowser.ServerBrowser,
-          () => Effect.void,
           { secretReferences: true },
         ).pipe(
           Layer.merge(RpcAuthorization.layer([AuthAccessReadScope])),
@@ -1506,8 +1502,6 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
             scopes: [],
           },
           {},
-          yield* ServerBrowser.ServerBrowser,
-          () => Effect.void,
           { secretReferences: true },
         ).pipe(Layer.provide(configRpcServices)),
       ),
@@ -1867,8 +1861,6 @@ it.effect("a missing thread worktree gets its project's skills in the cwd snapsh
             scopes: [],
           },
           {},
-          yield* ServerBrowser.ServerBrowser,
-          () => Effect.void,
           { secretReferences: true },
         ).pipe(Layer.provide(services)),
       ),
@@ -1946,8 +1938,6 @@ it.effect("a git action that fails partway still refreshes the repository status
             scopes: [AuthSourceControlWriteScope],
           },
           {},
-          yield* ServerBrowser.ServerBrowser,
-          () => Effect.void,
           { secretReferences: true },
         ).pipe(
           Layer.provide(services),
@@ -2026,8 +2016,6 @@ it.effect("a publish whose push fails still refreshes the new remote", () =>
             scopes: [AuthSourceControlWriteScope],
           },
           {},
-          yield* ServerBrowser.ServerBrowser,
-          () => Effect.void,
           { secretReferences: true },
         ).pipe(
           Layer.provide(services),
@@ -2335,6 +2323,22 @@ it.effect.each([
 );
 
 const acpDriver = ProviderDriverKind.make("acpRegistry");
+it("excludes browser and peer operations from the application protocol without removing file access", () => {
+  for (const method of [
+    WS_METHODS.previewOpen,
+    WS_METHODS.previewReportStatus,
+    WS_METHODS.previewClearProfile,
+    WS_METHODS.subscribePreviewEvents,
+    WS_METHODS.peerLinksList,
+    WS_METHODS.peerLinksLink,
+    WS_METHODS.peerLinksUnlink,
+    WS_METHODS.peerLinksAnswerRequest,
+  ])
+    assert.isFalse(WsRpcGroup.requests.has(method));
+  assert.isTrue(WsRpcGroup.requests.has(WS_METHODS.subscribeServerConfig));
+  assert.isTrue(WsRpcGroup.requests.has(WS_METHODS.projectsReadFile));
+});
+
 const acpInstanceId = ProviderInstanceId.make("acpRegistry_test");
 const acpProjectId = ProjectId.make("project:acp");
 const acpThreadId = (sessionId: string) =>
@@ -2352,10 +2356,8 @@ const acpSessionRpcs = WsRpcGroup.omit(
   ...[...WsRpcGroup.requests.keys()].filter(
     (
       tag,
-    ): tag is Exclude<
-      keyof typeof RpcAuthorization.RPC_REQUIRED_SCOPES,
-      (typeof acpSessionTags)[number]
-    > => !(acpSessionTags as ReadonlyArray<string>).includes(tag),
+    ): tag is Exclude<RpcGroup.Rpcs<typeof WsRpcGroup>["_tag"], (typeof acpSessionTags)[number]> =>
+      !(acpSessionTags as ReadonlyArray<string>).includes(tag),
   ),
 );
 const acpStores = Layer.mergeAll(EventStore.layer, ProjectionStore.layer).pipe(
@@ -2559,8 +2561,6 @@ it.effect("ACP session RPCs list a thread missing its history and repair it on i
             scopes: [],
           },
           {},
-          yield* ServerBrowser.ServerBrowser,
-          () => Effect.void,
           { secretReferences: true },
         ).pipe(
           Layer.provide(services),

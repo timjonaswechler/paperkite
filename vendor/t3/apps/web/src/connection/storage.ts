@@ -730,14 +730,9 @@ export const layer = Layer.effectContext(
     const threadWriteOrder = makeThreadCacheWriteOrder();
 
     const targetStore = Persistence.ConnectionTargetStore.of({
-      list: catalog.read.pipe(
-        Effect.map((document) => document.targets),
-        Effect.mapError((cause) => persistenceError("list-targets", cause)),
-      ),
-      listDisabled: catalog.read.pipe(
-        Effect.map((document) => document.disabledEnvironmentIds),
-        Effect.mapError((cause) => persistenceError("list-disabled-targets", cause)),
-      ),
+      // Only the same-origin platform registration participates; keep old catalog data untouched.
+      list: Effect.succeed([]),
+      listDisabled: Effect.succeed([]),
     });
     const registrationStore = Persistence.ConnectionRegistrationStore.of({
       register: Effect.fn("Persistence.ConnectionRegistrationStore.register")(

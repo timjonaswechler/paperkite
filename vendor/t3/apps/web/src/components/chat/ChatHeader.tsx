@@ -28,6 +28,7 @@ import { useThreadActionMenu } from "~/hooks/useThreadActionMenu";
 import { readLocalApi } from "~/localApi";
 import { threadEnvironment } from "../../state/threads";
 import { useApplications } from "~/bewerbung/ApplicationsProvider";
+import { ApplicationBreadcrumbRoot } from "~/bewerbung/ApplicationBreadcrumb";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
 import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
 import { ProjectFavicon } from "../ProjectFavicon";
@@ -260,10 +261,12 @@ export const ChatHeader = memo(function ChatHeader({
       onContextMenu={handleHeaderContextMenu}
     >
       <WorkspaceBreadcrumb
-        ariaLabel="Thread breadcrumb"
+        ariaLabel={application ? "Bewerbungsnavigation" : "Thread breadcrumb"}
         className="flex-1 overflow-clip [overflow-clip-margin:2px]"
       >
-        {activeProject ? (
+        {application ? (
+          <ApplicationBreadcrumbRoot application={application} project={activeProject} />
+        ) : activeProject ? (
           <>
             <WorkspaceBreadcrumbItem className="shrink">
               <Tooltip>

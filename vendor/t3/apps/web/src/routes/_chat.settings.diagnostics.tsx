@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-
-import { DiagnosticsSettingsPanel } from "../components/settings/DiagnosticsSettings";
+import { createFileRoute, notFound } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_chat/settings/diagnostics")({
-  component: DiagnosticsSettingsPanel,
+  beforeLoad: () => {
+    throw notFound();
+  },
 });

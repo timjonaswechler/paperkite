@@ -1,4 +1,11 @@
 import { Persistence } from "@t3tools/client-runtime/platform";
+import {
+  BearerConnectionRegistration,
+  BearerConnectionTarget,
+  BearerConnectionProfile,
+  BearerConnectionCredential,
+  ProfileStore,
+} from "@t3tools/client-runtime/connection";
 import { EnvironmentQueryStore } from "@t3tools/client-runtime/state/query-persistence";
 import { EnvironmentId } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
@@ -11,6 +18,34 @@ import { TestClock } from "effect/testing";
 import * as ConnectionStorage from "./storage";
 
 describe("IndexedDB query cache", () => {
+  it.effect("retains saved remote credentials without reconnecting their environments", () =>
+    Effect.gen(function* () {
+      const registrations = yield* Persistence.ConnectionRegistrationStore;
+      const targets = yield* Persistence.ConnectionTargetStore;
+      const profiles = yield* ProfileStore.ConnectionProfileStore;
+      const environmentId = EnvironmentId.make("old-remote");
+      const connectionId = "old-remote-connection";
+      const profile = new BearerConnectionProfile({
+        environmentId,
+        connectionId,
+        label: "Old remote",
+        httpBaseUrl: "https://old-remote.invalid",
+        wsBaseUrl: "wss://old-remote.invalid",
+      });
+      yield* registrations.register(
+        new BearerConnectionRegistration({
+          target: new BearerConnectionTarget({ environmentId, connectionId, label: "Old remote" }),
+          profile,
+          credential: new BearerConnectionCredential({ token: "synthetic-unused" }),
+        }),
+        [],
+      );
+      expect(yield* targets.list).toEqual([]);
+      expect(yield* targets.listDisabled).toEqual([]);
+      expect(yield* profiles.get(connectionId)).toEqual(Option.some(profile));
+      yield* registrations.remove(environmentId);
+    }).pipe(Effect.provide(ConnectionStorage.layer)),
+  );
   it.effect("round trips per environment and clears with the environment", () =>
     Effect.gen(function* () {
       const store = (yield* EnvironmentQueryStore)!;

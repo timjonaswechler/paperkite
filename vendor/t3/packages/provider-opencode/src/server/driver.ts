@@ -202,10 +202,25 @@ function selectOpenCodeRuntimeTextGeneration(
   v2: ProviderTextGeneration,
 ): ProviderTextGeneration {
   return {
-    generateApplicationAnalysis: (input) => byOpenCodeRuntime(resolve, {
-      v1: v1.generateApplicationAnalysis ? v1.generateApplicationAnalysis(input) : Effect.fail(new TextGenerationError({ operation: "generateApplicationAnalysis", detail: "Analysis unavailable." })),
-      v2: v2.generateApplicationAnalysis ? v2.generateApplicationAnalysis(input) : Effect.fail(new TextGenerationError({ operation: "generateApplicationAnalysis", detail: "Analysis unavailable." })),
-    }),
+    generateApplicationAnalysis: (input) =>
+      byOpenCodeRuntime(resolve, {
+        v1: v1.generateApplicationAnalysis
+          ? v1.generateApplicationAnalysis(input)
+          : Effect.fail(
+              new TextGenerationError({
+                operation: "generateApplicationAnalysis",
+                detail: "Analysis unavailable.",
+              }),
+            ),
+        v2: v2.generateApplicationAnalysis
+          ? v2.generateApplicationAnalysis(input)
+          : Effect.fail(
+              new TextGenerationError({
+                operation: "generateApplicationAnalysis",
+                detail: "Analysis unavailable.",
+              }),
+            ),
+      }),
     generateCommitMessage: (input) =>
       byOpenCodeRuntime(resolve, {
         v1: v1.generateCommitMessage(input),

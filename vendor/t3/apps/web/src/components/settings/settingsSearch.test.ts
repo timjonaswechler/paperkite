@@ -58,6 +58,39 @@ const ITEMS: ReadonlyArray<SettingsSearchItem> = [
 ];
 
 describe("searchSettings", () => {
+  it("never offers retired web-only features even with cached supporting capabilities", () => {
+    const available = filterAvailableSettingsSearchItems({
+      hasCloudPublicConfig: true,
+      hasEnvironment: true,
+      hasProviderSettingsEnvironment: true,
+      canManageLocalBackend: true,
+      isWslSettingsRowVisible: true,
+      hasThreadAutoSettlement: true,
+      hasPeerLinkHost: true,
+    });
+    for (const id of [
+      "mobile-app",
+      "auto-settle-inactive-threads",
+      "auto-settle-merged-threads",
+      "keep-threads-with-pull-requests",
+      "days-before-auto-settle",
+      "browser-profiles",
+      "browser-recording-frame-rate",
+      "agent-browser-access",
+      "storage-artifacts",
+      "diagnostics",
+      "new-threads",
+      "snooze-options",
+      "snooze-limited-threads",
+    ])
+      expect(available.map((item) => item.id)).not.toContain(id);
+    expect(available.some((item) => item.id === "text-generation-model")).toBe(true);
+    expect(available.some((item) => item.to === "/settings/browser")).toBe(false);
+    expect(SETTINGS_NAV_GROUPS.flatMap((group) => group.paths)).not.toContain("/settings/browser");
+    expect(SETTINGS_NAV_GROUPS.flatMap((group) => group.paths)).not.toContain(
+      "/settings/diagnostics",
+    );
+  });
   it("matches titles, sections, and remembered setting details", () => {
     expect(searchSettings("word", ITEMS).map((item) => item.id)).toEqual(["word-wrap"]);
     expect(searchSettings("network", ITEMS).map((item) => item.id)).toEqual(["network-access"]);

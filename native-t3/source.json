@@ -2,9 +2,12 @@
   "version": "0.1.10",
   "repository": "https://github.com/pingdotgg/t3code",
   "commit": "7d32075e3757ded707914e2450c3e392a9665765",
-  "runtimeSha256": "a07bbbfbabb609d5a3d15926b06a3c57b03cf25e29f68ac10886b95784c0e303",
+  "originalRuntimeSha256": "a07bbbfbabb609d5a3d15926b06a3c57b03cf25e29f68ac10886b95784c0e303",
+  "runtimeSha256": "879dba749b25827a13cee173c0dda6b66168402d42dd2491fd39ac04fad0db40",
+  "backendExtension": "Web-only single-server application with structured job analysis; browser/recording, peer routing, native app clients, settlement and snooze retired; native chat/provider modes retained",
+  "sourceAudit": "native-t3/source-audit.json",
   "platform": "linux-x64",
-  "originalFrontendSeams": [
+  "initialFrontendSeams": [
     "apps/web/src/components/sidebar/SidebarChrome.tsx",
     "apps/web/src/routeTree.gen.ts"
   ]

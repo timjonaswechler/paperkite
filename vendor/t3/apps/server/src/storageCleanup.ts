@@ -1799,12 +1799,6 @@ const make = Effect.gen(function* () {
     sweptDeletions = deletionsAtStart;
     for (const category of [
       {
-        kind: "browser-artifacts" as const,
-        root: config.browserArtifactsDir,
-        days: settings.browserArtifactsAfterDays,
-        label: "browser artifacts",
-      },
-      {
         kind: "logs" as const,
         root: config.logsDir,
         days: settings.logsAfterDays,

@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { spawn, execFile } from "node:child_process";
 import { check, fileMap, putMap } from "./files.ts";
 import { Store } from "./store.ts";
+import { decodeCover } from "./cover-letter.ts";
 export type BuildKind = "cv" | "cover";
 export type Runner = (
   input: string,
@@ -154,21 +155,60 @@ export class Builds {
     return this.store.build(app, id);
   }
   documentStatus(app: string) {
-    const status: Record<BuildKind, "missing" | "current" | "outdated"> = { cv: "missing", cover: "missing" };
+    const status: Record<BuildKind, "missing" | "current" | "outdated"> = {
+      cv: "missing",
+      cover: "missing",
+    };
     const history = this.store.builds(app);
     for (const kind of ["cv", "cover"] as const) {
-      const build = history.find(entry => entry.kind === kind && entry.status === "success");
+      const build = history.find(
+        (entry) => entry.kind === kind && entry.status === "success",
+      );
       if (!build) continue;
       status[kind] = "outdated";
       try {
+        const artifact = fs.lstatSync(this.artifact(app, String(build.id)));
+        if (
+          !artifact.isFile() ||
+          artifact.isSymbolicLink() ||
+          artifact.size <= 5
+        )
+          continue;
         const current = fileMap(this.store.workspace(app));
-        const snapshot = fileMap(path.join(this.store.root, "builds", String(build.id), "input"));
-        const ownCover = snapshot["anschreiben/Anschreiben.tex"]?.toString("utf8").startsWith("% bewerbung-cover-v1 ");
-        const relevant = (name: string) => kind === "cv" ? name.startsWith("cv/") || name.startsWith("fonts/") : name !== "application.json" && (!ownCover || name.startsWith("anschreiben/") || name.startsWith("fonts/"));
-        const names = [...new Set([...Object.keys(current), ...Object.keys(snapshot)])].filter(relevant);
-        const profileMatches = kind !== "cv" || JSON.parse(snapshot["application.json"]!.toString("utf8")).profile === this.store.app(app).profile;
-        if (profileMatches && names.every(name => current[name] && snapshot[name] && current[name]!.equals(snapshot[name]!))) status[kind] = "current";
-      } catch { /* A missing snapshot/source must never look current. */ }
+        const snapshot = fileMap(
+          path.join(this.store.root, "builds", String(build.id), "input"),
+        );
+        const coverSource =
+          snapshot["anschreiben/Anschreiben.tex"]?.toString("utf8");
+        const ownCover =
+          coverSource !== undefined && decodeCover(coverSource) !== null;
+        const relevant = (name: string) =>
+          kind === "cv"
+            ? name.startsWith("cv/") || name.startsWith("fonts/")
+            : name !== "application.json" &&
+              (!ownCover ||
+                name.startsWith("anschreiben/") ||
+                name.startsWith("fonts/"));
+        const names = [
+          ...new Set([...Object.keys(current), ...Object.keys(snapshot)]),
+        ].filter(relevant);
+        const profileMatches =
+          kind !== "cv" ||
+          JSON.parse(snapshot["application.json"]!.toString("utf8")).profile ===
+            this.store.app(app).profile;
+        if (
+          profileMatches &&
+          names.every(
+            (name) =>
+              current[name] &&
+              snapshot[name] &&
+              current[name]!.equals(snapshot[name]!),
+          )
+        )
+          status[kind] = "current";
+      } catch {
+        /* A missing snapshot/source must never look current. */
+      }
     }
     return status;
   }

@@ -116,9 +116,12 @@ export interface TranscriptionPostProcessingResult {
 }
 
 export interface ProviderTextGeneration {
-  readonly generateApplicationAnalysis?: (
-    input: { cwd: string; text: string; sourceUrl: string; modelSelection: ModelSelection },
-  ) => Effect.Effect<ApplicationAnalysisResult, TextGenerationError>;
+  readonly generateApplicationAnalysis?: (input: {
+    cwd: string;
+    text: string;
+    sourceUrl: string;
+    modelSelection: ModelSelection;
+  }) => Effect.Effect<ApplicationAnalysisResult, TextGenerationError>;
 
   readonly generateTranscriptionPostProcessing: (
     input: TranscriptionPostProcessingInput,
