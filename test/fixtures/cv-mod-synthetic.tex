@@ -1,0 +1,35 @@
+% Synthetic adapter fixture. No uploaded CV, personal data, or production template.
+\documentclass{article}
+\usepackage{luacode}
+\begin{document}
+\begin{luacode*}
+local data = dofile(os.getenv('CV_DATA_FILE'))
+local replacements = {
+  ['\\'] = '\\textbackslash{}', ['{'] = '\\{', ['}'] = '\\}',
+  ['#'] = '\\#', ['$'] = '\\$', ['%'] = '\\%', ['&'] = '\\&',
+  ['_'] = '\\_', ['~'] = '\\textasciitilde{}', ['^'] = '\\textasciicircum{}',
+}
+local function text(value)
+  return tostring(value or ''):gsub('.', function(character)
+    return replacements[character] or character
+  end)
+end
+tex.print(text(data.person.displayName) .. '\\par')
+if data.person.role then tex.print(text(data.person.role) .. '\\par') end
+for _, section in ipairs(data.sections) do
+  if #section.entries > 0 then tex.print('\\section*{' .. text(section.label) .. '}') end
+  for _, entry in ipairs(section.entries) do
+    tex.print(text(entry.fields.title) .. ' ' .. text(entry.fields.organization) .. ' ' .. text(entry.fields.period) .. '\\par')
+    for _, block in ipairs(entry.content) do
+      if block.type == 'paragraph' then
+        tex.print(text(block.text) .. '\\par')
+      elseif block.type == 'bulletList' then
+        tex.print('\\begin{itemize}')
+        for _, item in ipairs(block.items) do tex.print('\\item ' .. text(item.text)) end
+        tex.print('\\end{itemize}')
+      end
+    end
+  end
+end
+\end{luacode*}
+\end{document}

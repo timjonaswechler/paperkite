@@ -13,6 +13,7 @@ import {
 import { DocumentLibrary } from "./documents.ts";
 import { Preferences } from "./preferences.ts";
 import { Templates } from "./templates.ts";
+import { CvDocuments } from "./cv-documents.ts";
 import {
   deletionSchema,
   cleanDeletions,
@@ -40,6 +41,7 @@ export class Store {
   documents: DocumentLibrary;
   preferences: Preferences;
   templateLibrary: Templates;
+  cv: CvDocuments;
   onWorkspaceCommit?: (id: string) => void;
   initializeWorkspace?: (id: string) => void;
   constructor(public root: string) {
@@ -56,6 +58,7 @@ export class Store {
     this.templateLibrary = new Templates(this.db, root);
     this.documents = new DocumentLibrary(this.db, root);
     this.preferences = new Preferences(this.db);
+    this.cv = new CvDocuments(this);
     this.db
       .prepare(
         "UPDATE builds SET status='failed',log=log || '\nServer während Build beendet.' WHERE status IN ('queued','running')",
@@ -321,6 +324,14 @@ export class Store {
           now,
         );
       this.documents.assign(id, documents);
+      const cvSource =
+        input.cvSource || (!input.template ? input.source : undefined);
+      if (
+        cvSource &&
+        (input.profile === undefined ||
+          input.profile === this.app(cvSource).profile)
+      )
+        this.cv.copy(cvSource, id);
       this.initializeWorkspace?.(id);
       this.db.exec("COMMIT");
     } catch (error) {

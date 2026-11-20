@@ -27,6 +27,7 @@ Der angepasste Server wird als gepinntes Programm aus dem vollständigen Quellba
 `server/{app,store,t3-runtime,t3-access,t3-home,t3-workspace,t3-projects,t3-documents,t3-gateway,t3-main}.ts` verbinden die native T3-Engine mit der vorhandenen Fachverwaltung:
 
 - Eigene SQLite, Link-Onboarding, Dokumenteneditoren, Bewerbungen/Quellen, Anlagen/Tags, Vorlagen, feste PDF-/ZIP-Versandpakete.
+- Direkt bearbeitbare Bewerbungs-CVs und ZIP-Vorlagenimporte über `server/cv-documents.ts` und `server/cv-mod-prototype/`: native CLI-Threads im eigenen App-Home, geprüfte feste Mod-Versionen, isolierte Daten-/Layout-Snapshots. Das ist Wrapper-/Fachlogik, kein neuer Provider oder Ersatz der nativen Werkzeugrechte. Nur die eigene Gateway-Sitzung darf den owner-backed Import-CLI starten; reduzierte explizite Tokens werden dort abgewiesen. Normale CV-Builds benötigen keine Modellrunde.
 - Echte native Projekte im jeweiligen bestehenden unabhängigen Arbeitsverzeichnis; keine synthetischen Orchestrierungsereignisse.
 - NetBird-Zugang ohne Browser-Pairing über eine eigene native Gateway-Sitzung; originale Dateirechtsprüfung für die Fach-API und zusätzliche Projektberechtigungen durch T3 selbst.
 - Revisionsabgleich verwalteter Quellen, unabhängige Unterlagen-Arbeitskopien sowie bestätigtes fachliches Löschen erst nach nativer Prozess-/Outbox-Bereinigung.

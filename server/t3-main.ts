@@ -9,10 +9,26 @@ import { NativeT3Projects } from "./t3-projects.ts";
 import { createLegacyRedirect, createT3Gateway } from "./t3-gateway.ts";
 import { check } from "./files.ts";
 import { prepareNativeProviderHome } from "./t3-home.ts";
-import { createNetworkT3Access } from "./t3-access.ts";
+import { createNetworkT3Access, type NetworkT3Access } from "./t3-access.ts";
+import express, { type Router } from "express";
+import {
+  CvModImports,
+  type ModThreadRunner,
+  type ModBuilder,
+} from "./cv-mod-prototype/imports.ts";
+import {
+  nativeModThreads,
+  dockerModBuilder,
+} from "./cv-mod-prototype/native.ts";
+import { cvModRoutes } from "./cv-mod-prototype/routes.ts";
 
 export async function startT3Application(
-  options: { logNative?: (line: string) => void } = {},
+  options: {
+    logNative?: (line: string) => void;
+    configureApi?: (api: Router) => void;
+    modThreads?: ModThreadRunner;
+    modBuilder?: ModBuilder;
+  } = {},
 ) {
   process.umask(0o077);
   const config = JSON.parse(
@@ -33,6 +49,9 @@ export async function startT3Application(
   });
   prepareNativeProviderHome(native.options.home);
   await native.start();
+  const modRouter = express.Router();
+  let cvMods: CvModImports | undefined;
+  let access: NetworkT3Access | undefined;
   let app: ReturnType<typeof createApp> | undefined;
   let server: ReturnType<typeof createT3Gateway> | undefined;
   let legacy: ReturnType<typeof createLegacyRedirect> | undefined;
@@ -51,9 +70,44 @@ export async function startT3Application(
           `localhost:${legacyPort}`,
         ],
         nativeChat: (store) => new NativeT3Projects(store, native),
+        configureApi: (api) => {
+          api.use(modRouter);
+          options.configureApi?.(api);
+        },
       },
     );
-    const access = await createNetworkT3Access(native, origin);
+    access = await createNetworkT3Access(native, origin);
+    cvMods = new CvModImports(
+      path.join(data, "cv-mod-imports"),
+      options.modThreads ||
+        nativeModThreads({
+          binary: path.join(native.options.directory, "t3"),
+          home: native.options.home,
+          environmentId: native.environment().environmentId,
+          publicOrigin: origin,
+        }),
+      options.modBuilder ||
+        (fs.existsSync("pdf-tools/image-id")
+          ? dockerModBuilder(
+              fs.readFileSync("builder/image-id", "utf8").trim(),
+              fs.readFileSync("pdf-tools/image-id", "utf8").trim(),
+            )
+          : async () => {
+              throw new Error("PDF-Buildumgebung für Vorlagenprüfung fehlt");
+            }),
+    );
+    cvModRoutes(modRouter, cvMods, access);
+    const imports = cvMods;
+    const cvStore = app.store;
+    imports.isUsed = (id) =>
+      Boolean(
+        cvStore.db
+          .prepare(
+            "SELECT 1 FROM cv_documents WHERE mod_id=? OR mod_id LIKE ? LIMIT 1",
+          )
+          .get(id, id + ".%"),
+      );
+    cvStore.cv.resolveMod = (id) => imports.reviewed(id);
     server = createT3Gateway(app.web, native.origin, access);
     legacy = createLegacyRedirect(app.web, origin);
     server.listen(port, "127.0.0.1");
@@ -63,10 +117,12 @@ export async function startT3Application(
   } catch (error) {
     server?.close();
     legacy?.close();
+    await cvMods?.close();
     await app?.close();
     await native.close();
     throw error;
   }
+  check(access, "Native Netzwerk-Anmeldung fehlt", 503);
   console.log(`Bewerbungsverwaltung und originaler T3-Chat: ${origin}`);
   const resources = { app, server, legacy };
   let closing: Promise<void> | undefined;
@@ -74,6 +130,7 @@ export async function startT3Application(
     (closing ||= (async () => {
       resources.server.close();
       resources.legacy.close();
+      await cvMods?.close();
       await native.close();
       await resources.app.close();
     })());
@@ -87,5 +144,5 @@ export async function startT3Application(
   void native.waitForExit().then(() => {
     if (!closing) void close().finally(() => process.exit(1));
   });
-  return { app, native, server, legacy, close };
+  return { app, native, server, legacy, close, access, cvMods };
 }

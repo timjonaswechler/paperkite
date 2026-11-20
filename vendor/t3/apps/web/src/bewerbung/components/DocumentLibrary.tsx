@@ -19,6 +19,21 @@ import {
 } from "~/components/ui/dialog";
 import { Choice, ErrorNotice, IconButton } from "./Controls";
 
+export async function uploadLibraryDocument(file: File): Promise<LibraryDocument> {
+  requireBusiness(file.size <= 25 * 1024 * 1024, `${file.name}: maximal 25 MiB je Datei.`);
+  const response = await fetch(base + "/documents", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/octet-stream",
+      "X-Bewerbung-Request": "1",
+      "X-Bewerbung-Filename": encodeURIComponent(file.name),
+    },
+    body: file,
+  });
+  const document = await response.json();
+  requireBusiness(response.ok, document.error || response.statusText);
+  return document as LibraryDocument;
+}
 export const formatBytes = (bytes: number) =>
   bytes < 1024 * 1024 ? `${Math.ceil(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 export function DocumentPreview({
@@ -130,18 +145,7 @@ export function DocumentLibrary({
     try {
       const added: string[] = [];
       for (const file of files) {
-        requireBusiness(file.size <= 25 * 1024 * 1024, `${file.name}: maximal 25 MiB je Datei.`);
-        const response = await fetch(base + "/documents", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/octet-stream",
-            "X-Bewerbung-Request": "1",
-            "X-Bewerbung-Filename": encodeURIComponent(file.name),
-          },
-          body: file,
-        });
-        const document = await response.json();
-        requireBusiness(response.ok, document.error || response.statusText);
+        const document = await uploadLibraryDocument(file);
         added.push(document.id);
         setDocuments((previous) => [
           document,

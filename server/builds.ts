@@ -5,6 +5,9 @@ import { spawn, execFile } from "node:child_process";
 import { check, fileMap, putMap } from "./files.ts";
 import { Store } from "./store.ts";
 import { decodeCover } from "./cover-letter.ts";
+import { safeRelative } from "./cv-mod-prototype/archive.ts";
+import { dockerModBuilder } from "./cv-mod-prototype/native.ts";
+import { collect } from "./cv-mod-prototype/imports.ts";
 export type BuildKind = "cv" | "cover";
 export type Runner = (
   input: string,
@@ -12,6 +15,7 @@ export type Runner = (
   kind: BuildKind,
   profile: string,
   name: string,
+  options?: { cvMod: boolean },
 ) => Promise<string>;
 export function dockerRunner(image: string): Runner {
   check(
@@ -19,8 +23,13 @@ export function dockerRunner(image: string): Runner {
     "Builder-Image muss per ID gepinnt sein",
     503,
   );
-  return (input, output, kind, profile, name) =>
-    new Promise((resolve, reject) => {
+  return (input, output, kind, profile, name, options) => {
+    if (kind === "cv" && options?.cvMod)
+      return dockerModBuilder(
+        image,
+        fs.readFileSync("pdf-tools/image-id", "utf8").trim(),
+      )(input, output).then((result) => result.log);
+    return new Promise((resolve, reject) => {
       const args = [
         "run",
         "--rm",
@@ -77,6 +86,7 @@ export function dockerRunner(image: string): Runner {
           );
       });
     });
+  };
 }
 export class Builds {
   private tail: Promise<void> = Promise.resolve();
@@ -97,7 +107,15 @@ export class Builds {
     const id = randomUUID(),
       dir = path.join(this.store.root, "builds", id);
     fs.mkdirSync(path.join(dir, "output"), { recursive: true, mode: 0o700 });
-    putMap(path.join(dir, "input"), fileMap(this.store.workspace(app)));
+    const cvPlan = kind === "cv" ? this.store.cv.plan(app) : null;
+    if (cvPlan) {
+      for (const [name, bytes] of Object.entries(cvPlan.files)) {
+        safeRelative(name);
+        const file = path.join(dir, "input", name);
+        fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+        fs.writeFileSync(file, bytes, { mode: 0o600, flag: "wx" });
+      }
+    } else putMap(path.join(dir, "input"), fileMap(this.store.workspace(app)));
     // Inputs are never written after this point; Docker receives a read-only mount.
     this.store.db.exec("BEGIN");
     try {
@@ -127,6 +145,7 @@ export class Builds {
           kind,
           a.profile,
           "bewerbung-build-" + id,
+          cvPlan?.mod ? { cvMod: true } : undefined,
         );
         const pdf = path.join(dir, "output", "document.pdf");
         check(
@@ -154,6 +173,13 @@ export class Builds {
     this.notify(app);
     return this.store.build(app, id);
   }
+  inputFiles(app: string, id: string) {
+    this.store.build(app, id);
+    const directory = path.join(this.store.root, "builds", id, "input");
+    return fs.existsSync(path.join(directory, "cv-build.json"))
+      ? collect(directory)
+      : fileMap(directory);
+  }
   documentStatus(app: string) {
     const status: Record<BuildKind, "missing" | "current" | "outdated"> = {
       cv: "missing",
@@ -174,6 +200,19 @@ export class Builds {
           artifact.size <= 5
         )
           continue;
+        const cvMarker = path.join(
+          this.store.root,
+          "builds",
+          String(build.id),
+          "input",
+          "cv-build.json",
+        );
+        if (kind === "cv" && fs.existsSync(cvMarker)) {
+          const marker = JSON.parse(fs.readFileSync(cvMarker, "utf8"));
+          if (marker.fingerprint === this.store.cv.fingerprint(app))
+            status.cv = "current";
+          continue;
+        }
         const current = fileMap(this.store.workspace(app));
         const snapshot = fileMap(
           path.join(this.store.root, "builds", String(build.id), "input"),

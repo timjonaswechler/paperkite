@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Lebenslauf-Vorlage hinzufügen</title>
+    <link rel="stylesheet" href="/bewerbung/api/prototype/cv-mods/ui.css" />
+    <script defer src="/bewerbung/api/prototype/cv-mods/ui.js"></script>
+  </head>
+  <body>
+    <header class="context">
+      <span>Vorlagen</span><span>/</span><strong>Neue Vorlage</strong
+      ><span class="badge" id="mode">Branch-Prototyp</span>
+    </header>
+    <main>
+      <section class="card" id="upload-panel">
+        <div class="heading">
+          <div>
+            <h1>Vorlage hochladen</h1>
+            <p class="muted">
+              Dein LaTeX-Layout mit den CV-Daten der App verbinden.
+            </p>
+          </div>
+          <a class="subtle" href="/settings/providers" id="settings"
+            >Native Einstellungen ↗</a
+          >
+        </div>
+        <form id="upload-form">
+          <label class="field" for="document-type">Was lädst du hoch?</label
+          ><select id="document-type" required>
+            <option value="">Dokumenttyp auswählen</option>
+            <option value="cv-template">Lebenslauf-Vorlage</option>
+            <option value="document">Dokument / Anlage</option>
+          </select>
+          <label class="dropzone" id="dropzone" for="file"
+            ><span class="upload-icon" aria-hidden="true">↑</span
+            ><strong id="filename">LaTeX-Projekt auswählen</strong
+            ><span class="muted" id="filehint"
+              >ZIP mit Hauptdatei und benötigten Dateien · bis 8 MiB</span
+            ><span class="choose">Datei auswählen</span></label
+          ><input
+            id="file"
+            type="file"
+            accept=".zip,application/zip"
+            class="file-input"
+          />
+          <div id="kind-note" class="muted hidden">
+            Dieser Prototyp bearbeitet Lebenslauf-Vorlagen. Anlagen gehören
+            weiterhin in die Dokumentenbibliothek.
+          </div>
+          <div class="submit-row">
+            <span class="muted small"
+              >Der KI-Start nutzt deine nativen Provider-Einstellungen und kann
+              Kosten verursachen.</span
+            ><button class="primary" type="submit" id="start" disabled>
+              Hochladen &amp; KI starten
+            </button>
+          </div>
+        </form>
+      </section>
+      <div role="alert" id="error" class="error hidden"></div>
+      <section id="job-panel" class="card hidden" aria-live="polite">
+        <div class="heading">
+          <div>
+            <h2 id="job-title">Datenanbindung erstellen</h2>
+            <p class="muted" id="job-file"></p>
+          </div>
+          <span class="badge" id="job-status"></span>
+        </div>
+        <ol class="steps">
+          <li data-phase="upload">
+            <span class="step-icon">1</span>
+            <div>
+              <strong>Quellen prüfen</strong
+              ><span class="muted" id="source-info">ZIP und Hauptdatei</span>
+            </div>
+            <span class="phase-state"></span>
+          </li>
+          <li data-phase="ai">
+            <span class="step-icon">2</span>
+            <div>
+              <strong>KI erstellt den Adapter</strong
+              ><span class="muted"
+                >Layout erhalten, Datenschnittstelle anbinden</span
+              >
+            </div>
+            <span class="phase-state"></span>
+          </li>
+          <li data-phase="build">
+            <span class="step-icon">3</span>
+            <div>
+              <strong>Testbuilds prüfen</strong
+              ><span class="muted">Absätze, Stichpunkte, optionale Felder</span>
+            </div>
+            <span class="phase-state"></span>
+          </li>
+          <li data-phase="review">
+            <span class="step-icon">4</span>
+            <div>
+              <strong>Ergebnis ansehen</strong
+              ><span class="muted">PDF-Vorschau und erkannte Datenfelder</span>
+            </div>
+            <span class="phase-state"></span>
+          </li>
+        </ol>
+        <div class="actions">
+          <a
+            id="thread-link"
+            class="button hidden"
+            target="_blank"
+            rel="noopener"
+            >KI-Thread öffnen ↗</a
+          ><button id="check" type="button" class="hidden">
+            Adapter erneut prüfen</button
+          ><button id="resume" type="button" class="primary hidden">
+            KI starten
+          </button>
+        </div>
+        <div id="job-error" class="error hidden"></div>
+        <div id="results" class="hidden">
+          <div class="result-grid">
+            <section>
+              <h3>Build-Prüfungen</h3>
+              <ul class="checks" id="checks"></ul>
+            </section>
+            <section>
+              <h3>Felder der Mod</h3>
+              <ul class="checks" id="fields"></ul>
+            </section>
+          </div>
+          <div id="pdfs" class="actions"></div>
+          <details>
+            <summary>Adapter-Manifest</summary>
+            <pre id="manifest"></pre>
+          </details>
+        </div>
+        <p class="muted small boundary">
+          Prüfung im Prototyp. Keine automatische Übernahme in produktive
+          Bewerbungen.
+        </p>
+      </section>
+      <section class="history hidden" id="history-panel">
+        <h3>Vorlagenimporte</h3>
+        <ul id="history"></ul>
+      </section>
+    </main>
+    <script id="preview-config" type="application/json">
+      {}
+    </script>
+  </body>
+</html>

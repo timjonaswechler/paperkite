@@ -110,9 +110,7 @@ export function TemplatesManager({
               {template.isDefault && <Badge variant="secondary">Standard</Badge>}
             </div>
             <p className="text-xs text-muted-foreground">
-              {new Date(template.created).toLocaleString("de-DE")} · Profile:{" "}
-              {template.profiles.join(", ") || "keine"}
-              {template.defaultProfile ? ` · Standardprofil: ${template.defaultProfile}` : ""}
+              {new Date(template.created).toLocaleString("de-DE")} · Gesicherte LaTeX-Quellen
             </p>
             <div className="flex flex-wrap gap-1">
               <Button

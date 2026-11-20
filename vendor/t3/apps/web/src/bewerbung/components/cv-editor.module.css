@@ -1,0 +1,110 @@
+.cv-field {
+  display: inline-grid;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: baseline;
+}
+.cv-field-label {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: var(--muted-foreground);
+  font-size: 0.65rem;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: normal;
+  text-transform: none;
+  user-select: none;
+}
+.cv-document[data-reading="true"] .cv-field-label {
+  display: none;
+}
+.cv-document .cv-editable {
+  display: inline-block;
+  min-width: 1ch;
+  max-width: 100%;
+  border-radius: 3px;
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  vertical-align: baseline;
+}
+.cv-document .cv-editable[contenteditable="true"]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+.cv-document .cv-editable[contenteditable="true"]:hover {
+  outline: 1px dashed var(--border);
+  outline-offset: 3px;
+}
+.cv-document .cv-editable[contenteditable="true"]:focus {
+  outline: 1px solid var(--ring);
+  outline-offset: 4px;
+  background: var(--secondary);
+}
+.cv-entry + .cv-entry {
+  margin-top: 1rem;
+}
+.cv-entry[data-included="false"] {
+  border-left: 2px dashed var(--border);
+  padding-left: 0.75rem;
+}
+.cv-content {
+  min-width: 0;
+  padding-top: 0.4rem;
+}
+.cv-content :global(.tiptap) {
+  min-height: 1.5rem;
+  border-radius: 3px;
+  outline: none;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.cv-content :global(.tiptap)[contenteditable="true"]:hover {
+  outline: 1px dashed var(--border);
+  outline-offset: 3px;
+}
+.cv-content :global(.tiptap):focus {
+  outline: 1px solid var(--ring);
+  outline-offset: 3px;
+}
+.cv-content :global(.tiptap) p {
+  margin: 0;
+}
+.cv-content :global(.tiptap) > p + p {
+  margin-top: 0.5rem;
+}
+.cv-content :global(.tiptap) ul {
+  list-style: disc;
+  margin: 0.3rem 0 0.3rem 1.25rem;
+}
+.cv-content :global(.tiptap) li + li {
+  margin-top: 0.25rem;
+}
+.cv-content :global(.tiptap)[contenteditable="true"] > p:only-child:has(> br:only-child)::before {
+  content: "Beschreibung …";
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+.cv-content[data-inline-list="true"] :global(.tiptap) > ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  list-style: none;
+  margin-left: 0;
+}
+.cv-content[data-inline-list="true"] :global(.tiptap) > ul > li {
+  display: flex;
+  margin-top: 0;
+}
+.cv-content[data-inline-list="true"] :global(.tiptap) > ul > li:not(:last-child)::after {
+  content: ",";
+}
+.cv-content-toolbar {
+  visibility: hidden;
+  margin-top: 0.25rem;
+}
+.cv-content:focus-within .cv-content-toolbar {
+  visibility: visible;
+}

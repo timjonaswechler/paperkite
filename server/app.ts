@@ -26,6 +26,7 @@ type AppOptions = {
   extraHosts?: string[];
   nativeChat?: (store: Store) => ApplicationChatProjects;
   analysisRunner?: AnalysisRunner;
+  configureApi?: (api: express.Router) => void;
 };
 
 export function createApp(
@@ -195,6 +196,17 @@ export function createApp(
   });
   organizationRoutes(api, store, builds);
   workflowRoutes(api, store, pdfs, editable, available, deliveries);
+  api.get("/applications/:id/cv-data", (req, res) =>
+    res.json(store.cv.read(req.params.id)),
+  );
+  api.put("/applications/:id/cv-data", (req, res) => {
+    editable(req.params.id);
+    res.json(store.cv.save(req.params.id, req.body));
+  });
+  api.put("/applications/:id/cv-mod", (req, res) => {
+    editable(req.params.id);
+    res.json(store.cv.bind(req.params.id, req.body.revision, req.body.modId));
+  });
   api.get("/health", (_req, res) =>
     res.json({
       ok: true,
@@ -454,7 +466,7 @@ export function createApp(
   api.get("/applications/:id/builds/:build/zip", (req, res) => {
     builds.artifact(req.params.id, req.params.build);
     const dir = path.join(store.root, "builds", req.params.build);
-    const files = fileMap(path.join(dir, "input"));
+    const files = builds.inputFiles(req.params.id, req.params.build);
     res
       .type("application/zip")
       .attachment("bewerbung-build.zip")
@@ -520,6 +532,7 @@ export function createApp(
     await harness.approve(req.params.id, req.params.approval, req.body.allow);
     res.json({ ok: true });
   });
+  options.configureApi?.(api);
   api.use((_req, res) => res.status(404).json({ error: "API nicht gefunden" }));
   web.get("/bewerbung", (_req, res) => res.redirect(308, "/bewerbung/"));
   web.use("/bewerbung", express.static(path.resolve("dist"), { index: false }));

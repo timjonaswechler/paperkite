@@ -57,7 +57,7 @@ const environment = {
     process.env.PATH,
   ].join(path.delimiter),
   APP_VERSION: pin.version,
-  T3CODE_WEB_SOURCEMAP: "hidden",
+  T3CODE_WEB_SOURCEMAP: process.env.T3CODE_WEB_SOURCEMAP || "hidden",
 };
 execFileSync(path.join(source, "node_modules/.bin/vp"), ["build"], {
   cwd: path.join(source, "apps/web"),

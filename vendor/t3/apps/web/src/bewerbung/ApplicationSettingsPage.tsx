@@ -14,6 +14,7 @@ import { ErrorNotice } from "./components/Controls";
 import { DocumentLibrary } from "./components/DocumentLibrary";
 import { TemplatesManager } from "./components/TemplatesManager";
 import { AnalysisModelSettings } from "./components/AnalysisModelSettings";
+import { CvModImportPanel } from "./components/CvModImportPanel";
 import type { Settings } from "./shared/api";
 
 export function ApplicationSettingsPage() {
@@ -22,6 +23,7 @@ export function ApplicationSettingsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [libraryRefresh, setLibraryRefresh] = useState(0);
   async function saveSettings(patch: Partial<Settings>) {
     setBusy(true);
     setError("");
@@ -81,6 +83,9 @@ export function ApplicationSettingsPage() {
         />
       </SettingsSection>
       <SettingsSection id="bewerbung-templates" title="Vorlagen">
+        <div className="p-3 sm:p-4">
+          <CvModImportPanel onDocumentsChanged={() => setLibraryRefresh((value) => value + 1)} />
+        </div>
         <SettingsRow
           title="Master importieren"
           description="Vorbereitete JSON-Datei mit Datei-Map (maximal 24 MiB). Bestehende Bewerbungen bleiben unabhängig."
@@ -114,7 +119,7 @@ export function ApplicationSettingsPage() {
             Zeugnisse und Anlagen zentral verwalten. Die Auswahl je Bewerbung änderst du in deren
             Versandpaket oder in deren Details.
           </p>
-          <DocumentLibrary />
+          <DocumentLibrary refreshKey={libraryRefresh} />
         </div>
       </SettingsSection>
     </SettingsPageContainer>

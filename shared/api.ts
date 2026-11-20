@@ -187,3 +187,68 @@ export type ChatEvent = {
     [key: string]: unknown;
   };
 };
+
+export type CvBlock =
+  | { id: string; type: "paragraph"; text: string }
+  | { id: string; type: "bulletList"; items: { id: string; text: string }[] };
+export type CvEntry = {
+  id: string;
+  included?: boolean;
+  fields: Record<string, string>;
+  content: CvBlock[];
+};
+export type CvSection = {
+  id: string;
+  kind: string;
+  label: string;
+  entries: CvEntry[];
+};
+export type CvData = {
+  schemaVersion: 1;
+  person: Record<string, string>;
+  sections: CvSection[];
+};
+export type CvState = {
+  data: CvData;
+  revision: number;
+  fingerprint: string;
+  modId: string | null;
+  paragraphsSupported: boolean;
+  mod?: {
+    id: string;
+    name: string;
+    fields: { key: string; label: string; type: "text"; required: boolean }[];
+  };
+  modWarning?: string;
+};
+export type CvModJob = {
+  id: string;
+  name: string;
+  status:
+    | "uploaded"
+    | "generating"
+    | "needs-input"
+    | "checking"
+    | "review"
+    | "failed"
+    | "interrupted";
+  created: string;
+  updated: string;
+  files: string[];
+  entrypoints: string[];
+  threadId?: string;
+  threadUrl?: string;
+  error?: string;
+  versionId?: string;
+  manifest?: {
+    format: string;
+    engine: string;
+    entrypoint: string;
+    fields: { key: string; label: string; type: "text"; required: boolean }[];
+  };
+  checks: {
+    id: string;
+    status: "passed" | "failed" | "unsupported";
+    error?: string;
+  }[];
+};

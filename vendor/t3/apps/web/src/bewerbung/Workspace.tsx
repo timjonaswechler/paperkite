@@ -28,7 +28,8 @@ import { Badge } from "~/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 import { ErrorNotice } from "./components/Controls";
 import { SourceDialog } from "./components/SourceDialog";
-import { CoverLetterEditor, CvEditor } from "./components/DocumentEditors";
+import { CoverLetterEditor } from "./components/DocumentEditors";
+import { CvEditor } from "./components/CvEditor";
 import { DeliveryPanel } from "./components/DeliveryPanel";
 import { NativeChatButton } from "./NativeChatButton";
 
@@ -279,7 +280,7 @@ export function Workspace({
         )}
         {app && area === "cv" && (
           <CvEditor
-            key={`cv-${editorEpoch}`}
+            key={`cv-${app.id}-${editorEpoch}`}
             app={app}
             autoBuild={settings.autoBuild}
             onRefresh={refresh}
