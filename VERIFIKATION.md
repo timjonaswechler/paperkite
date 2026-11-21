@@ -1,5 +1,13 @@
 # Verifikation – Bewerbungsverwaltung mit T3
 
+## PDF-Anzeige korrigiert und Client ausgerollt, 21.11.2026
+
+**Produktiv aktiv:** Lebenslauf und Anschreiben verwenden den vorhandenen `BrowserDocumentFrame` mit nativer PDF-Anzeige beziehungsweise PDF.js-Fallback statt eines eigenen sandboxed PDF-Iframes. Der bisherige Browser-Smoke hatte nur den Buildstatus geprüft; er prüft jetzt erwarteten PDF-Text und tatsächlich bemalte Canvas-Pixel. Vorher reproduzierbar fehlende Seite, nachher sichtbarer Inhalt für CV/Anschreiben und auf 390px; normaler App-Build, Root-/Web-Typecheck und gezielter Lint bestanden.
+
+Geprüften Client ohne Dienstneustart veröffentlicht; alte gehashte Assets für offene Tabs erhalten. HTTPS-Nachprüfung der bestehenden PDF mit frischer/veralteter Sitzung: HTTP 200, Text und nichtweiße Seitenpixel sichtbar, Desktop/Mobil ohne Seitenüberbreite oder JS-Fehler. Keine Fachmutationen, Modellstarts oder neuen PDF-Builds. Physischer nativer Desktop-PDF-Pluginpfad hier nicht automatisiert; der unveränderte gemeinsame Viewer übernimmt diesen Pfad. Die produktive Browserprüfung belegt den echten PDF.js-Fallback.
+
+Sicherung und Nachweise: `backups/pdf-preview-20261121T121747Z/` mit vorherigem Client, `production-ui.json` und `preservation.json`; synthetischer Vorher-/Nachher-Nachweis unter `.work/pdf-preview-fix/`. **25 Fachtabellen, 948 bestehende Dateien/Symlinks, 24 native Projektionstabellen und vier Transkripte unverändert**, ebenso Einstellungen, Caddy, Pins und natives Programm. PIDs weiterhin 661687/697. Nur Client ausgeliefert: keine Backend-Aktivierung der v2-Formularspeicherung und keine Datenmigration. Kein Commit/Push.
+
 ## Formular-Primitives in der normalen App auf dem Prototypen-Branch, 21.11.2026
 
 **Branch-Integration geprüft, kein Produktivrollout.** [Ziel und feste Kriterien A–H](docs/vorlagen-mods.md#verbindliches-produktziel-vorlage-bestimmt-formular), [Verwendung](examples/cv-form-mods/README.md). Branch `prototype/cv-mod-import`, HEAD `c885c9920f9b095cb34183b2d4393dcfb7bd91bf` unverändert. Die zuvor uncommittete Arbeit wurde gezielt integriert, nicht zurückgesetzt.

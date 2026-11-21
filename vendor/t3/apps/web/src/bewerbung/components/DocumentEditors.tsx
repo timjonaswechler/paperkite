@@ -9,6 +9,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Badge } from "~/components/ui/badge";
 import { ErrorNotice, Field } from "./Controls";
+import { BrowserDocumentFrame } from "~/components/files/BrowserDocumentFrame";
 
 export function useDocumentDraftGuard(dirty: boolean) {
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- protects an unsaved document when navigating to another application or work area
@@ -233,12 +234,13 @@ export function DocumentPreview({
       <ErrorNotice error={error} onClose={() => setError("")} />
       {latest ? (
         <>
-          <div className="h-[65vh] min-h-80 overflow-hidden rounded-lg border">
-            <iframe
-              sandbox="allow-scripts allow-downloads"
+          <div className="flex h-[65vh] min-h-80 overflow-hidden rounded-lg border">
+            <BrowserDocumentFrame
+              pdf
               title={kind === "cv" ? "Lebenslauf PDF-Vorschau" : "Anschreiben PDF-Vorschau"}
               src={`${base}/applications/${app.id}/builds/${latest.id}/pdf`}
-              className="h-full w-full"
+              documentId={`${app.id}:${kind}`}
+              documentKey={latest.id}
             />
           </div>
           <Button

@@ -185,7 +185,45 @@ try {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
   });
+  await context.addInitScript(
+    'Object.defineProperty(navigator, "pdfViewerEnabled", { get() { return false; } });',
+  );
   const page = await context.newPage();
+  async function expectPdfPreview(kind: "cv" | "cover", marker: RegExp) {
+    const preview = page.getByRole("region", {
+      name:
+        kind === "cv" ? "Lebenslauf PDF-Vorschau" : "Anschreiben PDF-Vorschau",
+      exact: true,
+    });
+    await expect(preview.locator("[data-pdf-text-layer]")).toContainText(
+      marker,
+    );
+    const canvas = preview.locator("canvas").first();
+    await expect(canvas).toBeVisible();
+    await expect
+      .poll(() =>
+        canvas.evaluate((element: HTMLCanvasElement) => {
+          const ctx = element.getContext("2d");
+          if (!ctx || !element.width || !element.height) return false;
+          const pixels = ctx.getImageData(
+            0,
+            0,
+            element.width,
+            element.height,
+          ).data;
+          for (let i = 0; i < pixels.length; i += 4)
+            if (
+              pixels[i + 3] === 255 &&
+              pixels[i]! < 250 &&
+              pixels[i + 1]! < 250 &&
+              pixels[i + 2]! < 250
+            )
+              return true;
+          return false;
+        }),
+      )
+      .toBe(true);
+  }
   page.setDefaultTimeout(30000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -355,6 +393,15 @@ try {
   await expect(
     page.getByText("Aktueller Quellenstand", { exact: true }),
   ).toBeVisible();
+  await expectPdfPreview("cv", /UPDATED\s*SYNTHETIC\s*APPLICANT/);
+  report.cvPdfActuallyRendered = true;
+  await page
+    .getByRole("region", { name: "Lebenslauf PDF-Vorschau", exact: true })
+    .scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: path.join(output, "cv-preview-desktop.png"),
+    animations: "disabled",
+  });
   assert.equal(
     application.app.store.profile(created.id, "cv/profiles/general.lua").entries
       .custom,
@@ -399,6 +446,8 @@ try {
   await expect(
     page.getByText("Aktueller Quellenstand", { exact: true }),
   ).toBeVisible();
+  await expectPdfPreview("cover", /synthetisches\s*Anschreiben/);
+  report.coverPdfActuallyRendered = true;
   assert.deepEqual(application.app.builds.documentStatus(created.id), {
     cv: "current",
     cover: "current",
@@ -407,6 +456,22 @@ try {
     path: path.join(output, "cover-desktop.png"),
     animations: "disabled",
   });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectPdfPreview("cover", /synthetisches\s*Anschreiben/);
+  await page
+    .getByRole("region", { name: "Anschreiben PDF-Vorschau", exact: true })
+    .scrollIntoViewIfNeeded();
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+  );
+  await page.screenshot({
+    path: path.join(output, "cover-preview-mobile.png"),
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  report.pdfPreviewMobile = true;
   report.structuredCvEditor = true;
   report.plainLetterEditor = true;
   report.realOfflinePdfBuilds = true;
