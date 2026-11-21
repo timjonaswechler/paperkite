@@ -8,9 +8,15 @@ import {
   adapterContract,
   buildCases,
   luaData,
-  manifest,
-  type ModManifest,
+  importManifest,
+  type ImportManifest,
 } from "./model.ts";
+import {
+  formAdapterContract,
+  formBuildCases,
+  formBuildFiles,
+} from "../cv-form-model.ts";
+import type { FormMod, Values } from "../../shared/cv-form.ts";
 
 export type ModJob = {
   id: string;
@@ -32,7 +38,8 @@ export type ModJob = {
   threadId?: string;
   threadUrl?: string;
   error?: string;
-  manifest?: ModManifest;
+  targetFormat?: ImportManifest["format"];
+  manifest?: ImportManifest;
   buildId?: string;
   artifactDigest?: string;
   versionId?: string;
@@ -165,7 +172,12 @@ export class CvModImports {
       )
       .run(job.id, JSON.stringify(job));
   }
-  upload(name: unknown, bytes: Buffer, kind: unknown) {
+  upload(
+    name: unknown,
+    bytes: Buffer,
+    kind: unknown,
+    targetFormat: unknown = "bewerbung-cv-form-v2",
+  ) {
     check(!this.closed, "Prototyp wird beendet", 503);
     check(
       kind === "cv-template",
@@ -178,6 +190,11 @@ export class CvModImports {
         name.toLowerCase().endsWith(".zip"),
       "Lebenslauf-Vorlage als LaTeX-ZIP hochladen",
     );
+    check(
+      targetFormat === "bewerbung-cv-form-v2" ||
+        targetFormat === "bewerbung-cv-mod-prototype-v1",
+      "Nicht unterstütztes Zielformat",
+    );
     check(this.list().length < 20, "Prototyp auf 20 Importe begrenzt");
     const archive = readTemplateZip(bytes),
       id = randomUUID(),
@@ -187,7 +204,9 @@ export class CvModImports {
       fs.mkdirSync(path.join(dir, "workspace", "mod"), { mode: 0o700 });
       fs.writeFileSync(
         path.join(dir, "workspace", "ADAPTER-CONTRACT.md"),
-        adapterContract,
+        targetFormat === "bewerbung-cv-form-v2"
+          ? formAdapterContract
+          : adapterContract,
         { mode: 0o600 },
       );
       fs.writeFileSync(path.join(dir, "original.zip"), bytes, { mode: 0o600 });
@@ -196,6 +215,7 @@ export class CvModImports {
         id,
         name,
         status: "uploaded",
+        targetFormat,
         created: now,
         updated: now,
         sourceHash: digest(bytes),
@@ -287,7 +307,30 @@ export class CvModImports {
         job.sourceFingerprint,
       "Originalquellen wurden verändert; keine Übernahme",
     );
+    const questions = path.join(workspace, "NEEDS-INPUT.md");
+    if (fs.existsSync(questions)) {
+      const stat = fs.lstatSync(questions);
+      check(
+        stat.isFile() && !stat.isSymbolicLink() && stat.size <= 8192,
+        "Ungültige Rückfragedatei",
+      );
+      const text = fs.readFileSync(questions, "utf8").trim();
+      check(text.length > 0, "Leere Rückfragedatei");
+      job.status = "needs-input";
+      job.error = text;
+      this.save(job);
+      return;
+    }
     const files = collect(path.join(workspace, "mod"));
+    check(
+      ![
+        "cv-data.lua",
+        "form-mod.json",
+        "application.json",
+        "cv-build.json",
+      ].some((n) => Object.hasOwn(files, n)),
+      "Reservierter Mod-Buildpfad",
+    );
     check(files["mod.json"], "KI hat keine mod.json erzeugt");
     let value: unknown;
     try {
@@ -295,7 +338,15 @@ export class CvModImports {
     } catch {
       throw new Error("mod.json enthält ungültiges JSON");
     }
-    const config = manifest(value);
+    const config = importManifest(value);
+    check(
+      !job.targetFormat || config.format === job.targetFormat,
+      "KI-Ergebnis entspricht nicht dem beauftragten Mod-Format",
+    );
+    const tests =
+      config.format === "bewerbung-cv-form-v2"
+        ? formBuildCases(config)
+        : buildCases;
     check(files[config.entrypoint], "Hauptdatei aus mod.json fehlt");
     const hash = fingerprint(files);
     const buildId = randomUUID(),
@@ -304,8 +355,10 @@ export class CvModImports {
     job.buildId = buildId;
     job.artifactDigest = hash;
     this.save(job);
-    for (const test of buildCases) {
+    put(path.join(base, "package"), files);
+    for (const test of tests) {
       if (
+        config.format === "bewerbung-cv-mod-prototype-v1" &&
         test.requiresField &&
         !config.fields.some((f) => f.key === test.requiresField)
       ) {
@@ -321,10 +374,15 @@ export class CvModImports {
       signal.throwIfAborted();
       const input = path.join(base, test.id, "input"),
         output = path.join(base, test.id, "output");
-      put(input, {
-        ...files,
-        "cv-data.lua": Buffer.from("return " + luaData(test.data) + "\n"),
-      });
+      put(
+        input,
+        config.format === "bewerbung-cv-form-v2"
+          ? formBuildFiles(config, files, test.data as Values)
+          : {
+              ...files,
+              "cv-data.lua": Buffer.from("return " + luaData(test.data) + "\n"),
+            },
+      );
       fs.mkdirSync(output, { recursive: true, mode: 0o700 });
       let error: string | undefined;
       try {
@@ -349,6 +407,12 @@ export class CvModImports {
             !text.includes(forbidden),
             "Unerwarteter Inhalt im PDF: " + forbidden,
           );
+        if ("order" in test)
+          for (const [before, after] of test.order)
+            check(
+              text.indexOf(before) < text.indexOf(after),
+              "Reihenfolge im PDF verändert: " + before,
+            );
         if (test.id === "mixed")
           check(
             text.indexOf("BeforeMarker41") < text.indexOf("MiddleMarker43") &&
@@ -376,7 +440,11 @@ export class CvModImports {
       ),
       "Adapterprüfung fehlgeschlagen; vorhandenen Thread überarbeiten lassen und erneut prüfen",
     );
-    job.versionId = job.id + "." + buildId;
+    job.versionId =
+      (config.format === "bewerbung-cv-form-v2" ? "form:" : "") +
+      job.id +
+      "." +
+      buildId;
     this.db
       .prepare("INSERT INTO versions VALUES(?,?,?,?,?,?)")
       .run(
@@ -433,7 +501,7 @@ export class CvModImports {
       this.deleting.delete(id);
     }
   }
-  reviewed(id: string) {
+  private version(id: string) {
     let versionId = id;
     if (!id.includes(".")) {
       const job = this.get(id);
@@ -453,14 +521,15 @@ export class CvModImports {
       "Vorlagenimport wird gelöscht",
       409,
     );
+    const base = path.join(
+      this.directory(String(row.import_id)),
+      "builds",
+      String(row.build_id),
+    );
     const files = collect(
-      path.join(
-        this.directory(String(row.import_id)),
-        "builds",
-        String(row.build_id),
-        "bullets",
-        "input",
-      ),
+      fs.existsSync(path.join(base, "package"))
+        ? path.join(base, "package")
+        : path.join(base, "bullets", "input"),
     );
     delete files["cv-data.lua"];
     check(
@@ -468,19 +537,57 @@ export class CvModImports {
       "Geprüfter Vorlagenstand wurde verändert. Erneut prüfen.",
       409,
     );
-    const config = manifest(JSON.parse(String(row.manifest)));
+    const config = importManifest(JSON.parse(files["mod.json"]!.toString()));
+    check(
+      JSON.stringify(config) === String(row.manifest),
+      "Versionsmanifest wurde verändert",
+      409,
+    );
     return {
       id: versionId,
       name: String(row.name),
       digest: String(row.digest),
       files,
-      fields: config.fields,
+      config,
+    };
+  }
+  reviewed(id: string) {
+    const { config, ...version } = this.version(id);
+    check(
+      config.format === "bewerbung-cv-mod-prototype-v1",
+      "Formular-Mod über den v2-Editor verwenden",
+      409,
+    );
+    return { ...version, fields: config.fields };
+  }
+  reviewedForm(id: string): FormMod {
+    const { config, files, ...version } = this.version(id);
+    check(
+      config.format === "bewerbung-cv-form-v2",
+      "Diese Version ist kein Formular-Mod",
+      409,
+    );
+    const sources = { ...files };
+    delete sources["mod.json"];
+    return {
+      id: version.id,
+      name: version.name,
+      spec: config,
+      files: Object.fromEntries(
+        Object.entries(sources).map(([n, b]) => [n, b.toString("base64")]),
+      ),
     };
   }
   artifact(id: string, testId: string) {
     const job = this.get(id);
     check(
-      buildCases.some((c) => c.id === testId) &&
+      [
+        ...buildCases.map((c) => c.id),
+        "form-full",
+        "form-reordered",
+        "form-excluded",
+        "form-empty",
+      ].includes(testId) &&
         job.checks.some((c) => c.id === testId && c.status === "passed") &&
         job.buildId,
       "Geprüftes PDF nicht vorhanden",

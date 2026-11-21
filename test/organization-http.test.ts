@@ -57,6 +57,7 @@ test("organization HTTP routes protect binary uploads, create only validated app
       "analysisModel",
       "applicantName",
       "autoBuild",
+      "autoPruneBuilds",
       "collapsedStatuses",
       "revision",
     ]);
@@ -81,6 +82,7 @@ test("organization HTTP routes protect binary uploads, create only validated app
         await json("/settings", "PUT", {
           revision: defaults.revision,
           autoBuild: true,
+          autoPruneBuilds: false,
         })
       ).status,
       200,

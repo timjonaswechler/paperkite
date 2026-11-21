@@ -277,8 +277,10 @@ test("settings, opened applications and per-application chat drafts persist inde
     const a = store.create({ company: "A" }),
       b = store.create({ company: "B" });
     const defaults = store.preferences.settings();
+    assert.equal(defaults.autoPruneBuilds, false);
     const saved = store.preferences.update({
       revision: defaults.revision,
+      autoPruneBuilds: true,
       autoBuild: true,
       collapsedStatuses: ["Absage"],
     });
@@ -293,6 +295,8 @@ test("settings, opened applications and per-application chat drafts persist inde
     );
     for (const input of [
       { autoBuild: "true" },
+      { autoPruneBuilds: "true" },
+      { autoPruneBuilds: null },
       { theme: "dark" },
       { sendOnEnter: false },
       { defaultProvider: "codex" },
@@ -365,6 +369,7 @@ test("business preferences migrate retired T3 fields once without losing busines
       revision: 18,
       analysisModel: null,
       applicantName: "",
+      autoPruneBuilds: false,
       autoBuild: true,
       collapsedStatuses: ["In Arbeit", "Fertig", "Zusage"],
     };

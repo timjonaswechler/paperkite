@@ -58,7 +58,7 @@ export function nativeModThreads(options: {
         signal,
       );
       const message =
-        "Lies ADAPTER-CONTRACT.md und die Vorlagenquellen unter source/. Erstelle jetzt den darin beschriebenen CV-Mod unter mod/. Verwende die bestehende Vorlage als Layoutbasis. Führe keine produktiven Änderungen durch. Nutze keine realen CV-Inhalte als Beispieldaten.";
+        "Lies ADAPTER-CONTRACT.md und die Vorlagenquellen unter source/. Erstelle unter mod/ genau das beauftragte Mod-Format mit Formular und passender LaTeX-Datenanbindung. Verwende die bestehende Vorlage als Layoutbasis, nicht einen Universal-CV. Bei offenen Fragen den NEEDS-INPUT.md-Ablauf aus dem Vertrag verwenden. Keine produktiven Änderungen und keine realen CV-Inhalte als Beispieldaten.";
       const launched = JSON.parse(
         await cli(
           [
@@ -67,7 +67,7 @@ export function nativeModThreads(options: {
             workspace,
             message,
             "--title",
-            "Lebenslauf: Datenadapter erstellen",
+            "Lebenslauf: Formular und Datenanbindung erstellen",
             "--json",
           ],
           signal,

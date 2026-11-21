@@ -285,6 +285,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["autobuild pdf automatisch speichern lebenslauf anschreiben latex"],
   },
   {
+    id: "bewerbung-auto-prune-builds",
+    title: "Alte Builds automatisch bereinigen",
+    to: "/settings/projects",
+    searchTerms: [
+      "pdf builds versionen löschen bereinigen aufräumen automatisch lebenslauf anschreiben",
+    ],
+  },
+  {
     id: "bewerbung-templates",
     title: "Bewerbungsvorlagen",
     to: "/settings/projects",

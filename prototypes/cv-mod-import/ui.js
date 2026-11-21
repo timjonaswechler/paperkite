@@ -206,7 +206,10 @@
       li.append(name, required);
       $("#fields").append(li);
     }
-    if (job.manifest && !job.manifest.fields.length) {
+    if (
+      job.manifest?.format === "bewerbung-cv-mod-prototype-v1" &&
+      !job.manifest.fields.length
+    ) {
       const li = document.createElement("li");
       li.textContent = "Keine zusätzlichen Pflichtfelder";
       $("#fields").append(li);

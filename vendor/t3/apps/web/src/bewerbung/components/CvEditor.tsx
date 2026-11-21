@@ -320,10 +320,17 @@ export function CvEditor({
   const personLabel = (key: string) =>
     selectedMod?.fields.find((f) => f.key === "person." + key)?.label || names[key] || key;
   const modOptions = mods
-    .filter((m) => m.status === "review" && m.versionId)
-    .map((m) => ({ value: m.versionId!, label: m.name }));
+    .filter((m) => m.versionId)
+    .map((m) => ({
+      value: m.versionId!,
+      label:
+        (m.versionId!.startsWith("form:") ? "Formular · " : "") +
+        m.name +
+        (m.status === "review" ? "" : " · letzte geprüfte Version"),
+    }));
   for (const m of formMods)
-    modOptions.push({ value: m.id, label: `Formular · ${m.name} · ${m.id.slice(5, 13)}` });
+    if (!modOptions.some((option) => option.value === m.id))
+      modOptions.push({ value: m.id, label: `Formular · ${m.name} · ${m.id.slice(5, 13)}` });
   if (state?.modId && !modOptions.some((m) => m.value === state.modId))
     modOptions.push({ value: state.modId, label: state.mod?.name || "Gesicherte Mod-Version" });
   const personFields = data

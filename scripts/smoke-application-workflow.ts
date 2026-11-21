@@ -597,6 +597,91 @@ try {
       exact: true,
     }),
   ).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByRole("button", { name: "Anschreiben", exact: true }).click();
+  async function buildCover() {
+    const response = page.waitForResponse(
+      (r) => r.request().method() === "POST" && r.url().endsWith("/builds"),
+    );
+    await page.getByRole("button", { name: "PDF bauen", exact: true }).click();
+    const queued = await response;
+    assert.equal(queued.status(), 202);
+    const job = await queued.json();
+    await application!.app.builds.idle();
+    assert.equal(
+      application!.app.store.build(created.id, job.id).status,
+      "success",
+    );
+    return String(job.id);
+  }
+  const manual = await buildCover();
+  await page.getByText("Buildverlauf und Logs", { exact: true }).click();
+  const row = page.locator(`[data-build-id="${manual}"]`);
+  await expect(
+    row.getByRole("button", { name: "Build löschen", exact: true }),
+  ).toBeEnabled();
+  page.once("dialog", (dialog) => void dialog.accept());
+  const deleted = page.waitForResponse(
+    (r) =>
+      r.request().method() === "DELETE" &&
+      r.url().endsWith("/builds/" + manual),
+  );
+  await row.getByRole("button", { name: "Build löschen", exact: true }).click();
+  assert.equal((await deleted).status(), 200);
+  await expect(row).toHaveCount(0);
+  assert.equal(fs.existsSync(path.join(data, "builds", manual)), false);
+  const prior = await buildCover();
+  await page.goto(origin + "/settings/projects");
+  const pruneSwitch = page.getByRole("switch", {
+    name: "Alte Builds automatisch bereinigen",
+    exact: true,
+  });
+  await expect(pruneSwitch).not.toBeChecked();
+  const settingSaved = page.waitForResponse(
+    (r) => r.request().method() === "PUT" && r.url().endsWith("/settings"),
+  );
+  await pruneSwitch.click();
+  assert.equal((await settingSaved).status(), 200);
+  await page.reload();
+  await pruneSwitch.waitFor({ state: "visible" });
+  await expect(pruneSwitch).toBeChecked();
+  assert.ok(application.app.builds.artifact(created.id, prior));
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+  );
+  await pruneSwitch.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: path.join(output, "retention-settings-mobile.png"),
+    animations: "disabled",
+  });
+  await page.goto(origin + "/bewerbungen/" + created.id);
+  await page.getByRole("button", { name: "Anschreiben", exact: true }).click();
+  const newest = await buildCover();
+  assert.equal(fs.existsSync(path.join(data, "builds", prior)), false);
+  assert.ok(application.app.builds.artifact(created.id, newest));
+  await page.getByText("Buildverlauf und Logs", { exact: true }).click();
+  await expect(page.locator(`[data-build-id="${prior}"]`)).toHaveCount(0);
+  const protectedRows = application.app.builds
+    .history(created.id)
+    .filter((build) => build.deletionBlocked && build.kind === "cover");
+  assert.ok(protectedRows.length > 0);
+  await expect(
+    page
+      .locator(`[data-build-id="${protectedRows[0]!.id}"]`)
+      .getByRole("button", { name: "Build löschen", exact: true }),
+  ).toBeDisabled();
+  await page.locator(`[data-build-id="${newest}"]`).scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: path.join(output, "retention-history-mobile.png"),
+    animations: "disabled",
+  });
+  report.manualBuildDeletion = true;
+  report.automaticBuildCleanup = true;
+  report.retentionSettingPersists = true;
+  report.referencedBuildsProtected = true;
   assert.equal(application.app.store.list().length, 1);
   assert.equal(report.chatTurns, 0);
   assert.equal(analysisRequests, 2);

@@ -95,7 +95,143 @@ export class Builds {
     public store: Store,
     private runner: Runner,
     private notify: (app: string) => void = () => {},
-  ) {}
+  ) {
+    store.db.exec(
+      "CREATE TABLE IF NOT EXISTS pending_build_deletions(id TEXT PRIMARY KEY)",
+    );
+    this.cleanDeleted();
+  }
+  private cleanDeleted() {
+    const parent = path.join(this.store.root, "builds");
+    for (const row of this.store.db
+      .prepare("SELECT id FROM pending_build_deletions")
+      .all()) {
+      const id = String(row.id);
+      try {
+        check(/^[a-f0-9-]{36}$/.test(id), "Ungültiger Build-Löschauftrag");
+        check(
+          !this.store.db.prepare("SELECT 1 FROM builds WHERE id=?").get(id),
+          "Build wird noch verwendet",
+        );
+        check(
+          !fs.lstatSync(parent, { throwIfNoEntry: false })?.isSymbolicLink(),
+          "Buildordner ist ein Symlink",
+        );
+        fs.rmSync(path.join(parent, id), { recursive: true, force: true });
+        this.store.db
+          .prepare("DELETE FROM pending_build_deletions WHERE id=?")
+          .run(id);
+      } catch (error) {
+        console.warn("Build-Dateibereinigung ausstehend:", id, String(error));
+      }
+    }
+  }
+  private references(app: string) {
+    const result = new Map<string, string>();
+    const collect = (value: unknown, reason: string) => {
+      if (Array.isArray(value)) {
+        for (const entry of value) collect(entry, reason);
+        return;
+      }
+      if (!value || typeof value !== "object") return;
+      const object = value as Record<string, unknown>;
+      if (object.kind === "build" && typeof object.id === "string")
+        result.set(object.id, reason);
+      if (typeof object.original === "string")
+        result.set(object.original, reason);
+      for (const entry of Object.values(object)) collect(entry, reason);
+    };
+    const tables = new Set(
+      this.store.db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+        .all()
+        .map((r) => String(r.name)),
+    );
+    for (const [table, column, jobs] of [
+      ["delivery_plans", "value", false],
+      ["pdf_plans", "items", false],
+      ["pdf_jobs", "items", true],
+      ["delivery_jobs", "value", true],
+    ] as const) {
+      if (!tables.has(table)) continue;
+      for (const row of this.store.db
+        .prepare(
+          `SELECT ${column} AS value FROM ${table} WHERE app=? ${jobs ? "AND status IN ('queued','running','success')" : ""}`,
+        )
+        .all(app))
+        collect(
+          JSON.parse(String(row.value)),
+          "In einem Versand-/PDF-Auftrag oder gespeicherten Plan verwendet",
+        );
+    }
+    return result;
+  }
+  private blocked(
+    build: Record<string, unknown>,
+    references: Map<string, string>,
+  ) {
+    if (build.status === "queued" || build.status === "running")
+      return "Build läuft noch";
+    if (build.finalized) return "Festgehaltene Version";
+    return references.get(String(build.id));
+  }
+  history(app: string) {
+    const references = this.references(app);
+    return this.store.builds(app).map((build) => {
+      const reason = this.blocked(build, references);
+      return Object.assign(build, reason ? { deletionBlocked: reason } : {});
+    });
+  }
+  private removeMany(app: string, ids: string[], strict: boolean) {
+    const removed: string[] = [];
+    this.store.db.exec("BEGIN IMMEDIATE");
+    try {
+      const references = this.references(app);
+      for (const id of ids) {
+        const build = this.store.build(app, id),
+          reason = this.blocked(build, references);
+        if (reason) {
+          check(!strict, reason, 409);
+          continue;
+        }
+        check(/^[a-f0-9-]{36}$/.test(id), "Ungültige Build-ID");
+        this.store.db
+          .prepare("INSERT INTO pending_build_deletions VALUES(?)")
+          .run(id);
+        this.store.db
+          .prepare("DELETE FROM builds WHERE app=? AND id=?")
+          .run(app, id);
+        removed.push(id);
+      }
+      this.store.db.exec("COMMIT");
+    } catch (error) {
+      this.store.db.exec("ROLLBACK");
+      throw error;
+    }
+    this.cleanDeleted();
+    return removed.length;
+  }
+  remove(app: string, id: string) {
+    this.removeMany(app, [id], true);
+    this.notify(app);
+    return {
+      ok: true,
+      cleanupPending: Boolean(
+        this.store.db
+          .prepare("SELECT 1 FROM pending_build_deletions WHERE id=?")
+          .get(id),
+      ),
+    };
+  }
+  private prune(app: string, id: string, kind: BuildKind) {
+    const older = this.store.db
+      .prepare(
+        "SELECT id FROM builds WHERE app=? AND kind=? AND rowid<(SELECT rowid FROM builds WHERE id=?) AND status NOT IN ('queued','running')",
+      )
+      .all(app, kind, id)
+      .map((row) => String(row.id));
+    return this.removeMany(app, older, false);
+  }
   request(app: string, kind: unknown) {
     check(kind === "cv" || kind === "cover", "Buildtyp ungültig");
     const a = this.store.app(app),
@@ -167,6 +303,26 @@ export class Builds {
           .prepare("UPDATE builds SET status='failed',log=? WHERE id=?")
           .run(String(e).slice(0, 1024 * 1024), id);
         this.store.documents.dropSnapshot(id);
+      }
+      if (
+        this.store.build(app, id).status === "success" &&
+        this.store.preferences.settings().autoPruneBuilds
+      ) {
+        try {
+          const removed = this.prune(app, id, kind);
+          if (removed)
+            this.store.db
+              .prepare("UPDATE builds SET log=log||? WHERE id=?")
+              .run(`\n${removed} ältere Builds automatisch bereinigt.`, id);
+        } catch (error) {
+          this.store.db
+            .prepare("UPDATE builds SET log=log||? WHERE id=?")
+            .run(
+              "\nAutomatische Build-Bereinigung fehlgeschlagen: " +
+                String(error).slice(-2000),
+              id,
+            );
+        }
       }
       this.notify(app);
     });

@@ -271,7 +271,7 @@ export function createApp(
       ...store.app(req.params.id),
       files: store.files(req.params.id),
       documents: store.documents.selected(req.params.id),
-      builds: store.builds(req.params.id),
+      builds: builds.history(req.params.id),
       documentStatus: builds.documentStatus(req.params.id),
       harness: status,
     });
@@ -485,6 +485,10 @@ export function createApp(
           }),
         ),
       );
+  });
+  api.delete("/applications/:id/builds/:build", (req, res) => {
+    editable(req.params.id);
+    res.json(builds.remove(req.params.id, req.params.build));
   });
   api.post("/applications/:id/builds/:build/finalize", (req, res) =>
     res.json(builds.finalize(req.params.id, req.params.build)),

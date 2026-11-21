@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download, FileCode, Save } from "lucide-react";
+import { Download, FileCode, Save, Trash2 } from "lucide-react";
 import type { ApplicationDetail, Build, CoverLetter } from "../shared/api";
 import { api, base, errorMessage, textFile } from "../api";
 import { registerNavigationGuard } from "../navigation";
@@ -207,6 +207,8 @@ export function DocumentPreview({
   );
   const [log, setLog] = useState("");
   const [error, setError] = useState("");
+  const [deletingBuild, setDeletingBuild] = useState("");
+  const [deleteNotice, setDeleteNotice] = useState("");
   const state = app.documentStatus?.[kind] ?? (latest ? "outdated" : "missing");
   const status = dirty
     ? "Ungespeicherte Änderungen"
@@ -225,6 +227,35 @@ export function DocumentPreview({
       setError(errorMessage(error));
     }
   }
+  async function remove(build: Build) {
+    if (
+      deletingBuild ||
+      !confirm(
+        "Diesen Build samt PDF, Eingaben und Log endgültig löschen? Andere Versionen bleiben erhalten.",
+      )
+    )
+      return;
+    setDeletingBuild(build.id);
+    setError("");
+    setDeleteNotice("");
+    try {
+      const result = await api<{ ok: boolean; cleanupPending: boolean }>(
+        `/applications/${app.id}/builds/${build.id}`,
+        "DELETE",
+      );
+      setLog("");
+      await onRefresh();
+      setDeleteNotice(
+        result.cleanupPending
+          ? "Build entfernt. Die Dateibereinigung wird beim nächsten Serverstart erneut versucht."
+          : "Build gelöscht.",
+      );
+    } catch (error) {
+      setError(errorMessage(error));
+    } finally {
+      setDeletingBuild("");
+    }
+  }
   return (
     <section className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -232,6 +263,11 @@ export function DocumentPreview({
         <Badge variant="outline">{status}</Badge>
       </div>
       <ErrorNotice error={error} onClose={() => setError("")} />
+      {deleteNotice && (
+        <p role="status" className="text-xs text-muted-foreground">
+          {deleteNotice}
+        </p>
+      )}
       {latest ? (
         <>
           <div className="flex h-[65vh] min-h-80 overflow-hidden rounded-lg border">
@@ -266,7 +302,7 @@ export function DocumentPreview({
           {app.builds
             .filter((build) => build.kind === kind)
             .map((build) => (
-              <li key={build.id} className="space-y-2 text-sm">
+              <li key={build.id} data-build-id={build.id} className="space-y-2 text-sm">
                 <p>
                   {new Date(build.created).toLocaleString("de-DE")} · {build.status} · r
                   {build.revision}
@@ -283,6 +319,21 @@ export function DocumentPreview({
                     }}
                   >
                     Log anzeigen
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={
+                      Boolean(deletingBuild) ||
+                      Boolean(build.deletionBlocked) ||
+                      Boolean(build.finalized) ||
+                      ["queued", "running"].includes(build.status)
+                    }
+                    aria-label="Build löschen"
+                    onClick={() => void remove(build)}
+                  >
+                    <Trash2 />
+                    Löschen
                   </Button>
                   {build.status === "success" && (
                     <>
@@ -305,6 +356,11 @@ export function DocumentPreview({
                     </>
                   )}
                 </div>
+                {build.deletionBlocked && (
+                  <p className="text-xs text-muted-foreground">
+                    Geschützt: {build.deletionBlocked}
+                  </p>
+                )}
               </li>
             ))}
         </ul>

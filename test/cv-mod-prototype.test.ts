@@ -157,7 +157,12 @@ test("upload has no model side effect; double-start is idempotent and generated 
       () => store.upload("cv.zip", input(), "document"),
       /nur für Lebenslauf/,
     );
-    const job = store.upload("cv.zip", input(), "cv-template");
+    const job = store.upload(
+      "cv.zip",
+      input(),
+      "cv-template",
+      "bewerbung-cv-mod-prototype-v1",
+    );
     assert.equal(calls, 0);
     store.start(job.id);
     store.start(job.id);
@@ -188,7 +193,12 @@ test("restart marks unfinished imports interrupted without starting a replacemen
     },
   };
   const first = new CvModImports(root, runner, fakeBuild);
-  const job = first.upload("synthetic.zip", input(), "cv-template");
+  const job = first.upload(
+    "synthetic.zip",
+    input(),
+    "cv-template",
+    "bewerbung-cv-mod-prototype-v1",
+  );
   first.db.prepare("UPDATE jobs SET value=? WHERE id=?").run(
     JSON.stringify({
       ...job,
@@ -232,7 +242,12 @@ test("missing paragraphs cannot pass checks; unsupported optional role is visibl
       };
     });
     try {
-      const j = store.upload("cv.zip", input(), "cv-template");
+      const j = store.upload(
+        "cv.zip",
+        input(),
+        "cv-template",
+        "bewerbung-cv-mod-prototype-v1",
+      );
       store.start(j.id);
       await store.idle();
       const result = store.get(j.id);
@@ -287,12 +302,26 @@ test("bound versions survive failed rechecks and deletion protects bindings unti
   );
   store.isUsed = () => used;
   try {
-    const job = store.upload("cv.zip", input(), "cv-template");
+    const job = store.upload(
+      "cv.zip",
+      input(),
+      "cv-template",
+      "bewerbung-cv-mod-prototype-v1",
+    );
     store.start(job.id);
     await store.idle();
     const first = store.get(job.id);
     assert.ok(first.versionId);
     const original = store.reviewed(first.versionId);
+    fs.rmSync(path.join(root, job.id, "builds", first.buildId!, "package"), {
+      recursive: true,
+    });
+    assert.deepEqual(store.reviewed(first.versionId), original);
+    const legacy = { ...store.get(job.id) };
+    delete legacy.targetFormat;
+    store.db
+      .prepare("UPDATE jobs SET value=? WHERE id=?")
+      .run(JSON.stringify(legacy), job.id);
     assert.match(
       original.files["layout/main.tex"]!.toString(),
       /Synthetic adapter fixture/,
@@ -339,7 +368,12 @@ test("modified original or unsafe generated adapter cannot become reviewable", a
       },
     );
     try {
-      const j = store.upload("cv.zip", input(), "cv-template");
+      const j = store.upload(
+        "cv.zip",
+        input(),
+        "cv-template",
+        "bewerbung-cv-mod-prototype-v1",
+      );
       store.start(j.id);
       await store.idle();
       assert.equal(store.get(j.id).status, "failed");
@@ -363,7 +397,12 @@ test("real offline LuaLaTeX/PDF extraction covers lists, multiple entries, parag
   );
   const store = new CvModImports(root, fakeThread(), builder);
   try {
-    const j = store.upload("synthetic.zip", input(), "cv-template");
+    const j = store.upload(
+      "synthetic.zip",
+      input(),
+      "cv-template",
+      "bewerbung-cv-mod-prototype-v1",
+    );
     store.start(j.id);
     await store.idle();
     const result = store.get(j.id);
@@ -466,6 +505,7 @@ test("prototype HTTP API rejects restricted credentials, wrong origin and non-CV
       body: JSON.stringify({
         name: "cv.zip",
         documentType: "cv-template",
+        targetFormat: "bewerbung-cv-mod-prototype-v1",
         zipBase64: input().toString("base64"),
       }),
     });

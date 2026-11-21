@@ -19,6 +19,7 @@ export async function checkApplicationSettings(
     "analysisModel",
     "applicantName",
     "autoBuild",
+    "autoPruneBuilds",
     "collapsedStatuses",
     "revision",
   ]);

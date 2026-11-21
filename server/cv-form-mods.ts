@@ -5,7 +5,6 @@ import { createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
   parseForm,
-  pdfValues,
   validateValues,
   type FormMod,
   type FormSpec,
@@ -13,7 +12,7 @@ import {
 } from "../shared/cv-form.ts";
 import { collect } from "./cv-mod-prototype/imports.ts";
 import { safeRelative } from "./cv-mod-prototype/archive.ts";
-import { luaData } from "./cv-mod-prototype/model.ts";
+import { formBuildFiles } from "./cv-form-model.ts";
 import { check, HttpError } from "./files.ts";
 export function validateFormValues(
   spec: FormSpec,
@@ -32,6 +31,7 @@ export function validateFormValues(
 export const isFormMod = (id: string | null) =>
   Boolean(id?.startsWith("form:"));
 export class CvFormMods {
+  resolveImported?: (id: string) => FormMod;
   private examples = new Map<string, FormMod>();
   constructor(private db: DatabaseSync) {
     db.exec(
@@ -109,13 +109,21 @@ export class CvFormMods {
   }
   install(name: string, input: unknown, files: Record<string, Buffer>) {
     const mod = this.package(name, input, files);
-    this.pin(mod.id, mod);
+    this.persist(mod);
     return mod;
   }
-  pin(id: string, mod = this.mod(id)) {
+  private persist(mod: FormMod) {
     this.db
       .prepare("INSERT OR IGNORE INTO cv_form_mods VALUES(?,?)")
-      .run(id, JSON.stringify(mod));
+      .run(mod.id, JSON.stringify(mod));
+  }
+  pin(id: string) {
+    const mod = this.mod(id);
+    if (
+      this.examples.has(id) ||
+      this.db.prepare("SELECT id FROM cv_form_mods WHERE id=?").get(id)
+    )
+      this.persist(mod);
   }
   mod(id: string): FormMod {
     const row = this.db
@@ -123,12 +131,12 @@ export class CvFormMods {
         .get(id),
       mod = row
         ? (JSON.parse(String(row.payload)) as FormMod)
-        : this.examples.get(id);
+        : this.examples.get(id) || this.resolveImported?.(id);
     check(mod, "Formular-Modversion nicht gefunden", 404);
     return mod;
   }
   list() {
-    return [
+    const local = [
       ...new Map([
         ...this.examples,
         ...this.db
@@ -140,32 +148,20 @@ export class CvFormMods {
           }),
       ]).values(),
     ].map(({ files: _files, ...m }) => m);
+    return local;
   }
   snapshot(id: string, values: Values) {
     const mod = this.mod(id);
     validateFormValues(mod.spec, values, true);
-    return {
-      ...Object.fromEntries(
+    return formBuildFiles(
+      mod.spec,
+      Object.fromEntries(
         Object.entries(mod.files).map(([n, b]) => [
           n,
           Buffer.from(b, "base64"),
         ]),
       ),
-      "form-mod.json": Buffer.from(JSON.stringify(mod.spec)),
-      // The existing isolated LuaLaTeX runner receives its own launch manifest, not the form contract.
-      "mod.json": Buffer.from(
-        JSON.stringify({
-          format: "bewerbung-cv-mod-prototype-v1",
-          engine: mod.spec.engine,
-          entrypoint: mod.spec.entrypoint,
-          fields: [],
-        }),
-      ),
-      "cv-data.lua": Buffer.from(
-        "return " +
-          luaData({ schemaVersion: 2, values: pdfValues(mod.spec, values) }) +
-          "\n",
-      ),
-    };
+      values,
+    );
   }
 }

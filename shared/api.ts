@@ -11,6 +11,7 @@ export type Provider = "pi" | "codex";
 export type Settings = {
   revision: number;
   autoBuild: boolean;
+  autoPruneBuilds: boolean;
   collapsedStatuses: ApplicationStatus[];
   analysisModel: { instanceId: string; model: string } | null;
   applicantName: string;
@@ -84,6 +85,7 @@ export type Build = {
   revision: number;
   status: "queued" | "running" | "failed" | "success";
   finalized: number;
+  deletionBlocked?: string;
   created: string;
 };
 export type Model = { provider: string; id: string; name?: string };
@@ -242,12 +244,20 @@ export type CvModJob = {
   threadUrl?: string;
   error?: string;
   versionId?: string;
-  manifest?: {
-    format: string;
-    engine: string;
-    entrypoint: string;
-    fields: { key: string; label: string; type: "text"; required: boolean }[];
-  };
+  targetFormat?: "bewerbung-cv-form-v2" | "bewerbung-cv-mod-prototype-v1";
+  manifest?:
+    | FormSpec
+    | {
+        format: "bewerbung-cv-mod-prototype-v1";
+        engine: "lualatex";
+        entrypoint: string;
+        fields: {
+          key: string;
+          label: string;
+          type: "text";
+          required: boolean;
+        }[];
+      };
   checks: {
     id: string;
     status: "passed" | "failed" | "unsupported";

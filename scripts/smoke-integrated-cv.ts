@@ -88,6 +88,27 @@ try {
     modThreads: {
       generate: async (workspace, onThread) => {
         generated++;
+        if (
+          fs
+            .readFileSync(path.join(workspace, "ADAPTER-CONTRACT.md"), "utf8")
+            .includes("# CV-Mod v2:")
+        ) {
+          fs.mkdirSync(path.join(workspace, "mod"), { recursive: true });
+          for (const file of ["main.tex", "mod.json"])
+            fs.copyFileSync(
+              path.join(project, "examples/cv-form-mods/portfolio", file),
+              path.join(workspace, "mod", file),
+            );
+          fs.copyFileSync(
+            path.join(project, "examples/cv-form-mods/format.lua"),
+            path.join(workspace, "mod/format.lua"),
+          );
+          onThread(
+            "synthetic-v2-thread",
+            origin + "/synthetic-environment/synthetic-v2-thread",
+          );
+          return;
+        }
         fs.mkdirSync(path.join(workspace, "mod/layout"), { recursive: true });
         fs.writeFileSync(path.join(workspace, "mod/layout/main.tex"), modTex);
         fs.writeFileSync(
@@ -264,16 +285,27 @@ try {
       ),
     }),
   );
-  await imports.getByLabel("Datei für Vorlagenimport auswählen").setInputFiles({
-    name: "synthetic-layout.zip",
-    mimeType: "application/zip",
-    buffer: zip,
-  });
+  const legacyUpload = await context.request.post(
+    origin + "/bewerbung/api/cv-mods/jobs",
+    {
+      headers: { "X-Bewerbung-Request": "1" },
+      data: {
+        name: "synthetic-layout.zip",
+        documentType: "cv-template",
+        targetFormat: "bewerbung-cv-mod-prototype-v1",
+        zipBase64: zip.toString("base64"),
+      },
+    },
+  );
+  assert.equal(legacyUpload.status(), 201);
+  await page.reload();
+  await page.getByRole("button", { name: "Lebenslauf", exact: true }).click();
+  await page.getByText("LaTeX-Vorlage hochladen", { exact: true }).click();
   const started = page.waitForResponse(
     (r) => r.request().method() === "POST" && r.url().endsWith("/start"),
   );
   await imports
-    .getByRole("button", { name: "Hochladen & KI starten", exact: true })
+    .getByRole("button", { name: "KI starten", exact: true })
     .click();
   assert.equal((await started).status(), 202);
   await app.cvMods!.idle();
@@ -552,6 +584,105 @@ try {
   await expect(
     page.getByRole("textbox", { name: "Name", exact: true }),
   ).toHaveValue("IntegratedForm11");
+  await page.getByText("LaTeX-Vorlage hochladen", { exact: true }).click();
+  await imports.getByLabel("Datei für Vorlagenimport auswählen").setInputFiles({
+    name: "v2-portfolio.zip",
+    mimeType: "application/zip",
+    buffer: zip,
+  });
+  const v2Started = page.waitForResponse(
+    (r) => r.request().method() === "POST" && r.url().endsWith("/start"),
+  );
+  await imports
+    .getByRole("button", { name: "Hochladen & KI starten", exact: true })
+    .click();
+  assert.equal((await v2Started).status(), 202);
+  await app.cvMods!.idle();
+  const v2Job = app
+    .cvMods!.list()
+    .find((job) => job.name === "v2-portfolio.zip")!;
+  assert.equal(v2Job.status, "review", JSON.stringify(v2Job.checks));
+  assert.ok(v2Job.versionId!.startsWith("form:"));
+  const importedRow = imports.locator(`[data-cv-mod-job="${v2Job.id}"]`);
+  await expect(
+    importedRow.getByText("Geprüft · zur Durchsicht", { exact: true }),
+  ).toBeVisible();
+  await importedRow
+    .getByRole("button", { name: "Für diese Bewerbung verwenden", exact: true })
+    .click();
+  await expect(
+    page.getByRole("textbox", { name: "Überschrift", exact: true }),
+  ).toBeVisible();
+  assert.equal(app.app.store.cv.read(a.id).modId, v2Job.versionId);
+  assert.equal(
+    app.app.store.db
+      .prepare("SELECT 1 FROM cv_form_mods WHERE id=?")
+      .get(v2Job.versionId!),
+    undefined,
+  );
+  await page
+    .getByRole("textbox", { name: "Überschrift", exact: true })
+    .fill("ImportedV2Marker83");
+  const importedBuild = page.waitForResponse(
+    (r) => r.request().method() === "POST" && r.url().endsWith("/builds"),
+  );
+  await page
+    .getByRole("button", { name: "Speichern & PDF bauen", exact: true })
+    .click();
+  assert.equal((await importedBuild).status(), 202);
+  await app.app.builds.idle();
+  assert.equal(app.app.builds.documentStatus(a.id).cv, "current");
+  const boundDelete = await context.request.delete(
+    origin + "/bewerbung/api/cv-mods/jobs/" + v2Job.id,
+    {
+      headers: { "X-Bewerbung-Request": "1" },
+      data: { updated: v2Job.updated },
+    },
+  );
+  assert.equal(boundDelete.status(), 409);
+  await page.reload();
+  await page.getByRole("button", { name: "Lebenslauf", exact: true }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Überschrift", exact: true }),
+  ).toHaveValue("ImportedV2Marker83");
+  await page.getByText("LaTeX-Vorlage hochladen", { exact: true }).click();
+  await imports
+    .locator(`[data-cv-mod-job="${v2Job.id}"]`)
+    .getByText("Build-Prüfungen und Vorschau", { exact: true })
+    .click();
+  const proofLinks = imports
+    .locator(`[data-cv-mod-job="${v2Job.id}"]`)
+    .getByRole("link", { name: "PDF öffnen", exact: true });
+  await expect(proofLinks).toHaveCount(4);
+  const proof = await context.request.get(
+    new URL((await proofLinks.first().getAttribute("href"))!, origin).href,
+  );
+  assert.equal(proof.status(), 200);
+  assert.equal((await proof.body()).subarray(0, 5).toString(), "%PDF-");
+  assert.equal(generated, 2);
+  await choose(/Formular · Beispiel · CV/);
+  const removedV2 = page.waitForResponse(
+    (r) =>
+      r.request().method() === "DELETE" &&
+      r.url().endsWith("/cv-mods/jobs/" + v2Job.id),
+  );
+  await imports
+    .locator(`[data-cv-mod-job="${v2Job.id}"]`)
+    .getByRole("button", { name: "Entfernen", exact: true })
+    .click();
+  assert.equal((await removedV2).status(), 200);
+  await expect(imports.locator(`[data-cv-mod-job="${v2Job.id}"]`)).toHaveCount(
+    0,
+  );
+  await choice.click();
+  await expect(
+    page.getByRole("option", { name: /v2-portfolio.zip/ }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.screenshot({
+    path: path.join(output, "v2-import-mobile.png"),
+    animations: "disabled",
+  });
   const db = new DatabaseSync(
     path.join(data, "native-t3/userdata/statev2.sqlite"),
     { readOnly: true },
@@ -567,7 +698,13 @@ try {
   Object.assign(report, {
     status: "PASS",
     mockAdapterGenerations: generated,
-    realOfflinePdfBuilds: 9,
+    realOfflinePdfBuilds: 14,
+    v2UploadToPublishedForm: true,
+    v1Compatibility: true,
+    v2UsedImportDeletionBlocked: true,
+    v2ProofPdfDownload: true,
+    v2NoGhostPackageCopies: true,
+    v2UnboundImportRemovalUpdatesChoices: true,
     formModsInNormalWorkspace: true,
     formEntryActionsAndReload: true,
     formModRoundTripRetainsLegacyAndUnknownData: true,

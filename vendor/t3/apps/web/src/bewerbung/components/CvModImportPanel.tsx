@@ -9,7 +9,7 @@ import { uploadLibraryDocument } from "./DocumentLibrary";
 
 const statuses: Record<CvModJob["status"], string> = {
   uploaded: "Bereit zum KI-Start",
-  generating: "KI erstellt Adapter",
+  generating: "KI erstellt Formular und Datenanbindung",
   "needs-input": "Antwort im KI-Thread nötig",
   checking: "PDF-Prüfung läuft",
   review: "Geprüft · zur Durchsicht",
@@ -22,6 +22,10 @@ const cases: Record<string, string> = {
   mixed: "Gemischte Inhalte",
   "optional-role": "Optionale Rolle",
   empty: "Ohne Abschnitte",
+  "form-full": "Alle Formularfelder und gemischte Inhalte",
+  "form-reordered": "Geänderte Reihenfolge",
+  "form-excluded": "PDF-Auswahl und Metadaten",
+  "form-empty": "Leere Sammlungen",
 };
 const pending = (job: CvModJob) => ["generating", "needs-input", "checking"].includes(job.status);
 function fileBase64(file: File) {
@@ -174,7 +178,7 @@ export function CvModImportPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-lg text-xs text-muted-foreground">
           {kind === "cv-template"
-            ? "KI erstellt die Datenanbindung mit deinen nativen Provider- und Berechtigungseinstellungen. Der Start kann Kosten verursachen."
+            ? "KI erstellt Formular und Datenanbindung aus deiner LaTeX-Vorlage mit den vorhandenen nativen Provider- und Berechtigungseinstellungen. Der Start kann Kosten verursachen."
             : "Die Datei wird als Anlage gespeichert; es startet keine KI."}
         </p>
         <Button disabled={!file || busy} onClick={() => void upload()}>
@@ -204,6 +208,12 @@ export function CvModImportPanel({
             <p className="text-xs text-muted-foreground">
               {job.files.length} Quelldateien · {job.entrypoints.join(", ")}
             </p>
+            <p className="text-xs text-muted-foreground">
+              {(job.manifest?.format || job.targetFormat) === "bewerbung-cv-form-v2"
+                ? "Formular-Mod v2"
+                : "Ältere Datenanbindung v1"}{" "}
+              · Prüf-PDFs und Layout vor Verwendung durchsehen.
+            </p>
             {job.error && <ErrorNotice error={job.error} />}
             <div className="flex flex-wrap gap-2">
               {job.threadUrl && (
@@ -221,7 +231,7 @@ export function CvModImportPanel({
                   KI starten
                 </Button>
               )}
-              {job.threadId && !pending(job) && (
+              {job.threadId && !["generating", "checking"].includes(job.status) && (
                 <Button
                   size="sm"
                   variant="ghost"
@@ -232,14 +242,14 @@ export function CvModImportPanel({
                   Erneut prüfen
                 </Button>
               )}
-              {!pending(job) && (
+              {!["generating", "checking"].includes(job.status) && (
                 <Button size="sm" variant="ghost" disabled={busy} onClick={() => void remove(job)}>
                   <Trash2 />
                   Entfernen
                 </Button>
               )}
-              {onSelect && job.status === "review" && (
-                <Button size="sm" onClick={() => onSelect(job.id)}>
+              {onSelect && job.status === "review" && job.versionId && (
+                <Button size="sm" onClick={() => onSelect(job.versionId!)}>
                   Für diese Bewerbung verwenden
                 </Button>
               )}

@@ -537,7 +537,9 @@ export class Store {
   builds(app: string) {
     this.app(app);
     return this.db
-      .prepare("SELECT * FROM builds WHERE app=? ORDER BY created DESC")
+      .prepare(
+        "SELECT * FROM builds WHERE app=? ORDER BY created DESC,rowid DESC",
+      )
       .all(app);
   }
   close() {

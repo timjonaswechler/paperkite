@@ -9,6 +9,7 @@ import { check } from "./files.ts";
 const defaults: Settings = {
   revision: 1,
   autoBuild: false,
+  autoPruneBuilds: false,
   analysisModel: null,
   applicantName: "",
   collapsedStatuses: ["Fertig", "Gesendet", "Absage", "Zusage"],
@@ -32,6 +33,10 @@ export class Preferences {
         delete normalized[key];
         changed = true;
       }
+    if (normalized.autoPruneBuilds === undefined) {
+      normalized.autoPruneBuilds = false;
+      changed = true;
+    }
     if (normalized.analysisModel === undefined) {
       normalized.analysisModel = null;
       changed = true;
@@ -110,6 +115,11 @@ export class Preferences {
       check(
         typeof patch.autoBuild === "boolean",
         "Ungültige Einstellung: autoBuild",
+      );
+    if (patch.autoPruneBuilds !== undefined)
+      check(
+        typeof patch.autoPruneBuilds === "boolean",
+        "Ungültige Einstellung: autoPruneBuilds",
       );
     if (patch.collapsedStatuses !== undefined) {
       const values = patch.collapsedStatuses;

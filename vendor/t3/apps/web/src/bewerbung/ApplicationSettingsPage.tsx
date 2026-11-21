@@ -81,6 +81,18 @@ export function ApplicationSettingsPage() {
             />
           }
         />
+        <SettingsRow
+          {...searchableSetting("bewerbung-auto-prune-builds")}
+          description="Nach erfolgreichem Build nur den neuesten Stand je Bewerbung und Dokumenttyp behalten. Festgehaltene und in Versand-/PDF-Plänen oder -Aufträgen verwendete Builds bleiben geschützt."
+          control={
+            <Switch
+              aria-label="Alte Builds automatisch bereinigen"
+              checked={app.settings?.autoPruneBuilds ?? false}
+              disabled={busy || app.settings === null}
+              onCheckedChange={(autoPruneBuilds) => void saveSettings({ autoPruneBuilds })}
+            />
+          }
+        />
       </SettingsSection>
       <SettingsSection id="bewerbung-templates" title="Vorlagen">
         <div className="p-3 sm:p-4">

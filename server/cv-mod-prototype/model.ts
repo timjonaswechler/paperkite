@@ -1,5 +1,20 @@
 import { check } from "../files.ts";
 import { safeRelative } from "./archive.ts";
+import { parseForm, type FormSpec } from "../../shared/cv-form.ts";
+export type ImportManifest = ModManifest | FormSpec;
+export function importManifest(value: unknown): ImportManifest {
+  check(
+    value &&
+      typeof value === "object" &&
+      "format" in value &&
+      (value.format === "bewerbung-cv-form-v2" ||
+        value.format === "bewerbung-cv-mod-prototype-v1"),
+    "Unbekanntes Mod-Format: v2-Formular oder kompatible v1-Anbindung erwartet",
+  );
+  return value.format === "bewerbung-cv-form-v2"
+    ? parseForm(value)
+    : manifest(value);
+}
 
 import type { CvBlock, CvData } from "../../shared/api.ts";
 export type { CvBlock, CvData } from "../../shared/api.ts";

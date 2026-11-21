@@ -60,7 +60,15 @@ export function cvModRoutes(
     );
     res
       .status(201)
-      .json(imports.upload(req.body.name, bytes, req.body.documentType));
+      .json(
+        imports.upload(
+          req.body.name,
+          bytes,
+          req.body.documentType,
+          req.body.targetFormat ??
+            (options.prototypeUi ? "bewerbung-cv-mod-prototype-v1" : undefined),
+        ),
+      );
   });
   api.delete(prefix + "/jobs/:id", async (req, res) => {
     await imports.remove(String(req.params.id), req.body.updated);
@@ -80,6 +88,7 @@ export function cvModRoutes(
       .type("application/pdf")
       .sendFile(
         imports.artifact(String(req.params.id), String(req.params.case)),
+        { dotfiles: "allow" },
       ),
   );
 }
