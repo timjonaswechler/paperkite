@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -53,12 +54,49 @@ export function nativeModThreads(options: {
   return {
     generate: async (workspace, onThread, onAttention, signal) => {
       prepareNativeWorkspace(workspace);
+      const appRoot = fileURLToPath(new URL("../../", import.meta.url));
+      const builderImage = fs
+        .readFileSync(path.join(appRoot, "builder/image-id"), "utf8")
+        .trim();
+      const pdfImage = fs
+        .readFileSync(path.join(appRoot, "pdf-tools/image-id"), "utf8")
+        .trim();
+      check(
+        [builderImage, pdfImage].every((image) =>
+          /^sha256:[a-f0-9]{64}$/.test(image),
+        ),
+        "Ungültige Buildumgebung für den Mod-Agenten",
+      );
+      fs.writeFileSync(
+        path.join(workspace, "BUILD-ENVIRONMENT.json"),
+        JSON.stringify(
+          {
+            builderImage,
+            pdfImage,
+            dockerfile: path.join(appRoot, "builder/Dockerfile"),
+            dependencyDockerfile: path.join(
+              appRoot,
+              "builder/newtx/Dockerfile",
+            ),
+            dependencyBuildScript: path.join(appRoot, "builder/newtx/build.sh"),
+            fontsConfig: path.join(appRoot, "builder/fonts.conf"),
+            runner: fileURLToPath(new URL("./build.py", import.meta.url)),
+            candidateDirectory: "build-support",
+            productionActivation: "operator-only",
+            pdfNetwork: "none",
+            shellEscape: false,
+          },
+          null,
+          2,
+        ) + "\n",
+        { mode: 0o600 },
+      );
       await cli(
         ["project", "add", workspace, "--title", "CV-Vorlagenimport"],
         signal,
       );
       const message =
-        "Lies ADAPTER-CONTRACT.md und die Vorlagenquellen unter source/. Erstelle unter mod/ genau das beauftragte Mod-Format mit Formular und passender LaTeX-Datenanbindung. Verwende die bestehende Vorlage als Layoutbasis, nicht einen Universal-CV. Bei offenen Fragen den NEEDS-INPUT.md-Ablauf aus dem Vertrag verwenden. Keine produktiven Änderungen und keine realen CV-Inhalte als Beispieldaten.";
+        "Lies ADAPTER-CONTRACT.md, BUILD-ENVIRONMENT.json und die Vorlagenquellen unter source/. Erstelle unter mod/ genau das beauftragte Mod-Format mit Formular und passender LaTeX-Datenanbindung. Verwende die bestehende Vorlage als Layoutbasis, nicht einen Universal-CV. Bei offenen Fragen den NEEDS-INPUT.md-Ablauf aus dem Vertrag verwenden. Keine produktiven Änderungen und keine realen CV-Inhalte als Beispieldaten.";
       const launched = JSON.parse(
         await cli(
           [
@@ -75,13 +113,16 @@ export function nativeModThreads(options: {
       ) as { threadId: string; runId: string | null };
       check(
         typeof launched.threadId === "string" &&
-          /^[a-zA-Z0-9_-]+$/.test(launched.threadId),
+          /^[a-zA-Z0-9_:-]+$/.test(launched.threadId),
         "Ungültige native Thread-Antwort",
       );
       onThread(
         launched.threadId,
         new URL(
-          "/" + options.environmentId + "/" + launched.threadId,
+          "/" +
+            encodeURIComponent(options.environmentId) +
+            "/" +
+            encodeURIComponent(launched.threadId),
           options.publicOrigin,
         ).href,
       );

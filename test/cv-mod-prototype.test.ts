@@ -552,7 +552,7 @@ test("native CLI bridge targets only configured stage home and uses a local proj
     binary = path.join(root, "fake-t3");
   fs.writeFileSync(
     binary,
-    `#!/usr/bin/env node\nconst fs=require('fs');const a=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(a)+'\\n');if(a[0]==='thread'&&a[1]==='start')console.log(JSON.stringify({threadId:'synthetic-thread',runId:'synthetic-run'}));else if(a[0]==='thread'&&a[1]==='show')console.log(JSON.stringify({thread:{activeRunId:null,latestRunId:'synthetic-run',status:'idle',pendingRequestCount:0,runCount:1}}));else console.log('project added');\n`,
+    `#!/usr/bin/env node\nconst fs=require('fs');const a=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(a)+'\\n');if(a[0]==='thread'&&a[1]==='start'){if(!fs.existsSync(require('path').join(a[2],'BUILD-ENVIRONMENT.json')))throw Error('Build context missing before model start');console.log(JSON.stringify({threadId:'mcp:synthetic-thread',runId:'synthetic-run'}));}else if(a[0]==='thread'&&a[1]==='show')console.log(JSON.stringify({thread:{activeRunId:null,latestRunId:'synthetic-run',status:'idle',pendingRequestCount:0,runCount:1}}));else console.log('project added');\n`,
     { mode: 0o700 },
   );
   const workspace = path.join(root, "workspace");
@@ -576,8 +576,36 @@ test("native CLI bridge targets only configured stage home and uses a local proj
     );
     assert.equal(
       link,
-      "http://127.0.0.1:3170/stage-environment/synthetic-thread",
+      "http://127.0.0.1:3170/stage-environment/mcp%3Asynthetic-thread",
     );
+    const environment = JSON.parse(
+      fs.readFileSync(path.join(workspace, "BUILD-ENVIRONMENT.json"), "utf8"),
+    );
+    assert.equal(
+      environment.builderImage,
+      fs.readFileSync("builder/image-id", "utf8").trim(),
+    );
+    assert.equal(
+      environment.pdfImage,
+      fs.readFileSync("pdf-tools/image-id", "utf8").trim(),
+    );
+    assert.equal(environment.dockerfile, path.resolve("builder/Dockerfile"));
+    assert.equal(
+      environment.dependencyDockerfile,
+      path.resolve("builder/newtx/Dockerfile"),
+    );
+    assert.equal(
+      environment.dependencyBuildScript,
+      path.resolve("builder/newtx/build.sh"),
+    );
+    assert.equal(
+      environment.runner,
+      path.resolve("server/cv-mod-prototype/build.py"),
+    );
+    assert.equal(environment.candidateDirectory, "build-support");
+    assert.equal(environment.productionActivation, "operator-only");
+    assert.equal(environment.pdfNetwork, "none");
+    assert.equal(environment.shellEscape, false);
     const calls = fs
       .readFileSync(log, "utf8")
       .trim()
