@@ -1,3 +1,4 @@
+import type { FormSpec, Values } from "./cv-form.ts";
 export const APPLICATION_STATUSES = [
   "In Arbeit",
   "Fertig",
@@ -214,6 +215,7 @@ export type CvState = {
   fingerprint: string;
   modId: string | null;
   paragraphsSupported: boolean;
+  form?: { spec: FormSpec; values: Values };
   mod?: {
     id: string;
     name: string;

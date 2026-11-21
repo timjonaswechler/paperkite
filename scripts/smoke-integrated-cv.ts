@@ -346,6 +346,212 @@ try {
     path: path.join(output, "settings-mobile.png"),
     animations: "disabled",
   });
+  // Exercise form mods through the same CV workspace, API and application build queue.
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(origin + "/bewerbungen/" + a.id);
+  await page.getByRole("button", { name: "Lebenslauf", exact: true }).click();
+  await expect(
+    page.getByRole("textbox", {
+      name: "Rolle / Berufsbezeichnung",
+      exact: true,
+    }),
+  ).toHaveText("BrowserRoleMarker");
+  const beforeForm = app.app.store.cv.read(a.id),
+    sourceBefore = app.app.store.read(a.id, "cv/profiles/general.lua");
+  const choice = page.getByRole("combobox", {
+    name: "LaTeX-Vorlage für diesen Lebenslauf",
+    exact: true,
+  });
+  page.on("dialog", (dialog) => void dialog.accept());
+  const choose = async (name: RegExp | string) => {
+    const response = page.waitForResponse(
+      (r) => r.request().method() === "PUT" && r.url().endsWith("/cv-mod"),
+    );
+    await choice.click();
+    await page
+      .getByRole("option", { name, exact: typeof name === "string" })
+      .click();
+    assert.equal((await response).status(), 200);
+  };
+  await choose(/Formular · Beispiel · CV/);
+  await expect(page.locator("[data-form-mod]")).toBeVisible();
+  await expect(
+    page.getByRole("textbox", {
+      name: "Rolle / Berufsbezeichnung",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Speichern", exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("IntegratedForm11");
+  await page
+    .getByRole("textbox", { name: "UI-only Notizen", exact: true })
+    .fill("HiddenNotes13");
+  const collection = page.locator('[data-collection="career"]'),
+    entries = collection.locator("[data-entry]");
+  for (const title of ["FirstRole15", "SecondRole17", "HiddenRole19"]) {
+    await collection
+      .getByRole("button", { name: "Eintrag hinzufügen", exact: true })
+      .click();
+    await collection
+      .getByRole("textbox", { name: "Tätigkeit", exact: true })
+      .last()
+      .fill(title);
+  }
+  await entries
+    .first()
+    .getByRole("textbox", { name: "Inhalt", exact: true })
+    .fill("IntegratedBody21 50% & Rust_2026.");
+  await entries
+    .nth(2)
+    .getByRole("checkbox", { name: "Im PDF", exact: true })
+    .uncheck();
+  await entries
+    .nth(1)
+    .getByRole("button", { name: "Nach oben", exact: true })
+    .click();
+  await collection
+    .getByRole("button", { name: "Eintrag hinzufügen", exact: true })
+    .click();
+  await entries
+    .last()
+    .getByRole("button", { name: "Eintrag löschen", exact: true })
+    .click();
+  await expect(entries).toHaveCount(3);
+  const formSaved = page.waitForResponse(
+    (r) => r.request().method() === "PUT" && r.url().endsWith("/cv-data"),
+  );
+  await page.getByRole("button", { name: "Speichern", exact: true }).click();
+  assert.equal((await formSaved).status(), 200);
+  await expect(
+    page.getByRole("button", { name: "Speichern", exact: true }),
+  ).toBeDisabled();
+  const formData = app.app.store.cv.read(a.id),
+    career = formData.form!.values.career as {
+      id: string;
+      included: boolean;
+      values: { position: string };
+    }[];
+  assert.deepEqual(
+    career.map((e) => e.values.position),
+    ["SecondRole17", "FirstRole15", "HiddenRole19"],
+  );
+  assert.equal(career[2]!.included, false);
+  await page.reload();
+  await page.getByRole("button", { name: "Lebenslauf", exact: true }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("IntegratedForm11");
+  assert.deepEqual(
+    app.app.store.cv.read(a.id).form!.values,
+    formData.form!.values,
+  );
+  await page.getByRole("button", { name: "Lesen", exact: true }).click();
+  await expect(entries).toHaveCount(2);
+  await expect(page.getByText("HiddenRole19", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("HiddenNotes13", { exact: true })).toHaveCount(0);
+  await expect(
+    page.locator("[data-form-mod]").getByText("Kopf", { exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Bearbeiten", exact: true }).click();
+  await entries
+    .nth(2)
+    .getByRole("checkbox", { name: "Im PDF", exact: true })
+    .check();
+  await page.getByRole("button", { name: "Lesen", exact: true }).click();
+  await expect(entries).toHaveCount(3);
+  await page.getByRole("button", { name: "Bearbeiten", exact: true }).click();
+  await entries
+    .nth(2)
+    .getByRole("checkbox", { name: "Im PDF", exact: true })
+    .uncheck();
+  await expect(
+    page.getByRole("button", { name: "Speichern", exact: true }),
+  ).toBeDisabled();
+  const formBuild = page.waitForResponse(
+    (r) => r.request().method() === "POST" && r.url().endsWith("/builds"),
+  );
+  await page.getByRole("button", { name: "PDF bauen", exact: true }).click();
+  assert.equal((await formBuild).status(), 202);
+  await app.app.builds.idle();
+  assert.equal(app.app.builds.documentStatus(a.id).cv, "current");
+  await page.screenshot({
+    path: path.join(output, "form-cv-desktop.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+  );
+  await page.screenshot({
+    path: path.join(output, "form-cv-mobile.png"),
+    fullPage: true,
+  });
+  await choose(/Formular · Beispiel · Portfolio/);
+  await expect(
+    page.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("textbox", { name: "Überschrift", exact: true })
+    .fill("PortfolioForm31");
+  await page
+    .getByRole("textbox", { name: "Einleitung", exact: true })
+    .fill("Intro33");
+  const projects = page.locator('[data-collection="projects"]');
+  await projects
+    .getByRole("button", { name: "Eintrag hinzufügen", exact: true })
+    .click();
+  await page
+    .getByRole("textbox", { name: "Projektname", exact: true })
+    .fill("Project35");
+  await page
+    .getByRole("textbox", { name: "Technologien", exact: true })
+    .fill("Rust & Lua");
+  await page
+    .getByRole("textbox", { name: "Beschreibung", exact: true })
+    .fill("Description37");
+  const portfolioBuild = page.waitForResponse(
+    (r) => r.request().method() === "POST" && r.url().endsWith("/builds"),
+  );
+  await page
+    .getByRole("button", { name: "Speichern & PDF bauen", exact: true })
+    .click();
+  assert.equal((await portfolioBuild).status(), 202);
+  await app.app.builds.idle();
+  assert.equal(app.app.builds.documentStatus(a.id).cv, "current");
+  assert.equal(
+    app.app.store.cv.read(a.id).form!.values.fullName,
+    "IntegratedForm11",
+  );
+  assert.ok(
+    app.app.store.read(a.id, "cv/profiles/general.lua").equals(sourceBefore),
+  );
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+  );
+  await page.screenshot({
+    path: path.join(output, "form-portfolio-mobile.png"),
+    fullPage: true,
+  });
+  await choose("synthetic-layout.zip");
+  await expect(
+    page.getByRole("textbox", {
+      name: "Rolle / Berufsbezeichnung",
+      exact: true,
+    }),
+  ).toHaveText("BrowserRoleMarker");
+  assert.deepEqual(app.app.store.cv.read(a.id).data, beforeForm.data);
+  await choose(/Formular · Beispiel · CV/);
+  await expect(
+    page.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("IntegratedForm11");
   const db = new DatabaseSync(
     path.join(data, "native-t3/userdata/statev2.sqlite"),
     { readOnly: true },
@@ -361,7 +567,10 @@ try {
   Object.assign(report, {
     status: "PASS",
     mockAdapterGenerations: generated,
-    realOfflinePdfBuilds: 7,
+    realOfflinePdfBuilds: 9,
+    formModsInNormalWorkspace: true,
+    formEntryActionsAndReload: true,
+    formModRoundTripRetainsLegacyAndUnknownData: true,
     documentEditorPersistence: true,
     escapeRestoresField: true,
     enterAddsFocusedBullet: true,

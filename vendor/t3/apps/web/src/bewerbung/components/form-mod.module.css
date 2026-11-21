@@ -1,0 +1,39 @@
+.form,
+.group,
+.collection {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.columns > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+}
+.field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.entry {
+  display: grid;
+  gap: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  min-width: 0;
+}
+.entry[data-included="false"] {
+  border-style: dashed;
+  background: var(--secondary);
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.form p {
+  overflow-wrap: anywhere;
+}

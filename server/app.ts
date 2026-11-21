@@ -196,6 +196,7 @@ export function createApp(
   });
   organizationRoutes(api, store, builds);
   workflowRoutes(api, store, pdfs, editable, available, deliveries);
+  api.get("/cv-form-mods", (_req, res) => res.json(store.cv.forms.list()));
   api.get("/applications/:id/cv-data", (req, res) =>
     res.json(store.cv.read(req.params.id)),
   );

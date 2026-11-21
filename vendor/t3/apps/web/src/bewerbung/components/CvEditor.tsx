@@ -19,6 +19,8 @@ import { Choice, ErrorNotice } from "./Controls";
 import { DocumentPreview, useDocumentDraftGuard } from "./DocumentEditors";
 import { CvModImportPanel } from "./CvModImportPanel";
 import { CvContentEditor } from "./CvContentEditor";
+import { FormModRenderer } from "./FormModRenderer";
+import type { FormMod, Values } from "../../../../../../../shared/cv-form";
 import { Checkbox } from "~/components/ui/checkbox";
 import styles from "./cv-editor.module.css";
 
@@ -131,6 +133,8 @@ export function CvEditor({
   const [state, setState] = useState<CvState | null>(null),
     [data, setData] = useState<CvData | null>(null),
     [mods, setMods] = useState<CvModJob[]>([]),
+    [formMods, setFormMods] = useState<Omit<FormMod, "files">[]>([]),
+    [formValues, setFormValues] = useState<Values>({}),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
@@ -140,7 +144,19 @@ export function CvEditor({
     [focus, setFocus] = useState(""),
     [newSection, setNewSection] = useState(false),
     [sectionName, setSectionName] = useState("");
-  const dirty = Boolean(state && data && JSON.stringify(state.data) !== JSON.stringify(data));
+  const formMode = Boolean(state?.modId?.startsWith("form:"));
+  const dirty = Boolean(
+    state &&
+    data &&
+    (formMode
+      ? JSON.stringify(state.form?.values || {}) !== JSON.stringify(formValues)
+      : JSON.stringify(state.data) !== JSON.stringify(data)),
+  );
+  function accept(next: CvState) {
+    setState(next);
+    setData(next.data);
+    setFormValues(next.form?.values || {});
+  }
   useDocumentDraftGuard(dirty);
   const disabled = busy || loading || app.harness.busy,
     readonly = reading || disabled;
@@ -149,8 +165,7 @@ export function CvEditor({
     setError("");
     try {
       const next = await api<CvState>(`/applications/${app.id}/cv-data`);
-      setState(next);
-      setData(next.data);
+      accept(next);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -164,6 +179,7 @@ export function CvEditor({
       .then((next) => {
         setState(next);
         setData(next.data);
+        setFormValues(next.form?.values || {});
       })
       .catch((e) => {
         if (!abort.signal.aborted) setError(errorMessage(e));
@@ -171,6 +187,9 @@ export function CvEditor({
       .finally(() => {
         if (!abort.signal.aborted) setLoading(false);
       });
+    void api<Omit<FormMod, "files">[]>("/cv-form-mods", "GET", undefined, abort.signal)
+      .then(setFormMods)
+      .catch(() => {});
     void api<CvModJob[]>("/cv-mods/jobs", "GET", undefined, abort.signal)
       .then(setMods)
       .catch(() => {});
@@ -241,10 +260,9 @@ export function CvEditor({
         const next = await api<CvState>(`/applications/${app.id}/cv-data`, "PUT", {
           revision: state.revision,
           fingerprint: state.fingerprint,
-          data,
+          ...(formMode ? { formValues } : { data }),
         });
-        setState(next);
-        setData(next.data);
+        accept(next);
       }
       if (build || (autoBuild && dirty))
         await api(`/applications/${app.id}/builds`, "POST", { kind: "cv" });
@@ -259,6 +277,14 @@ export function CvEditor({
   async function bind(id: string) {
     if (!state || disabled) return;
     if (dirty && !confirm("Ungespeicherte CV-Änderungen verwerfen und Vorlage wechseln?")) return;
+    if (
+      id.startsWith("form:") &&
+      !formMode &&
+      !confirm(
+        "Zum formularbasierten Mod wechseln? Die bisherigen CV-Daten bleiben erhalten, werden aber nicht automatisch in das neue Formular übertragen. Zur bisherigen Vorlage kannst du zurückwechseln.",
+      )
+    )
+      return;
     setBusy(true);
     setError("");
     try {
@@ -266,8 +292,7 @@ export function CvEditor({
         revision: state.revision,
         modId: id || null,
       });
-      setState(next);
-      setData(next.data);
+      accept(next);
       await onRefresh();
     } catch (e) {
       setError(errorMessage(e));
@@ -297,6 +322,8 @@ export function CvEditor({
   const modOptions = mods
     .filter((m) => m.status === "review" && m.versionId)
     .map((m) => ({ value: m.versionId!, label: m.name }));
+  for (const m of formMods)
+    modOptions.push({ value: m.id, label: `Formular · ${m.name} · ${m.id.slice(5, 13)}` });
   if (state?.modId && !modOptions.some((m) => m.value === state.modId))
     modOptions.push({ value: state.modId, label: state.mod?.name || "Gesicherte Mod-Version" });
   const personFields = data
@@ -315,31 +342,33 @@ export function CvEditor({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-medium">Lebenslauf anpassen</h2>
         <div className="flex flex-wrap items-center gap-2">
-          <Menu>
-            <MenuTrigger
-              disabled={readonly || !data}
-              render={<Button variant="outline" size="sm" />}
-            >
-              <Plus />
-              Hinzufügen
-            </MenuTrigger>
-            <MenuPopup align="end">
-              {kinds.map((k) => (
-                <MenuItem key={k.kind} onClick={() => addEntry(k.kind)}>
-                  {k.label}
-                </MenuItem>
-              ))}
-              <MenuSeparator />
-              <MenuItem
-                onClick={() => {
-                  setSectionName("");
-                  setNewSection(true);
-                }}
+          {!formMode && (
+            <Menu>
+              <MenuTrigger
+                disabled={readonly || !data}
+                render={<Button variant="outline" size="sm" />}
               >
-                Eigener Abschnitt…
-              </MenuItem>
-            </MenuPopup>
-          </Menu>
+                <Plus />
+                Hinzufügen
+              </MenuTrigger>
+              <MenuPopup align="end">
+                {kinds.map((k) => (
+                  <MenuItem key={k.kind} onClick={() => addEntry(k.kind)}>
+                    {k.label}
+                  </MenuItem>
+                ))}
+                <MenuSeparator />
+                <MenuItem
+                  onClick={() => {
+                    setSectionName("");
+                    setNewSection(true);
+                  }}
+                >
+                  Eigener Abschnitt…
+                </MenuItem>
+              </MenuPopup>
+            </Menu>
+          )}
           <Button
             size="sm"
             variant={reading ? "ghost" : "secondary"}
@@ -400,7 +429,16 @@ export function CvEditor({
         </p>
       )}
       {loading && <p className="text-sm text-muted-foreground">Lebenslauf wird geladen…</p>}
-      {data && (
+      {formMode && state?.form && (
+        <FormModRenderer
+          spec={state.form.spec}
+          values={formValues}
+          onChange={setFormValues}
+          reading={reading}
+          disabled={disabled}
+        />
+      )}
+      {data && !formMode && (
         <article
           className={`${styles["cv-document"]} rounded-lg border bg-card p-4 sm:p-6`}
           data-reading={reading}

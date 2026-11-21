@@ -68,11 +68,15 @@ export function CvContentEditor({
   onChange,
   readonly,
   inlineList = false,
+  label = "Inhalt",
+  showLabel = true,
 }: {
   value: CvBlock[];
   onChange: (value: CvBlock[]) => void;
   readonly: boolean;
   inlineList?: boolean;
+  label?: string;
+  showLabel?: boolean;
 }) {
   const last = useRef(JSON.stringify(value)),
     before = useRef<JSONContent | null>(null);
@@ -83,7 +87,7 @@ export function CvContentEditor({
       editable: !readonly,
       shouldRerenderOnTransaction: false,
       editorProps: {
-        attributes: { role: "textbox", "aria-label": "Inhalt", "aria-multiline": "true" },
+        attributes: { role: "textbox", "aria-label": label, "aria-multiline": "true" },
         handleKeyDown(view, event) {
           if (event.key !== "Escape" || !before.current) return false;
           event.preventDefault();
@@ -124,9 +128,11 @@ export function CvContentEditor({
   }, [editor, value]);
   return (
     <div className={styles["cv-content"]} data-inline-list={inlineList}>
-      <div className={styles["cv-field-label"]} aria-hidden>
-        Inhalt
-      </div>
+      {showLabel && (
+        <div className={styles["cv-field-label"]} aria-hidden>
+          {label}
+        </div>
+      )}
       <EditorContent editor={editor} />
       {!readonly && (
         <div className={styles["cv-content-toolbar"]}>

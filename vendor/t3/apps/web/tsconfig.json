@@ -27,6 +27,8 @@
   },
   "include": [
     "src",
+    "../../../../shared/cv-form.ts",
+    "../../../../shared/api.ts",
     "vite",
     "vite.config.ts",
     "vercel.ts",

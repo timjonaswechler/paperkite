@@ -2,6 +2,45 @@
 
 **Status: erste integrierte Fassung auf `prototype/cv-mod-import`.** Upload, nativer KI-Thread, feste PDF-Prüfungen und Auswahl einer unveränderlichen geprüften Version sind in Einstellungen und Lebenslauf eingebunden. Der [isolierte Entwicklungsprototyp](../prototypes/cv-mod-import/README.md) bleibt zusätzlich vorhanden. Die ABI und begrenzten Prüfungen sind keine allgemeine Kompatibilitäts- oder Layoutgarantie. Ergänzung zum [CV-Datenmodell](cv-datenmodell.md). Ziel: LaTeX-Projekte verschiedener Herkunft an dieselben CV-Daten anbinden, ohne bei Inhaltsänderungen erneut eine KI oder eine neue manuell zu pflegende Vorlage zu benötigen. Der [akzeptierte Editor](../prototypes/cv-kompakt/README.md) bleibt der feste Bedienentwurf.
 
+## Verbindliches Produktziel: Vorlage bestimmt Formular
+
+**Mod = LaTeX-Vorlage + deklaratives Formular + Datenanbindung.** Ein nativer Agent soll diese Teile später für die Vorlage erzeugen und mit dem Nutzer weiterbearbeiten. Kein wachsendes Universalschema für Beruf, Bildung oder Kenntnisse. Die App rendert aus derselben Definition die Eingaben und prüft deren Typen. Normales Bearbeiten und PDF-Bauen benötigt keine KI und verändert den Mod nicht. Nutzer verantworten Inhalt und Gestaltung; die App verantwortet Speicherung, Versionsbindungen, technische Grenzen und verbindliche Bedienfunktionen. Das ist keine Garantie pixelgleicher Browser-/PDF-Darstellung.
+
+Die nachfolgenden v1-Beschreibungen sind der bestehende Übergang, nicht die vollständige Umsetzung dieses Ziels. Der akzeptierte HTML-Entwurf bleibt Bedienreferenz, kein Pflicht-Feldsatz.
+
+### Erster Prototyp und Vertrag v2
+
+**Status 21.11.2026:** Der Durchstich ist auf `prototype/cv-mod-import` in den normalen Lebenslaufbereich eingebunden, mit regulärem App-Build, Start und PDF-/Vorschaupfad. Kein eigenständiger Formular-Prototyp-Build, Zweitserver oder zusätzlicher Port. [Verwendung und Beispiele](../examples/cv-form-mods/README.md), [beobachtete Nachweise](../VERIFIKATION.md). Noch nicht produktiv ausgerollt und nicht durch eine echte KI erstellt.
+
+Der erste Durchstich verwendet manuell erstellte, ausschließlich synthetische Mods, keine echte KI-Erstellung und keine automatische Inhaltsmigration. Der Prototyp ist ein Branch der normalen App, keine zusätzliche Anwendung. Vorhandene Bewerbungen bleiben im alten Editor, bis ausdrücklich ein Formular-Mod gewählt wird. Alte CV-Daten und LaTeX-Quellen bleiben dabei erhalten; generische Formularwerte werden getrennt pro Bewerbung gespeichert. Der Rückwechsel ist möglich, und auch bisher nicht zugeordnete Formularwerte bleiben aufbewahrt. Format `bewerbung-cv-form-v2`, Engine `lualatex`, relativer `.tex`-Einstiegspunkt und `form` bilden das Manifest. Layoutdateien und Manifest werden zusammen als feste Version veröffentlicht.
+
+Primitives: `text`, `content` (gemeinsamer Absatz-/Aufzählungseditor), `group`, `columns`, `entries`. Gruppen und Spalten sind reine Anordnung, keine eigenen Datenobjekte. Feld- und Sammlungsschlüssel binden relativ zum Dokument beziehungsweise Eintrag; Schlüssel sind je Bindungskontext eindeutig. Felder tragen Beschriftung, optional `required` und zwingend `target: pdf|metadata`. Beschriftungen sind nie automatisch CV-Text. Verschachtelte Sammlungen, Medienprimitives und eigene Stylingprogramme gehören nicht zum ersten Durchstich.
+
+`entries` liefert unveränderlich die App-Aktionen Hinzufügen, Löschen, Umsortieren und **Im PDF**. Das Manifest kann diese Aktionen nicht abschalten. Einträge besitzen stabile IDs, `included` und eigene `values`; Dokumentwerte bleiben getrennt vom Mod. Ausgeschaltete Daten bleiben gespeichert. Pflichtfelder werden beim Build geprüft; leere Entwürfe dürfen gespeichert werden. Unbekannte, sichere Werte bleiben bei einem Modwechsel erhalten und werden als nicht zugeordnet gemeldet; inkompatible Typwechsel werden abgewiesen statt konvertiert. Kein neuer Rollenkatalog oder globales Pflicht-Kurzprofil, keine SQL-Struktur je Vorlage.
+
+Der Renderer führt keinen generierten JavaScript-Code aus. Der Adapter erhält im isolierten Builder nur PDF-Felder und eingeschlossene Einträge über `CV_DATA_FILE`. Für den bestehenden LuaLaTeX-Runner wird ausschließlich im Build-Snapshot dessen v1-Startmanifest erzeugt; das eigentliche Formularmanifest bleibt separat erhalten. Das ist Runner-Wiederverwendung, kein v1-Mod-Import. Daten-, Formular- und Layoutstand werden gemeinsam festgehalten; alte Versionen/PDFs werden nicht überschrieben.
+
+### Feste Abnahmekriterien A–H
+
+Diese Kriterien sind der Evaluator, nicht nachträglich an grüne Ergebnisse anzupassen:
+
+| ID  | Erfolg                                                                                               | Nachweis                                                                          |
+| --- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| A   | Ziel, Verantwortung, Vertrag, erster Umfang und Nichtziele widerspruchsfrei dokumentiert             | diese Seite und Datenmodell/README                                                |
+| B   | Unterschiedliche Feldnamen und Anordnung aus zwei Mods, gleicher Renderer ohne CV-Sonderfälle        | synthetischer CV und Projektportfolio, echte Formularbedienung                    |
+| C   | Hinzufügen, Löschen, Reihenfolge und Im-PDF bei jeder Sammlung, nicht abwählbar                      | Browseraktionen und abgewiesene Manifest-Overrides                                |
+| D   | Werte/IDs/Auswahl persistent; veraltete Revisionen abgewiesen; Öffnen/Lesen unverändert              | SQLite-Neuöffnung, Konflikttest und Browser-Reload                                |
+| E   | Echtes PDF enthält ausgewählte Inhalte in Reihenfolge, nicht ausgeschlossene Werte oder UI-Metadaten | Offline-LuaLaTeX und unabhängige Textextraktion, Sonderzeichen                    |
+| F   | Leere/mehrere Einträge und Mischtext; ungültige Primitives/Bindungen/IDs sichtbar abgewiesen         | feste positive und negative Testfälle                                             |
+| G   | Dokumente und Modversionen unabhängig; alte PDFs fest; fremde Werte erhalten                         | zweites Dokument, neue Modversion, erneutes Laden alter Artefakte                 |
+| H   | Vollständiger Ablauf Desktop 1440×1000 und Mobil 390×844 ohne Überbreite/JS-Fehler                   | Browserablauf plus menschliche Sichtprüfung der Beschriftungen und Bedienelemente |
+
+Vorherige Tests sind keine neue Baseline. Fehlende v2-Unterstützung wird als fehlende Funktion dokumentiert, nicht als aussagekräftiger Importfehler. Pro Iteration muss ein Kriterium neu erfüllt werden und müssen zuvor bestandene Kriterien erhalten bleiben; die erste Iteration ohne verifizierbaren Fortschritt beendet den Durchlauf mit Blockerbericht. Arbeitsprotokolle und Messungen liegen ignoriert unter `.work/`, nicht als zweite Zielbeschreibung.
+
+### Nichtziele und spätere Schritte
+
+Jetzt: generischer Formularrenderer im normalen Lebenslaufbereich, gemeinsame Datenpersistenz und echte PDF-Ausgabe über die bestehende Buildwarteschlange. Die Docker-Buildisolation bleibt erhalten; sie ist kein eigener App-Build-/Startweg. Später: tatsächliche Agentenerstellung desselben Formats, weitere Primitives, bewusste Migration/Feldzuordnung und Master-CV-Verwaltung. Kein Produktivrollout, keine Massenmigration, keine zusätzlichen Modellrunden, Agenten oder Infrastruktur im ersten Durchstich. Keine vollständige automatische Übertragbarkeit zwischen beliebigen Formularen versprechen; sichere unbekannte Werte bleiben dennoch erhalten. Technische Kompatibilität beliebiger TeX-Projekte bleibt begrenzt.
+
 ## Zielumfang eines Mods
 
 Die erste integrierte Fassung enthält Original-ZIP, Quellenhashes, Manifest, Adapterdateien und feste Prüfstände. Separate Lizenz-/Laufzeitmetadaten, allgemeine Editor-Darstellungsregeln und teilbare Exporte sind noch kein vollständiger Produktvertrag. Das weitergehende Ziel ist ein versioniertes Vorlagenpaket mit:
@@ -26,7 +65,7 @@ Der Thread nutzt die normalen nativen Provider-, Modell- und Berechtigungsmodi. 
 
 ## Vertrag zwischen Daten und Mod
 
-Das **gemeinsame CV-Datenmodell wird versioniert**; die erste integrierte ABI heißt `bewerbung-cv-mod-prototype-v1` und unterstützt zunächst LuaLaTeX sowie deklarative Textfelder. Feldpfade haben die Form `person.<Feld>`, `entry.<Feld>` oder `<Abschnittstyp>.<Feld>`. Es gibt unabhängige Bewerbungs-CVs, keine zusätzliche Inhaltsvarianten- oder Rollenprofilverwaltung. Eine zentrale Master-Verwaltung bleibt ein noch nicht umgesetzter Teil des Zielmodells. Ein Mod regelt ausschließlich Layout und Datenanbindung. Eine KI erfindet nicht für jede Vorlage eine eigene Datenbankstruktur. Vorlagenspezifische Zusatzfelder werden über definierte, typisierte Erweiterungen beschrieben und bleiben beim Vorlagenwechsel erhalten.
+Das **gemeinsame CV-Datenmodell wird versioniert**; die erste integrierte ABI heißt `bewerbung-cv-mod-prototype-v1` und unterstützt zunächst LuaLaTeX sowie deklarative Textfelder. Feldpfade haben die Form `person.<Feld>`, `entry.<Feld>` oder `<Abschnittstyp>.<Feld>`. Es gibt unabhängige Bewerbungs-CVs, keine zusätzliche Inhaltsvarianten- oder Rollenprofilverwaltung. Eine zentrale Master-Verwaltung bleibt ein noch nicht umgesetzter Teil des Zielmodells. Ein Mod regelt im Ziel zusätzlich das Formular aus App-Primitives; v1 deklariert bislang nur zusätzliche Textfelder. Eine KI erfindet nicht für jede Vorlage eine eigene Datenbankstruktur. Vorlagenspezifische Zusatzfelder werden über definierte, typisierte Erweiterungen beschrieben und bleiben beim Vorlagenwechsel erhalten.
 
 Einträge enthalten optionale typisierte Felder und geordnete Inhaltsblöcke: Textabsätze, Stichpunktlisten oder eine Mischung. Rolle/Berufsbezeichnung ist eine mögliche CV-Angabe, kein verpflichtendes Feld und keine Verwaltung benannter Inhaltsvarianten. Die Mod deklariert die vorhandenen Felder und verbindet die Daten mit den konkreten Layout-Befehlen. Daten und Inhaltsblöcke besitzen stabile IDs; keine festen Textpositionen oder Platzhalter nur für eine bestimmte Anzahl von Jobs. Fehlendes Kurzprofil bleibt fehlend. Nicht unterstützte Daten werden nicht gelöscht und nicht stillschweigend als erfolgreich ausgegeben.
 

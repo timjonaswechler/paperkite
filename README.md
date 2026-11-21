@@ -58,6 +58,10 @@ Unter „Lebenslauf / Quellen bearbeiten“ → „Einzelne Lebenslauf-Einträge
 
 Alte importierte Anschreiben bleiben ausschließlich im Vorlagenbestand als Referenzen. Neue Bewerbungen beginnen standardmäßig mit dem neutralen `anschreiben/Anschreiben.tex`. Nur eine ausdrücklich gewählte frühere Bewerbung oder vollständige Kopie übernimmt deren Anschreiben; dabei alte Empfänger und Inhalte vor Verwendung anpassen. Alte Firmen-/Bildreferenzen werden nicht automatisch als neue Fakten interpretiert.
 
+## Formularbasierte Vorlagen-Mods: Ziel und erster Prototyp
+
+Das [verbindliche Produktziel samt Vertrag und Kriterien A–H](docs/vorlagen-mods.md#verbindliches-produktziel-vorlage-bestimmt-formular) ist: LaTeX-Vorlage, Formular aus App-Primitives und Datenanbindung gemeinsam als Mod. Auf `prototype/cv-mod-import` ist der erste Durchstich **Teil der normalen App**: derselbe Build (`npm run build`), derselbe Start (`npm start`), derselbe Lebenslaufbereich. Kein zusätzliches Frontend, kein Prototyp-Port. In einer Bewerbung unter **Lebenslauf → LaTeX-Vorlage für diesen Lebenslauf** stehen zwei [manuell definierte Formular-Beispiele](examples/cv-form-mods/README.md) bereit. Der Wechsel ist ausdrücklich und übernimmt alte CV-Daten nicht automatisch; Rückwechsel und vorhandene Daten bleiben erhalten. Dieser Branch-Stand ist noch nicht produktiv ausgerollt. Die echte KI-Erstellung des neuen Formularformats bleibt offen; der folgende Abschnitt beschreibt den bisherigen v1-Import.
+
 ## Eigene Lebenslauf-Vorlagen
 
 Unter **Settings → Bewerbungen → Lebenslauf-Vorlagen** oder im Lebenslauf unter **LaTeX-Vorlage hochladen** ein Quellen-ZIP wählen. **Hochladen & KI starten kann Modellkosten verursachen und Quellinhalte an den gewählten Anbieter übertragen.** Ein eigener nativer Thread erstellt die Datenanbindung mit den vorhandenen Provider-/Modell-/Berechtigungseinstellungen. **Dokument / Anlage** speichert dagegen eine normale Anlage ohne KI; eine PDF allein ist keine bearbeitbare LaTeX-Vorlage.

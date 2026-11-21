@@ -10,15 +10,10 @@ import {
   type CvBlock,
 } from "./cv-mod-prototype/model.ts";
 
-export type CvState = {
-  data: CvData;
-  revision: number;
-  fingerprint: string;
-  modId: string | null;
-  paragraphsSupported: boolean;
-  mod?: { id: string; name: string; fields: ReviewedCvMod["fields"] };
-  modWarning?: string;
-};
+import type { CvState } from "../shared/api.ts";
+export type { CvState } from "../shared/api.ts";
+import { CvFormMods, isFormMod, validateFormValues } from "./cv-form-mods.ts";
+import { pdfValues, type Values } from "../shared/cv-form.ts";
 export type ReviewedCvMod = {
   id: string;
   name: string;
@@ -220,8 +215,13 @@ export function validateCv(value: unknown): asserts value is CvData {
   check(bytes <= 2 * 1024 * 1024, "CV-Inhalte größer als 2 MiB");
 }
 export class CvDocuments {
+  readonly forms: CvFormMods;
   resolveMod?: (id: string) => ReviewedCvMod;
   constructor(private store: Store) {
+    this.forms = new CvFormMods(store.db);
+    store.db.exec(
+      "CREATE TABLE IF NOT EXISTS cv_form_values(app TEXT PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,data TEXT NOT NULL)",
+    );
     store.db.exec(
       "CREATE TABLE IF NOT EXISTS cv_documents(app TEXT PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,data TEXT NOT NULL,source_fingerprint TEXT NOT NULL,mod_id TEXT)",
     );
@@ -387,16 +387,31 @@ export class CvDocuments {
       main,
     };
   }
+  private formValues(id: string): Values {
+    const row = this.store.db
+      .prepare("SELECT data FROM cv_form_values WHERE app=?")
+      .get(id);
+    return row ? JSON.parse(String(row.data)) : {};
+  }
   read(id: string): CvState {
     const s = this.load(id);
     validateCv(s.data);
     let mod: CvState["mod"];
     let modWarning: string | undefined;
+    let form: CvState["form"];
     if (s.modId) {
       try {
-        check(this.resolveMod, "Vorlagen-Mods nicht verfügbar", 503);
-        const value = this.resolveMod(s.modId);
-        mod = { id: value.id, name: value.name, fields: value.fields };
+        if (isFormMod(s.modId)) {
+          const value = this.forms.mod(s.modId),
+            values = this.formValues(id);
+          validateFormValues(value.spec, values);
+          mod = { id: value.id, name: value.name, fields: [] };
+          form = { spec: value.spec, values };
+        } else {
+          check(this.resolveMod, "Vorlagen-Mods nicht verfügbar", 503);
+          const value = this.resolveMod(s.modId);
+          mod = { id: value.id, name: value.name, fields: value.fields };
+        }
       } catch (e) {
         mod = { id: s.modId, name: "Vorlage nicht verfügbar", fields: [] };
         modWarning = e instanceof Error ? e.message : String(e);
@@ -409,6 +424,7 @@ export class CvDocuments {
       modId: s.modId,
       paragraphsSupported: s.compatible || Boolean(s.modId) || !s.main.trim(),
       ...(mod ? { mod } : {}),
+      ...(form ? { form } : {}),
       ...(modWarning ? { modWarning } : {}),
     };
   }
@@ -445,7 +461,12 @@ export class CvDocuments {
   }
   save(
     id: string,
-    input: { revision: unknown; fingerprint: unknown; data: unknown },
+    input: {
+      revision: unknown;
+      fingerprint: unknown;
+      data?: unknown;
+      formValues?: unknown;
+    },
   ) {
     const s = this.load(id);
     check(
@@ -453,6 +474,18 @@ export class CvDocuments {
       "CV oder Quellen inzwischen geändert. Neu laden.",
       409,
     );
+    if (s.modId && isFormMod(s.modId)) {
+      const mod = this.forms.mod(s.modId);
+      validateFormValues(mod.spec, input.formValues);
+      this.commit(id, {}, () =>
+        this.store.db
+          .prepare(
+            "INSERT INTO cv_form_values VALUES(?,?) ON CONFLICT(app) DO UPDATE SET data=excluded.data",
+          )
+          .run(id, JSON.stringify(input.formValues)),
+      );
+      return this.read(id);
+    }
     validateCv(input.data);
     const data = input.data;
     if (!s.compatible && !s.modId && s.main.trim())
@@ -557,10 +590,17 @@ export class CvDocuments {
     check(modId === null || typeof modId === "string", "Ungültige Mod-ID");
     let version: string | null = null;
     if (modId !== null) {
-      check(this.resolveMod, "Vorlagen-Mods nicht verfügbar", 503);
-      version = this.resolveMod(modId).id;
+      if (isFormMod(modId)) {
+        const mod = this.forms.mod(modId);
+        validateFormValues(mod.spec, this.formValues(id));
+        version = mod.id;
+      } else {
+        check(this.resolveMod, "Vorlagen-Mods nicht verfügbar", 503);
+        version = this.resolveMod(modId).id;
+      }
     }
     this.commit(id, {}, () => {
+      if (version && isFormMod(version)) this.forms.pin(version);
       this.store.db
         .prepare(
           "INSERT INTO cv_documents VALUES(?,?,?,?) ON CONFLICT(app) DO UPDATE SET data=excluded.data,source_fingerprint=excluded.source_fingerprint,mod_id=excluded.mod_id",
@@ -581,6 +621,13 @@ export class CvDocuments {
     this.store.db
       .prepare("INSERT INTO cv_documents VALUES(?,?,?,?)")
       .run(destination, JSON.stringify(s.data), target.fingerprint, s.modId);
+    const values = this.store.db
+      .prepare("SELECT data FROM cv_form_values WHERE app=?")
+      .get(source);
+    if (values)
+      this.store.db
+        .prepare("INSERT INTO cv_form_values VALUES(?,?)")
+        .run(destination, String(values.data));
   }
   private buildData(data: CvData): CvData {
     return {
@@ -599,6 +646,15 @@ export class CvDocuments {
     const s = this.load(id),
       data = this.buildData(s.data);
     if (s.modId) {
+      if (isFormMod(s.modId)) {
+        const mod = this.forms.mod(s.modId);
+        return hash(
+          JSON.stringify({
+            mod: mod.id,
+            values: pdfValues(mod.spec, this.formValues(id)),
+          }),
+        );
+      }
       check(this.resolveMod, "Vorlagen-Mods nicht verfügbar", 503);
       const mod = this.resolveMod(s.modId);
       return hash(JSON.stringify({ data, mod: mod.id, digest: mod.digest }));
@@ -630,6 +686,15 @@ export class CvDocuments {
       JSON.stringify({ fingerprint: this.fingerprint(id) }),
     );
     if (s.modId) {
+      if (isFormMod(s.modId))
+        return {
+          mod: true,
+          files: {
+            ...this.forms.snapshot(s.modId, this.formValues(id)),
+            "application.json": this.store.read(id, "application.json"),
+            "cv-build.json": marker,
+          },
+        };
       check(this.resolveMod, "Vorlagen-Mods nicht verfügbar", 503);
       const mod = this.resolveMod(s.modId);
       for (const field of mod.fields.filter((f) => f.required)) {
