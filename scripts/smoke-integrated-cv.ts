@@ -3,8 +3,9 @@ import os from "node:os";
 import path from "node:path";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { execFileSync } from "node:child_process";
 import { zipSync } from "fflate";
-import { chromium, expect } from "@playwright/test";
+import { chromium, expect, type Locator } from "@playwright/test";
 import { Store } from "../server/store.ts";
 import { startT3Application } from "../server/t3-main.ts";
 import { cvDocumentTemplate } from "../test/fixtures/cv-document-template.ts";
@@ -168,9 +169,34 @@ try {
       viewport: { width: 1440, height: 1000 },
     }),
     page = await context.newPage();
+  await context.addInitScript(
+    `window.__orderDrag = []; for (const type of ['dragstart','dragover','drop','dragend']) document.addEventListener(type, event => { const row = event.target.closest?.('[data-entry]'); window.__orderDrag.push({type, entry:row?.dataset.entry, prevented:event.defaultPrevented, payload:event.dataTransfer?.getData('application/x-bewerbung-entry')}); if(window.__orderDrag.length>40)window.__orderDrag.shift(); });`,
+  );
   page.setDefaultTimeout(20000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
+  page.on("dialog", (dialog) => void dialog.accept());
+  const dragEntry = async (handle: Locator, target: Locator, y = 4) => {
+    await page.evaluate("window.__orderDrag = []");
+    await handle.scrollIntoViewIfNeeded();
+    const from = (await handle.boundingBox())!;
+    const x = from.x + from.width / 2,
+      top = from.y + from.height / 2;
+    await page.mouse.move(x, top);
+    await page.mouse.down();
+    await page.mouse.move(x + 12, top, { steps: 4 });
+    await target.scrollIntoViewIfNeeded();
+    const to = (await target.boundingBox())!;
+    await page.mouse.move(to.x + 12, to.y + y, { steps: 12 });
+    await page.mouse.move(to.x + 14, to.y + y + 1);
+    await page.mouse.up();
+    assert(
+      await page.evaluate(
+        "window.__orderDrag.some(event => event.type === 'dragstart')",
+      ),
+      "A real native drag must have started",
+    );
+  };
   await page.goto(origin + "/bewerbungen/" + a.id);
   await page.getByRole("button", { name: "Lebenslauf", exact: true }).click();
   await expect(
@@ -285,6 +311,74 @@ try {
     .builds(a.id)
     .find((row) => row.kind === "cv" && row.status === "success");
   assert.ok(firstBuild);
+  const legacySection = page.locator('[data-cv-section="experience"]');
+  const legacyRows = legacySection.locator("[data-cv-entry]");
+  for (const title of ["LegacyNewA", "LegacyNewB"]) {
+    if (title === "LegacyNewA") {
+      await page
+        .getByRole("button", { name: "Hinzufügen", exact: true })
+        .click();
+      await page
+        .getByRole("menuitem", { name: "Berufserfahrung", exact: true })
+        .click();
+    } else {
+      await legacySection
+        .getByRole("button", { name: "Eintrag hinzufügen", exact: true })
+        .click();
+    }
+    await legacyRows
+      .first()
+      .getByRole("textbox", { name: "Position", exact: true })
+      .fill(title);
+    await expect(legacyRows.first()).toContainText(title);
+  }
+  const originalRow = legacyRows.filter({ hasText: "PositionMarker" });
+  await originalRow
+    .getByRole("button", { name: "Ganz nach oben", exact: true })
+    .click();
+  await expect(legacyRows.first()).toContainText("PositionMarker");
+  await legacyRows
+    .filter({ hasText: "LegacyNewA" })
+    .getByRole("textbox", { name: "Position", exact: true })
+    .fill("LegacyEditedA");
+  await legacySection
+    .getByRole("button", { name: "Verschiebung rückgängig", exact: true })
+    .click();
+  await expect(legacyRows.first()).toContainText("LegacyNewB");
+  await expect(legacyRows.nth(1)).toContainText("LegacyEditedA");
+  await expect(legacyRows.last()).toContainText("PositionMarker");
+  const beforeCrossScope = await legacySection
+    .getByRole("textbox", { name: "Position", exact: true })
+    .allTextContents();
+  await dragEntry(
+    originalRow.getByRole("button", { name: "Eintrag ziehen", exact: true }),
+    education.locator("[data-cv-entry]").first(),
+  );
+  assert.deepEqual(
+    await legacySection
+      .getByRole("textbox", { name: "Position", exact: true })
+      .allTextContents(),
+    beforeCrossScope,
+  );
+  await dragEntry(
+    originalRow.getByRole("button", { name: "Eintrag ziehen", exact: true }),
+    legacyRows.first(),
+  );
+  await expect(legacyRows.first()).toContainText("PositionMarker");
+  await originalRow.press("Alt+End");
+  await expect(legacyRows.last()).toContainText("PositionMarker");
+  await legacyRows
+    .filter({ hasText: "LegacyNewB" })
+    .getByRole("button", { name: "Eintrag löschen", exact: true })
+    .click();
+  await legacyRows
+    .filter({ hasText: "LegacyEditedA" })
+    .getByRole("button", { name: "Eintrag löschen", exact: true })
+    .click();
+  await expect(legacyRows).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: "Speichern", exact: true }),
+  ).toBeDisabled();
   await page.screenshot({
     path: path.join(output, "cv-desktop.png"),
     animations: "disabled",
@@ -417,7 +511,6 @@ try {
     name: "LaTeX-Vorlage für diesen Lebenslauf",
     exact: true,
   });
-  page.on("dialog", (dialog) => void dialog.accept());
   const choose = async (name: RegExp | string) => {
     const response = page.waitForResponse(
       (r) => r.request().method() === "PUT" && r.url().endsWith("/cv-mod"),
@@ -482,14 +575,15 @@ try {
   await expect(notes).toHaveText("HiddenNotes13");
   const collection = page.locator('[data-collection="career"]'),
     entries = collection.locator("[data-entry]");
-  for (const title of ["FirstRole15", "SecondRole17", "HiddenRole19"]) {
+  for (const title of ["HiddenRole19", "SecondRole17", "FirstRole15"]) {
     await collection
       .getByRole("button", { name: "Eintrag hinzufügen", exact: true })
       .click();
     await collection
       .getByRole("textbox", { name: "Tätigkeit", exact: true })
-      .last()
+      .first()
       .fill(title);
+    await expect(entries.first()).toContainText(title);
   }
   await entries
     .first()
@@ -503,11 +597,65 @@ try {
     .nth(1)
     .getByRole("button", { name: "Nach oben", exact: true })
     .click();
+  await entries
+    .nth(2)
+    .getByRole("button", { name: "Ganz nach oben", exact: true })
+    .click();
+  await expect(entries.first()).toContainText("HiddenRole19");
+  const firstRole = entries.filter({ hasText: "FirstRole15" });
+  await firstRole
+    .getByRole("textbox", { name: "Inhalt", exact: true })
+    .fill("EditedWhileMoved27");
+  await collection
+    .getByRole("button", { name: "Verschiebung rückgängig", exact: true })
+    .click();
+  await expect(entries.first()).toContainText("SecondRole17");
+  await expect(
+    firstRole.getByRole("textbox", { name: "Inhalt", exact: true }),
+  ).toContainText("EditedWhileMoved27");
+  await firstRole
+    .getByRole("textbox", { name: "Inhalt", exact: true })
+    .fill("IntegratedBody21 50% & Rust_2026.");
+  await entries
+    .first()
+    .getByRole("button", { name: "Ganz nach unten", exact: true })
+    .click();
+  await expect(entries.last()).toContainText("SecondRole17");
+  await entries
+    .last()
+    .getByRole("button", { name: "Ganz nach oben", exact: true })
+    .click();
+  await entries
+    .first()
+    .getByRole("button", { name: "Nach unten", exact: true })
+    .click();
+  await entries
+    .nth(1)
+    .getByRole("button", { name: "Nach oben", exact: true })
+    .click();
+  await dragEntry(
+    entries
+      .first()
+      .getByRole("button", { name: "Eintrag ziehen", exact: true }),
+    entries.last(),
+    20,
+  );
+  // Drop the first entry ahead of the last; a real same-collection move must occur.
+  await expect(entries.first()).toContainText("FirstRole15");
+  await collection
+    .getByRole("button", { name: "Verschiebung rückgängig", exact: true })
+    .click();
+  await expect(entries.first()).toContainText("SecondRole17");
+  await entries.first().press("Alt+End");
+  await expect(entries.last()).toContainText("SecondRole17");
+  await collection
+    .getByRole("button", { name: "Verschiebung rückgängig", exact: true })
+    .click();
   await collection
     .getByRole("button", { name: "Eintrag hinzufügen", exact: true })
     .click();
   await entries
-    .last()
+    .first()
     .getByRole("button", { name: "Eintrag löschen", exact: true })
     .click();
   await expect(entries).toHaveCount(3);
@@ -568,6 +716,36 @@ try {
   assert.equal((await formBuild).status(), 202);
   await app.app.builds.idle();
   assert.equal(app.app.builds.documentStatus(a.id).cv, "current");
+  const builtForm = app.app.store
+    .builds(a.id)
+    .find((row) => row.kind === "cv" && row.status === "success")!;
+  const formPdf = app.app.builds.artifact(a.id, String(builtForm.id));
+  const actualFormText = execFileSync(
+    "docker",
+    [
+      "run",
+      "--rm",
+      "--network=none",
+      "--read-only",
+      "--cap-drop=ALL",
+      "--user",
+      `${process.getuid!()}:${process.getgid!()}`,
+      "--mount",
+      `type=bind,src=${path.dirname(formPdf)},dst=/input,readonly`,
+      "--entrypoint",
+      "pdftotext",
+      fs.readFileSync(path.join(project, "pdf-tools/image-id"), "utf8").trim(),
+      "/input/" + path.basename(formPdf),
+      "-",
+    ],
+    { encoding: "utf8" },
+  );
+  assert(actualFormText.indexOf("SecondRole17") >= 0);
+  assert(
+    actualFormText.indexOf("SecondRole17") <
+      actualFormText.indexOf("FirstRole15"),
+  );
+  assert(!actualFormText.includes("HiddenRole19"));
   await page.screenshot({
     path: path.join(output, "form-cv-desktop.png"),
     fullPage: true,
@@ -765,6 +943,13 @@ try {
     v2UnboundImportRemovalUpdatesChoices: true,
     formModsInNormalWorkspace: true,
     formEntryActionsAndReload: true,
+    universalEntryOrdering: true,
+    newEntriesAtTop: true,
+    sameSectionNativeDragAndDrop: true,
+    crossSectionDropBlocked: true,
+    keyboardAndFirstLastMoves: true,
+    orderUndoKeepsLatestContent: true,
+    pdfMatchesManualOrder: true,
     formModRoundTripRetainsLegacyAndUnknownData: true,
     documentEditorPersistence: true,
     escapeRestoresField: true,
@@ -796,6 +981,8 @@ try {
     );
   }
   report.error = String(e);
+  report.stack = e instanceof Error ? e.stack : undefined;
+  report.dragTrace = await page?.evaluate("window.__orderDrag").catch(() => []);
   throw e;
 } finally {
   await browser?.close();
@@ -810,5 +997,10 @@ try {
     JSON.stringify(report, null, 2) + "\n",
   );
   fs.writeFileSync(path.join(output, "native.log"), logs);
-  fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(root, {
+    recursive: true,
+    force: true,
+    maxRetries: 3,
+    retryDelay: 100,
+  });
 }

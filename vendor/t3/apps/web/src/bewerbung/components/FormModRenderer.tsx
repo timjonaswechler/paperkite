@@ -1,12 +1,10 @@
-import { ArrowUp, ArrowDown, Plus, Trash2 } from "lucide-react";
-import { Button } from "~/components/ui/button";
-import { Checkbox } from "~/components/ui/checkbox";
 import { randomUUID } from "~/lib/utils";
 import type { CvBlock } from "../shared/api";
 import type { FormSpec, FormNode, Values, Entry } from "../../../../../../../shared/cv-form";
 import { unmapped } from "../../../../../../../shared/cv-form";
 import { CvContentEditor } from "./CvContentEditor";
 import { CvEditable } from "./CvEditable";
+import { EntryCollection } from "./EntryCollection";
 import documentStyles from "./cv-editor.module.css";
 import styles from "./form-mod.module.css";
 
@@ -49,105 +47,26 @@ export function FormModRenderer({
             aria-label={node.label}
           >
             {!reading && <h3 className={styles.heading}>{node.label}</h3>}
-            {entries
-              .filter((e) => !reading || e.included)
-              .map((entry) => {
-                const at = entries.findIndex((e) => e.id === entry.id);
-                return (
-                  <article
-                    key={entry.id}
-                    className={styles.entry}
-                    data-entry={entry.id}
-                    data-included={entry.included}
-                  >
-                    {!reading && (
-                      <div className={styles.actions}>
-                        <label
-                          htmlFor={"include-" + entry.id}
-                          className="flex items-center gap-2 text-xs text-muted-foreground"
-                        >
-                          <Checkbox
-                            id={"include-" + entry.id}
-                            aria-label="Im PDF"
-                            checked={entry.included}
-                            disabled={disabled}
-                            onCheckedChange={(checked) =>
-                              update(
-                                entries.map((e) =>
-                                  e.id === entry.id ? { ...e, included: checked } : e,
-                                ),
-                              )
-                            }
-                          />
-                          {entry.included ? "Im PDF" : "Nicht im PDF"}
-                        </label>
-                        <Button
-                          size="icon-xs"
-                          variant="ghost-muted"
-                          disabled={!editable || at === 0}
-                          aria-label="Nach oben"
-                          onClick={() => {
-                            const next = [...entries];
-                            [next[at - 1], next[at]] = [next[at]!, next[at - 1]!];
-                            update(next);
-                          }}
-                        >
-                          <ArrowUp />
-                        </Button>
-                        <Button
-                          size="icon-xs"
-                          variant="ghost-muted"
-                          disabled={!editable || at === entries.length - 1}
-                          aria-label="Nach unten"
-                          onClick={() => {
-                            const next = [...entries];
-                            [next[at], next[at + 1]] = [next[at + 1]!, next[at]!];
-                            update(next);
-                          }}
-                        >
-                          <ArrowDown />
-                        </Button>
-                        <Button
-                          size="icon-xs"
-                          variant="ghost-muted"
-                          disabled={!editable}
-                          aria-label="Eintrag löschen"
-                          onClick={() => {
-                            if (confirm("Diesen Eintrag dauerhaft aus dem Lebenslauf entfernen?"))
-                              update(entries.filter((e) => e.id !== entry.id));
-                          }}
-                        >
-                          <Trash2 />
-                        </Button>
-                      </div>
-                    )}
-                    <div className={styles.entryContent}>
-                      {render(
-                        node.children,
-                        entry.values,
-                        (v) =>
-                          update(entries.map((e) => (e.id === entry.id ? { ...e, values: v } : e))),
-                        entry.id,
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            {!reading && (
-              <div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={!editable}
-                  onClick={() =>
-                    update([...entries, { id: randomUUID(), included: true, values: {} }])
-                  }
-                >
-                  <Plus />
-                  Eintrag hinzufügen
-                </Button>
-              </div>
-            )}
+            <EntryCollection
+              entries={entries}
+              onChange={update}
+              label={node.label}
+              reading={reading}
+              disabled={disabled}
+              createEntry={() => ({ id: randomUUID(), included: true, values: {} })}
+            >
+              {(entry) => (
+                <div className={styles.entryContent}>
+                  {render(
+                    node.children,
+                    entry.values,
+                    (v) =>
+                      update(entries.map((e) => (e.id === entry.id ? { ...e, values: v } : e))),
+                    entry.id,
+                  )}
+                </div>
+              )}
+            </EntryCollection>
           </section>
         );
       }

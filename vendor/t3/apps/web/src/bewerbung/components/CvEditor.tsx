@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Save, Eye, Pencil, FileCode, Trash2 } from "lucide-react";
+import { Plus, Save, Eye, Pencil, FileCode } from "lucide-react";
 import { randomUUID } from "~/lib/utils";
 import type { ApplicationDetail, CvState, CvData, CvEntry, CvModJob } from "../shared/api";
 import { api, errorMessage } from "../api";
@@ -22,7 +22,8 @@ import { CvContentEditor } from "./CvContentEditor";
 import { FormModRenderer } from "./FormModRenderer";
 import { CvEditable as Editable } from "./CvEditable";
 import type { FormMod, Values } from "../../../../../../../shared/cv-form";
-import { Checkbox } from "~/components/ui/checkbox";
+import { EntryCollection } from "./EntryCollection";
+import { prependEntry } from "./entry-order";
 import styles from "./cv-editor.module.css";
 
 const names: Record<string, string> = {
@@ -157,20 +158,26 @@ export function CvEditor({
   function field(id: string, key: string, value: string) {
     entryChange(id, (e) => ({ ...e, fields: { ...e.fields, [key]: value } }));
   }
+  function createEntry(kind: string): CvEntry {
+    const id = randomUUID();
+    setFocus(id + "-" + (kind === "skills" ? "label" : "title"));
+    return {
+      id,
+      fields: kind === "skills" ? { label: "" } : { title: "", organization: "", period: "" },
+      included: true,
+      content: [],
+    };
+  }
   function addEntry(kind: string, label?: string) {
     if (!data) return;
-    const id = randomUUID(),
-      entry: CvEntry = {
-        id,
-        fields: kind === "skills" ? { label: "" } : { title: "", organization: "", period: "" },
-        included: true,
-        content: [],
-      };
+    const entry = createEntry(kind);
     const existing = data.sections.find((s) => s.kind === kind);
     change({
       ...data,
       sections: existing
-        ? data.sections.map((s) => (s.kind === kind ? { ...s, entries: [...s.entries, entry] } : s))
+        ? data.sections.map((s) =>
+            s.kind === kind ? { ...s, entries: prependEntry(s.entries, entry) } : s,
+          )
         : [
             ...data.sections,
             {
@@ -181,7 +188,6 @@ export function CvEditor({
             },
           ],
     });
-    setFocus(id + "-" + (kind === "skills" ? "label" : "title"));
   }
   async function save(build: boolean) {
     if (!state || !data || disabled) return;
@@ -445,48 +451,23 @@ export function CvEditor({
                     }
                   />
                 </h3>
-                {section.entries
-                  .filter((entry) => !reading || entry.included !== false)
-                  .map((entry) => (
-                    <article
-                      key={entry.id}
-                      className={`${styles["cv-entry"]} space-y-1`}
-                      data-cv-entry={entry.id}
-                      data-included={entry.included !== false}
-                    >
-                      {!reading && (
-                        <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
-                          <label className="flex items-center gap-2" htmlFor={"cv-pdf-" + entry.id}>
-                            <Checkbox
-                              id={"cv-pdf-" + entry.id}
-                              checked={entry.included !== false}
-                              disabled={disabled}
-                              onCheckedChange={(checked) =>
-                                entryChange(entry.id, (e) => ({ ...e, included: checked }))
-                              }
-                            />
-                            {entry.included === false ? "Nicht im PDF" : "Im PDF"}
-                          </label>
-                          <Button
-                            size="icon-xs"
-                            variant="ghost-muted"
-                            disabled={disabled}
-                            aria-label="Eintrag entfernen"
-                            onClick={() => {
-                              if (confirm("Diesen Eintrag dauerhaft aus dem Lebenslauf entfernen?"))
-                                change({
-                                  ...data,
-                                  sections: data.sections.map((s) => ({
-                                    ...s,
-                                    entries: s.entries.filter((e) => e.id !== entry.id),
-                                  })),
-                                });
-                            }}
-                          >
-                            <Trash2 />
-                          </Button>
-                        </div>
-                      )}
+                <EntryCollection
+                  entries={section.entries}
+                  label={section.label}
+                  reading={reading}
+                  disabled={disabled}
+                  createEntry={() => createEntry(section.kind)}
+                  onChange={(entries) =>
+                    change({
+                      ...data,
+                      sections: data.sections.map((s) =>
+                        s.id === section.id ? { ...s, entries } : s,
+                      ),
+                    })
+                  }
+                >
+                  {(entry) => (
+                    <div className="space-y-1">
                       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                         <h4 className="min-w-0 text-sm font-medium">
                           <Editable
@@ -559,8 +540,9 @@ export function CvEditor({
                         }
                         onChange={(content) => entryChange(entry.id, (e) => ({ ...e, content }))}
                       />
-                    </article>
-                  ))}
+                    </div>
+                  )}
+                </EntryCollection>
               </section>
             ))}
         </article>
