@@ -259,7 +259,10 @@ export function CvEditor({
   const personLabel = (key: string) =>
     selectedMod?.fields.find((f) => f.key === "person." + key)?.label || names[key] || key;
   const modOptions = mods
-    .filter((m) => m.versionId)
+    .filter(
+      (m) =>
+        m.versionId && m.documentType !== "cover-template" && !m.versionId.startsWith("cover:"),
+    )
     .map((m) => ({
       value: m.versionId!,
       label:

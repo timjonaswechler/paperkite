@@ -8,6 +8,7 @@ assert config['engine'] == 'lualatex'
 entry = (root / config['entrypoint']).resolve()
 assert entry.is_relative_to(root) and entry.suffix == '.tex'
 os.environ['CV_DATA_FILE'] = str(root / 'cv-data.lua')
+os.environ['LETTER_DATA_FILE'] = str(root / 'cv-data.lua')
 os.environ['HOME'] = '/tmp'
 output = pathlib.Path('/work/output')
 output.mkdir()

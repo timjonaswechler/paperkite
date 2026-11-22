@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { Download, FileCode, Save, Trash2 } from "lucide-react";
-import type { ApplicationDetail, Build, CoverLetter } from "../shared/api";
+import type {
+  ApplicationDetail,
+  Build,
+  CoverLetter,
+  CoverLetterState,
+  CvModJob,
+} from "../shared/api";
 import { api, base, errorMessage, textFile } from "../api";
 import { registerNavigationGuard } from "../navigation";
 import { Button } from "~/components/ui/button";
@@ -8,7 +14,8 @@ import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Badge } from "~/components/ui/badge";
-import { ErrorNotice, Field } from "./Controls";
+import { Choice, ErrorNotice, Field } from "./Controls";
+import { CvModImportPanel } from "./CvModImportPanel";
 import { BrowserDocumentFrame } from "~/components/files/BrowserDocumentFrame";
 
 export function useDocumentDraftGuard(dirty: boolean) {
@@ -40,6 +47,10 @@ type EditorProps = {
 export function CoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: EditorProps) {
   const [fields, setFields] = useState<CoverLetter | null>(null);
   const [revision, setRevision] = useState(app.revision);
+  const [fingerprint, setFingerprint] = useState("");
+  const [modId, setModId] = useState<string | null>(null);
+  const [modName, setModName] = useState("");
+  const [mods, setMods] = useState<CvModJob[]>([]);
   const [conversion, setConversion] = useState(false);
   const [replace, setReplace] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -50,7 +61,7 @@ export function CoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Edi
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- loads the current letter and its revision from the business API
   useEffect(() => {
     const controller = new AbortController();
-    void api<{ fields: CoverLetter; revision: number; requiresConversion: boolean }>(
+    void api<CoverLetterState>(
       `/applications/${app.id}/cover-letter`,
       "GET",
       undefined,
@@ -59,13 +70,56 @@ export function CoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Edi
       .then((result) => {
         setFields(result.fields);
         setRevision(result.revision);
+        setFingerprint(result.fingerprint);
+        setModId(result.modId);
+        setModName(result.modName || "");
         setConversion(result.requiresConversion);
       })
       .catch((error) => {
         if (!controller.signal.aborted) setError(errorMessage(error));
       });
+    void api<CvModJob[]>("/cv-mods/jobs", "GET", undefined, controller.signal)
+      .then(setMods)
+      .catch(() => {});
     return () => controller.abort();
   }, [app.id]);
+  function accept(result: CoverLetterState) {
+    setFields(result.fields);
+    setRevision(result.revision);
+    setFingerprint(result.fingerprint);
+    setModId(result.modId);
+    setModName(result.modName || "");
+    setConversion(result.requiresConversion);
+    setReplace(false);
+    setDirty(false);
+  }
+  async function bind(id: string) {
+    if (busy || app.harness.busy || app.status === "Gesendet") return;
+    if (dirty && !confirm("Ungespeicherte Anschreiben-Änderungen verwerfen?")) return;
+    if (
+      !confirm(
+        "Anschreiben-Vorlage wechseln? Die gespeicherten Textfelder bleiben erhalten. Individuelle TeX-Quellen bleiben als Rückkehrmöglichkeit erhalten; ihr Inhalt wird nicht automatisch interpretiert.",
+      )
+    )
+      return;
+    setBusy(true);
+    setError("");
+    try {
+      accept(
+        await api<CoverLetterState>(`/applications/${app.id}/cover-mod`, "PUT", {
+          revision,
+          fingerprint,
+          modId: id || null,
+        }),
+      );
+      await onRefresh();
+      setNotice("Anschreiben-Vorlage gewählt. Text prüfen und PDF neu bauen.");
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
   async function save(build: boolean) {
     if (!fields || busy) return;
     setBusy(true);
@@ -73,15 +127,13 @@ export function CoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Edi
     setNotice("");
     try {
       if (dirty) {
-        const saved = await api<{ revision: number }>(
-          `/applications/${app.id}/cover-letter`,
-          "PUT",
-          { revision, fields, replaceExisting: replace },
-        );
-        setRevision(saved.revision);
-        setDirty(false);
-        setConversion(false);
-        setReplace(false);
+        const saved = await api<CoverLetterState>(`/applications/${app.id}/cover-letter`, "PUT", {
+          revision,
+          fingerprint,
+          fields,
+          replaceExisting: replace,
+        });
+        accept(saved);
       }
       if (build || (autoBuild && dirty))
         await api(`/applications/${app.id}/builds`, "POST", { kind: "cover" });
@@ -93,6 +145,11 @@ export function CoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Edi
     setBusy(false);
   }
   const editable = fields && (!conversion || replace);
+  const choices = mods
+    .filter((job) => job.documentType === "cover-template" && job.versionId)
+    .map((job) => ({ value: job.versionId!, label: job.name }));
+  if (modId && !choices.some((option) => option.value === modId))
+    choices.push({ value: modId, label: modName || "Gesicherte Anschreiben-Vorlage" });
   const names: { key: keyof CoverLetter; label: string; rows: number }[] = [
     { key: "sender", label: "Absender", rows: 3 },
     { key: "recipient", label: "Empfänger", rows: 3 },
@@ -112,6 +169,13 @@ export function CoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Edi
           </p>
         </div>
         <ErrorNotice error={error} onClose={() => setError("")} />
+        <Choice
+          label="LaTeX-Vorlage für dieses Anschreiben"
+          value={modId || ""}
+          options={[{ value: "", label: "Bestehende Anschreiben-Vorlage" }, ...choices]}
+          disabled={busy || !fields || app.harness.busy || app.status === "Gesendet"}
+          onChange={(id) => void bind(id)}
+        />
         {conversion && (
           <div className="space-y-3 rounded-lg border p-4 text-sm">
             <p>
@@ -184,6 +248,16 @@ export function CoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Edi
         <p role="status" className="text-sm text-muted-foreground">
           {notice}
         </p>
+        <details className="rounded-lg border p-3">
+          <summary className="cursor-pointer text-sm">Anschreiben-Vorlage hochladen</summary>
+          <div className="mt-4">
+            <CvModImportPanel
+              templateType="cover"
+              onJobs={setMods}
+              {...(app.status === "Gesendet" ? {} : { onSelect: (id: string) => void bind(id) })}
+            />
+          </div>
+        </details>
       </section>
       <DocumentPreview app={app} kind="cover" dirty={dirty} onRefresh={onRefresh} />
     </div>

@@ -1,16 +1,34 @@
 import { check } from "../files.ts";
 import { safeRelative } from "./archive.ts";
 import { parseForm, type FormSpec } from "../../shared/cv-form.ts";
-export type ImportManifest = ModManifest | FormSpec;
+export type CoverModManifest = {
+  format: "bewerbung-cover-mod-v1";
+  engine: "lualatex";
+  entrypoint: string;
+};
+export type ImportManifest = ModManifest | FormSpec | CoverModManifest;
 export function importManifest(value: unknown): ImportManifest {
   check(
     value &&
       typeof value === "object" &&
       "format" in value &&
       (value.format === "bewerbung-cv-form-v2" ||
-        value.format === "bewerbung-cv-mod-prototype-v1"),
+        value.format === "bewerbung-cv-mod-prototype-v1" ||
+        value.format === "bewerbung-cover-mod-v1"),
     "Unbekanntes Mod-Format: v2-Formular oder kompatible v1-Anbindung erwartet",
   );
+  if (value.format === "bewerbung-cover-mod-v1") {
+    const m = value as CoverModManifest;
+    check(
+      Object.keys(m).every((k) =>
+        ["format", "engine", "entrypoint"].includes(k),
+      ) && m.engine === "lualatex",
+      "Ungültiges Anschreiben-Manifest",
+    );
+    safeRelative(m.entrypoint);
+    check(m.entrypoint.endsWith(".tex"), "LaTeX-Hauptdatei benötigt .tex");
+    return m;
+  }
   return value.format === "bewerbung-cv-form-v2"
     ? parseForm(value)
     : manifest(value);

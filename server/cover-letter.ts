@@ -14,7 +14,7 @@ export function decodeCover(source: string): CoverLetter | null {
     return null;
   }
 }
-function validateCover(value: unknown): asserts value is CoverLetter {
+export function validateCover(value: unknown): asserts value is CoverLetter {
   check(
     value !== null && typeof value === "object" && !Array.isArray(value),
     "Anschreibendaten fehlen",

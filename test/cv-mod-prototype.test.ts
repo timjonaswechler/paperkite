@@ -155,7 +155,7 @@ test("upload has no model side effect; double-start is idempotent and generated 
   try {
     assert.throws(
       () => store.upload("cv.zip", input(), "document"),
-      /nur für Lebenslauf/,
+      /Vorlagentyp Lebenslauf oder Anschreiben/,
     );
     const job = store.upload(
       "cv.zip",

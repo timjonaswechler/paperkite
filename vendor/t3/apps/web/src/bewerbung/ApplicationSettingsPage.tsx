@@ -96,7 +96,10 @@ export function ApplicationSettingsPage() {
       </SettingsSection>
       <SettingsSection id="bewerbung-templates" title="Vorlagen">
         <div className="p-3 sm:p-4">
-          <CvModImportPanel onDocumentsChanged={() => setLibraryRefresh((value) => value + 1)} />
+          <CvModImportPanel
+            templateType="all"
+            onDocumentsChanged={() => setLibraryRefresh((value) => value + 1)}
+          />
         </div>
         <SettingsRow
           title="Master importieren"

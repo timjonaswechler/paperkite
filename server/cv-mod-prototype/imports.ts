@@ -17,10 +17,17 @@ import {
   formBuildFiles,
 } from "../cv-form-model.ts";
 import type { FormMod, Values } from "../../shared/cv-form.ts";
+import type { CoverLetter } from "../../shared/api.ts";
+import {
+  coverAdapterContract,
+  coverBuildCases,
+  coverBuildFiles,
+} from "../cover-mod.ts";
 
 export type ModJob = {
   id: string;
   name: string;
+  documentType?: "cv-template" | "cover-template";
   status:
     | "uploaded"
     | "generating"
@@ -176,24 +183,34 @@ export class CvModImports {
     name: unknown,
     bytes: Buffer,
     kind: unknown,
-    targetFormat: unknown = "bewerbung-cv-form-v2",
+    targetFormat: unknown = undefined,
   ) {
     check(!this.closed, "Prototyp wird beendet", 503);
     check(
-      kind === "cv-template",
-      "Dieser Ablauf ist nur für Lebenslauf-Vorlagen",
+      kind === "cv-template" || kind === "cover-template",
+      "Vorlagentyp Lebenslauf oder Anschreiben erwartet",
     );
     check(
       typeof name === "string" &&
         name.length > 0 &&
         name.length <= 160 &&
         name.toLowerCase().endsWith(".zip"),
-      "Lebenslauf-Vorlage als LaTeX-ZIP hochladen",
+      "Vorlage als LaTeX-ZIP hochladen",
+    );
+    targetFormat ??=
+      kind === "cover-template"
+        ? "bewerbung-cover-mod-v1"
+        : "bewerbung-cv-form-v2";
+    check(
+      targetFormat === "bewerbung-cover-mod-v1" ||
+        targetFormat === "bewerbung-cv-form-v2" ||
+        targetFormat === "bewerbung-cv-mod-prototype-v1",
+      "Unbekanntes Zielformat",
     );
     check(
-      targetFormat === "bewerbung-cv-form-v2" ||
-        targetFormat === "bewerbung-cv-mod-prototype-v1",
-      "Nicht unterstütztes Zielformat",
+      (kind === "cover-template") ===
+        (targetFormat === "bewerbung-cover-mod-v1"),
+      "Zielformat passt nicht zum Vorlagentyp",
     );
     check(this.list().length < 20, "Prototyp auf 20 Importe begrenzt");
     const archive = readTemplateZip(bytes),
@@ -204,9 +221,11 @@ export class CvModImports {
       fs.mkdirSync(path.join(dir, "workspace", "mod"), { mode: 0o700 });
       fs.writeFileSync(
         path.join(dir, "workspace", "ADAPTER-CONTRACT.md"),
-        targetFormat === "bewerbung-cv-form-v2"
-          ? formAdapterContract
-          : adapterContract,
+        targetFormat === "bewerbung-cover-mod-v1"
+          ? coverAdapterContract
+          : targetFormat === "bewerbung-cv-form-v2"
+            ? formAdapterContract
+            : adapterContract,
         { mode: 0o600 },
       );
       fs.writeFileSync(path.join(dir, "original.zip"), bytes, { mode: 0o600 });
@@ -214,6 +233,7 @@ export class CvModImports {
       const job: ModJob = {
         id,
         name,
+        documentType: kind,
         status: "uploaded",
         targetFormat,
         created: now,
@@ -328,6 +348,8 @@ export class CvModImports {
         "form-mod.json",
         "application.json",
         "cv-build.json",
+        "cover-build.json",
+        "cover-mod.json",
       ].some((n) => Object.hasOwn(files, n)),
       "Reservierter Mod-Buildpfad",
     );
@@ -340,13 +362,20 @@ export class CvModImports {
     }
     const config = importManifest(value);
     check(
+      (config.format === "bewerbung-cover-mod-v1") ===
+        (job.documentType === "cover-template"),
+      "KI-Ergebnis passt nicht zum Dokumenttyp",
+    );
+    check(
       !job.targetFormat || config.format === job.targetFormat,
       "KI-Ergebnis entspricht nicht dem beauftragten Mod-Format",
     );
     const tests =
-      config.format === "bewerbung-cv-form-v2"
-        ? formBuildCases(config)
-        : buildCases;
+      config.format === "bewerbung-cover-mod-v1"
+        ? coverBuildCases
+        : config.format === "bewerbung-cv-form-v2"
+          ? formBuildCases(config)
+          : buildCases;
     check(files[config.entrypoint], "Hauptdatei aus mod.json fehlt");
     const hash = fingerprint(files);
     const buildId = randomUUID(),
@@ -376,12 +405,16 @@ export class CvModImports {
         output = path.join(base, test.id, "output");
       put(
         input,
-        config.format === "bewerbung-cv-form-v2"
-          ? formBuildFiles(config, files, test.data as Values)
-          : {
-              ...files,
-              "cv-data.lua": Buffer.from("return " + luaData(test.data) + "\n"),
-            },
+        config.format === "bewerbung-cover-mod-v1"
+          ? coverBuildFiles(config, files, test.data as CoverLetter)
+          : config.format === "bewerbung-cv-form-v2"
+            ? formBuildFiles(config, files, test.data as Values)
+            : {
+                ...files,
+                "cv-data.lua": Buffer.from(
+                  "return " + luaData(test.data) + "\n",
+                ),
+              },
       );
       fs.mkdirSync(output, { recursive: true, mode: 0o700 });
       let error: string | undefined;
@@ -441,7 +474,11 @@ export class CvModImports {
       "Adapterprüfung fehlgeschlagen; vorhandenen Thread überarbeiten lassen und erneut prüfen",
     );
     job.versionId =
-      (config.format === "bewerbung-cv-form-v2" ? "form:" : "") +
+      (config.format === "bewerbung-cover-mod-v1"
+        ? "cover:"
+        : config.format === "bewerbung-cv-form-v2"
+          ? "form:"
+          : "") +
       job.id +
       "." +
       buildId;
@@ -560,6 +597,15 @@ export class CvModImports {
     );
     return { ...version, fields: config.fields };
   }
+  reviewedCover(id: string) {
+    const { config, ...version } = this.version(id);
+    check(
+      config.format === "bewerbung-cover-mod-v1",
+      "Keine Anschreiben-Vorlage",
+      409,
+    );
+    return { ...version, manifest: config };
+  }
   reviewedForm(id: string): FormMod {
     const { config, files, ...version } = this.version(id);
     check(
@@ -583,6 +629,7 @@ export class CvModImports {
     check(
       [
         ...buildCases.map((c) => c.id),
+        ...coverBuildCases.map((c) => c.id),
         "form-full",
         "form-reordered",
         "form-excluded",

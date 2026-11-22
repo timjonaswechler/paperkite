@@ -14,6 +14,7 @@ import { DocumentLibrary } from "./documents.ts";
 import { Preferences } from "./preferences.ts";
 import { Templates } from "./templates.ts";
 import { CvDocuments } from "./cv-documents.ts";
+import { CoverDocuments } from "./cover-documents.ts";
 import {
   deletionSchema,
   cleanDeletions,
@@ -42,6 +43,7 @@ export class Store {
   preferences: Preferences;
   templateLibrary: Templates;
   cv: CvDocuments;
+  cover: CoverDocuments;
   onWorkspaceCommit?: (id: string) => void;
   initializeWorkspace?: (id: string) => void;
   constructor(public root: string) {
@@ -59,6 +61,7 @@ export class Store {
     this.documents = new DocumentLibrary(this.db, root);
     this.preferences = new Preferences(this.db);
     this.cv = new CvDocuments(this);
+    this.cover = new CoverDocuments(this);
     this.db
       .prepare(
         "UPDATE builds SET status='failed',log=log || '\nServer während Build beendet.' WHERE status IN ('queued','running')",
@@ -332,6 +335,10 @@ export class Store {
           input.profile === this.app(cvSource).profile)
       )
         this.cv.copy(cvSource, id);
+      const coverSource =
+        input.coverSource ||
+        (input.source && input.coverSource !== "" ? input.source : undefined);
+      if (coverSource) this.cover.copy(coverSource, id);
       this.initializeWorkspace?.(id);
       this.db.exec("COMMIT");
     } catch (error) {

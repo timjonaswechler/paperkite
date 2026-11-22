@@ -5,14 +5,7 @@ import { zipSync } from "fflate";
 import { Store } from "./store.ts";
 import { Builds, type Runner } from "./builds.ts";
 import { Harness } from "./harness.ts";
-import {
-  check,
-  fileMap,
-  HttpError,
-  JSON_LIMIT,
-  neutralCover,
-} from "./files.ts";
-import { decodeCover, encodeCover } from "./cover-letter.ts";
+import { check, fileMap, HttpError, JSON_LIMIT } from "./files.ts";
 import { parseProfile, serializeProfile, type Profile } from "./lua-profile.ts";
 import { organizationRoutes } from "./organization-routes.ts";
 import { workflowRoutes } from "./workflow-routes.ts";
@@ -366,45 +359,16 @@ export function createApp(
       ),
     );
   });
-  api.get("/applications/:id/cover-letter", (req, res) => {
-    const app = store.app(req.params.id),
-      source = store
-        .read(app.id, "anschreiben/Anschreiben.tex")
-        .toString("utf8"),
-      fields = decodeCover(source);
-    res.json({
-      revision: app.revision,
-      requiresConversion: !fields && source !== neutralCover,
-      fields: fields ?? {
-        sender: store.preferences.settings().applicantName,
-        recipient: app.company,
-        subject: "Bewerbung als " + app.role,
-        salutation: "Sehr geehrte Damen und Herren,",
-        body: "",
-        closing: "Mit freundlichen Grüßen",
-      },
-    });
-  });
+  api.get("/applications/:id/cover-letter", (req, res) =>
+    res.json(store.cover.read(req.params.id)),
+  );
   api.put("/applications/:id/cover-letter", (req, res) => {
     editable(req.params.id);
-    const source = store
-      .read(req.params.id, "anschreiben/Anschreiben.tex")
-      .toString("utf8");
-    check(
-      decodeCover(source) ||
-        source === neutralCover ||
-        req.body.replaceExisting === true,
-      "Vorhandene TeX-Vorlage zuerst ausdrücklich zum Ersetzen bestätigen.",
-      409,
-    );
-    res.json(
-      store.save(
-        req.params.id,
-        "anschreiben/Anschreiben.tex",
-        encodeCover(req.body.fields),
-        req.body.revision,
-      ),
-    );
+    res.json(store.cover.save(req.params.id, req.body));
+  });
+  api.put("/applications/:id/cover-mod", (req, res) => {
+    editable(req.params.id);
+    res.json(store.cover.bind(req.params.id, req.body));
   });
   api.put("/applications/:id/profile", (req, res) => {
     editable(req.params.id);

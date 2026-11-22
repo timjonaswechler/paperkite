@@ -105,9 +105,13 @@ export async function startT3Application(
           .prepare(
             "SELECT 1 FROM cv_documents WHERE mod_id=? OR mod_id LIKE ? OR mod_id LIKE ? LIMIT 1",
           )
-          .get(id, id + ".%", "form:" + id + ".%"),
+          .get(id, id + ".%", "form:" + id + ".%") ||
+        cvStore.db
+          .prepare("SELECT 1 FROM cover_documents WHERE mod_id LIKE ? LIMIT 1")
+          .get("cover:" + id + ".%"),
       );
     cvStore.cv.resolveMod = (id) => imports.reviewed(id);
+    cvStore.cover.resolveMod = (id) => imports.reviewedCover(id);
     cvStore.cv.forms.resolveImported = (id) => imports.reviewedForm(id);
     server = createT3Gateway(app.web, native.origin, access);
     legacy = createLegacyRedirect(app.web, origin);

@@ -9,7 +9,7 @@ import { uploadLibraryDocument } from "./DocumentLibrary";
 
 const statuses: Record<CvModJob["status"], string> = {
   uploaded: "Bereit zum KI-Start",
-  generating: "KI erstellt Formular und Datenanbindung",
+  generating: "KI erstellt Vorlage und Datenanbindung",
   "needs-input": "Antwort im KI-Thread nötig",
   checking: "PDF-Prüfung läuft",
   review: "Geprüft · zur Durchsicht",
@@ -26,6 +26,10 @@ const cases: Record<string, string> = {
   "form-reordered": "Geänderte Reihenfolge",
   "form-excluded": "PDF-Auswahl und Metadaten",
   "form-empty": "Leere Sammlungen",
+  "cover-fields": "Alle Anschreiben-Felder",
+  "cover-special": "Sonderzeichen und Absätze",
+  "cover-long": "Langer Brief und Seitenumbrüche",
+  "cover-empty": "Leere Eingaben",
 };
 const pending = (job: CvModJob) => ["generating", "needs-input", "checking"].includes(job.status);
 function fileBase64(file: File) {
@@ -40,12 +44,14 @@ export function CvModImportPanel({
   onJobs,
   onDocumentsChanged,
   onSelect,
+  templateType = "cv",
 }: {
   onJobs?: (jobs: CvModJob[]) => void;
   onDocumentsChanged?: () => void;
   onSelect?: (id: string) => void;
+  templateType?: "cv" | "cover" | "all";
 }) {
-  const [kind, setKind] = useState("cv-template"),
+  const [kind, setKind] = useState(templateType === "cover" ? "cover-template" : "cv-template"),
     [file, setFile] = useState<File | null>(null),
     [busy, setBusy] = useState(false),
     [jobs, setJobs] = useState<CvModJob[]>([]),
@@ -62,9 +68,16 @@ export function CvModImportPanel({
       try {
         const next = await api<CvModJob[]>("/cv-mods/jobs", "GET", undefined, abort.signal);
         if (abort.signal.aborted) return;
-        setJobs(next);
-        publish(next);
-        if (next.some(pending)) timer = setTimeout(() => void read(), 2000);
+        const matching = next.filter(
+          (job) =>
+            templateType === "all" ||
+            (templateType === "cover"
+              ? job.documentType === "cover-template"
+              : job.documentType !== "cover-template"),
+        );
+        setJobs(matching);
+        publish(matching);
+        if (matching.some(pending)) timer = setTimeout(() => void read(), 2000);
       } catch (e) {
         if (!abort.signal.aborted) setError(errorMessage(e));
       }
@@ -75,7 +88,7 @@ export function CvModImportPanel({
       clearTimeout(timer);
     };
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- explicit invalidation token reloads external server jobs after a local mutation
-  }, [reload]);
+  }, [reload, templateType]);
   async function remove(job: CvModJob) {
     if (
       !confirm(
@@ -119,10 +132,10 @@ export function CvModImportPanel({
       } else {
         requireBusiness(
           /\.zip$/i.test(file.name) && file.size > 0 && file.size <= 8 * 1024 * 1024,
-          "Lebenslauf-Vorlage als LaTeX-ZIP bis 8 MiB hochladen. Eine PDF allein genügt nicht.",
+          `${kind === "cover-template" ? "Anschreiben" : "Lebenslauf"}-Vorlage als LaTeX-ZIP bis 8 MiB hochladen. Eine PDF allein genügt nicht.`,
         );
         const job = await api<CvModJob>("/cv-mods/jobs", "POST", {
-          documentType: "cv-template",
+          documentType: kind,
           name: file.name,
           zipBase64: await fileBase64(file),
         });
@@ -151,7 +164,12 @@ export function CvModImportPanel({
             }}
             disabled={busy}
             options={[
-              { value: "cv-template", label: "Lebenslauf-Vorlage (LaTeX-ZIP)" },
+              ...(templateType !== "cover"
+                ? [{ value: "cv-template", label: "Lebenslauf-Vorlage (LaTeX-ZIP)" }]
+                : []),
+              ...(templateType !== "cv"
+                ? [{ value: "cover-template", label: "Anschreiben-Vorlage (LaTeX-ZIP)" }]
+                : []),
               { value: "document", label: "Dokument / Anlage" },
             ]}
           />
@@ -169,7 +187,7 @@ export function CvModImportPanel({
         className="hidden"
         type="file"
         aria-label="Datei für Vorlagenimport auswählen"
-        accept={kind === "cv-template" ? ".zip,application/zip" : ".pdf,.jpg,.jpeg,.png"}
+        accept={kind !== "document" ? ".zip,application/zip" : ".pdf,.jpg,.jpeg,.png"}
         onChange={(e) => {
           setFile(e.target.files?.[0] || null);
           e.target.value = "";
@@ -177,14 +195,16 @@ export function CvModImportPanel({
       />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-lg text-xs text-muted-foreground">
-          {kind === "cv-template"
-            ? "KI erstellt Formular und Datenanbindung aus deiner LaTeX-Vorlage mit den vorhandenen nativen Provider- und Berechtigungseinstellungen. Der Start kann Kosten verursachen."
+          {kind !== "document"
+            ? kind === "cover-template"
+              ? "KI bindet die vorhandenen Anschreiben-Felder an deine LaTeX-Vorlage an. Der Start kann Kosten verursachen und Quellen an den Anbieter übertragen."
+              : "KI erstellt Formular und Datenanbindung aus deiner LaTeX-Vorlage mit den vorhandenen nativen Provider- und Berechtigungseinstellungen. Der Start kann Kosten verursachen."
             : "Die Datei wird als Anlage gespeichert; es startet keine KI."}
         </p>
         <Button disabled={!file || busy} onClick={() => void upload()}>
           {busy
             ? "Wird verarbeitet…"
-            : kind === "cv-template"
+            : kind !== "document"
               ? "Hochladen & KI starten"
               : "Datei hochladen"}
         </Button>
@@ -209,9 +229,11 @@ export function CvModImportPanel({
               {job.files.length} Quelldateien · {job.entrypoints.join(", ")}
             </p>
             <p className="text-xs text-muted-foreground">
-              {(job.manifest?.format || job.targetFormat) === "bewerbung-cv-form-v2"
-                ? "Formular-Mod v2"
-                : "Ältere Datenanbindung v1"}{" "}
+              {job.documentType === "cover-template"
+                ? "Anschreiben-Vorlage"
+                : (job.manifest?.format || job.targetFormat) === "bewerbung-cv-form-v2"
+                  ? "Formular-Mod v2"
+                  : "Ältere Datenanbindung v1"}{" "}
               · Prüf-PDFs und Layout vor Verwendung durchsehen.
             </p>
             {job.error && <ErrorNotice error={job.error} />}
@@ -250,7 +272,9 @@ export function CvModImportPanel({
               )}
               {onSelect && job.status === "review" && job.versionId && (
                 <Button size="sm" onClick={() => onSelect(job.versionId!)}>
-                  Für diese Bewerbung verwenden
+                  {job.documentType === "cover-template"
+                    ? "Für dieses Anschreiben verwenden"
+                    : "Für diese Bewerbung verwenden"}
                 </Button>
               )}
             </div>

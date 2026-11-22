@@ -91,12 +91,16 @@ export function nativeModThreads(options: {
         ) + "\n",
         { mode: 0o600 },
       );
+      const contract = path.join(workspace, "ADAPTER-CONTRACT.md");
+      const isCover =
+        fs.existsSync(contract) &&
+        fs.readFileSync(contract, "utf8").startsWith("# Anschreiben-Mod:");
       await cli(
-        ["project", "add", workspace, "--title", "CV-Vorlagenimport"],
+        ["project", "add", workspace, "--title", "Dokumentvorlagenimport"],
         signal,
       );
       const message =
-        "Lies ADAPTER-CONTRACT.md, BUILD-ENVIRONMENT.json und die Vorlagenquellen unter source/. Erstelle unter mod/ genau das beauftragte Mod-Format mit Formular und passender LaTeX-Datenanbindung. Verwende die bestehende Vorlage als Layoutbasis, nicht einen Universal-CV. Bei offenen Fragen den NEEDS-INPUT.md-Ablauf aus dem Vertrag verwenden. Keine produktiven Änderungen und keine realen CV-Inhalte als Beispieldaten.";
+        "Lies ADAPTER-CONTRACT.md, BUILD-ENVIRONMENT.json und die Vorlagenquellen unter source/. Erstelle unter mod/ genau das beauftragte Vorlagenformat und die passende LaTeX-Datenanbindung. Verwende die bestehende Vorlage als Layoutbasis, nicht einen Universal-CV. Bei offenen Fragen den NEEDS-INPUT.md-Ablauf aus dem Vertrag verwenden. Keine produktiven Änderungen und keine realen CV-Inhalte als Beispieldaten.";
       const launched = JSON.parse(
         await cli(
           [
@@ -105,7 +109,9 @@ export function nativeModThreads(options: {
             workspace,
             message,
             "--title",
-            "Lebenslauf: Formular und Datenanbindung erstellen",
+            isCover
+              ? "Anschreiben: Vorlage und Textanbindung erstellen"
+              : "Lebenslauf: Formular und Datenanbindung erstellen",
             "--json",
           ],
           signal,

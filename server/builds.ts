@@ -15,7 +15,7 @@ export type Runner = (
   kind: BuildKind,
   profile: string,
   name: string,
-  options?: { cvMod: boolean },
+  options?: { cvMod?: boolean; coverMod?: boolean },
 ) => Promise<string>;
 export function dockerRunner(image: string): Runner {
   check(
@@ -24,7 +24,10 @@ export function dockerRunner(image: string): Runner {
     503,
   );
   return (input, output, kind, profile, name, options) => {
-    if (kind === "cv" && options?.cvMod)
+    if (
+      (kind === "cv" && options?.cvMod) ||
+      (kind === "cover" && options?.coverMod)
+    )
       return dockerModBuilder(
         image,
         fs.readFileSync("pdf-tools/image-id", "utf8").trim(),
@@ -242,10 +245,12 @@ export class Builds {
       this.store.documents.bytes(document.id);
     const id = randomUUID(),
       dir = path.join(this.store.root, "builds", id);
-    fs.mkdirSync(path.join(dir, "output"), { recursive: true, mode: 0o700 });
     const cvPlan = kind === "cv" ? this.store.cv.plan(app) : null;
-    if (cvPlan) {
-      for (const [name, bytes] of Object.entries(cvPlan.files)) {
+    const coverPlan = kind === "cover" ? this.store.cover.plan(app) : null;
+    const documentPlan = cvPlan || coverPlan;
+    fs.mkdirSync(path.join(dir, "output"), { recursive: true, mode: 0o700 });
+    if (documentPlan) {
+      for (const [name, bytes] of Object.entries(documentPlan.files)) {
         safeRelative(name);
         const file = path.join(dir, "input", name);
         fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
@@ -281,7 +286,11 @@ export class Builds {
           kind,
           a.profile,
           "bewerbung-build-" + id,
-          cvPlan?.mod ? { cvMod: true } : undefined,
+          cvPlan?.mod
+            ? { cvMod: true }
+            : coverPlan?.mod
+              ? { coverMod: true }
+              : undefined,
         );
         const pdf = path.join(dir, "output", "document.pdf");
         check(
@@ -332,7 +341,8 @@ export class Builds {
   inputFiles(app: string, id: string) {
     this.store.build(app, id);
     const directory = path.join(this.store.root, "builds", id, "input");
-    return fs.existsSync(path.join(directory, "cv-build.json"))
+    return fs.existsSync(path.join(directory, "cv-build.json")) ||
+      fs.existsSync(path.join(directory, "cover-build.json"))
       ? collect(directory)
       : fileMap(directory);
   }
@@ -369,6 +379,20 @@ export class Builds {
             status.cv = "current";
           continue;
         }
+        const coverMarker = path.join(
+          this.store.root,
+          "builds",
+          String(build.id),
+          "input",
+          "cover-build.json",
+        );
+        if (kind === "cover" && fs.existsSync(coverMarker)) {
+          const marker = JSON.parse(fs.readFileSync(coverMarker, "utf8"));
+          if (marker.fingerprint === this.store.cover.fingerprint(app))
+            status.cover = "current";
+          continue;
+        }
+        if (kind === "cover" && this.store.cover.read(app).modId) continue;
         const current = fileMap(this.store.workspace(app));
         const snapshot = fileMap(
           path.join(this.store.root, "builds", String(build.id), "input"),

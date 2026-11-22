@@ -128,6 +128,14 @@ export type CoverLetter = {
   body: string;
   closing: string;
 };
+export type CoverLetterState = {
+  fields: CoverLetter;
+  revision: number;
+  fingerprint: string;
+  requiresConversion: boolean;
+  modId: string | null;
+  modName?: string;
+};
 export type JobAnalysis = {
   company: string;
   role: string;
@@ -228,6 +236,7 @@ export type CvState = {
 export type CvModJob = {
   id: string;
   name: string;
+  documentType?: "cv-template" | "cover-template";
   status:
     | "uploaded"
     | "generating"
@@ -244,9 +253,17 @@ export type CvModJob = {
   threadUrl?: string;
   error?: string;
   versionId?: string;
-  targetFormat?: "bewerbung-cv-form-v2" | "bewerbung-cv-mod-prototype-v1";
+  targetFormat?:
+    | "bewerbung-cv-form-v2"
+    | "bewerbung-cv-mod-prototype-v1"
+    | "bewerbung-cover-mod-v1";
   manifest?:
     | FormSpec
+    | {
+        format: "bewerbung-cover-mod-v1";
+        engine: "lualatex";
+        entrypoint: string;
+      }
     | {
         format: "bewerbung-cv-mod-prototype-v1";
         engine: "lualatex";
