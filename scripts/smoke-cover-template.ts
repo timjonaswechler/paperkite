@@ -85,17 +85,17 @@ try {
             .readFileSync(path.join(workspace, "ADAPTER-CONTRACT.md"), "utf8")
             .startsWith("# Anschreiben-Mod:"),
         );
-        for (const file of ["main.tex", "render.lua"])
-          fs.copyFileSync(
-            path.join(project, "test/fixtures/cover-mod", file),
-            path.join(workspace, "mod", file),
-          );
+        fs.mkdirSync(path.join(workspace, "mod/layout"), { recursive: true });
+        fs.copyFileSync(
+          path.join(project, "test/fixtures/cover-mod-pdflatex/main.tex"),
+          path.join(workspace, "mod/layout/main.tex"),
+        );
         fs.writeFileSync(
           path.join(workspace, "mod/mod.json"),
           JSON.stringify({
             format: "bewerbung-cover-mod-v1",
-            engine: "lualatex",
-            entrypoint: "main.tex",
+            engine: "pdflatex",
+            entrypoint: "layout/main.tex",
           }),
         );
         onThread("synthetic-cover", origin + "/synthetic/cover");
@@ -144,7 +144,7 @@ try {
   const zip = Buffer.from(
     zipSync({
       "main.tex": fs.readFileSync(
-        path.join(project, "test/fixtures/cover-mod/main.tex"),
+        path.join(project, "test/fixtures/cover-mod-pdflatex/main.tex"),
       ),
     }),
   );
@@ -163,6 +163,7 @@ try {
   await app.cvMods!.idle();
   const job = app.cvMods!.list()[0]!;
   assert.equal(job.documentType, "cover-template");
+  assert.equal(job.manifest?.engine, "pdflatex");
   assert.equal(job.status, "review", JSON.stringify(job.checks));
   assert.equal(generations, 1);
   const row = panel.locator(`[data-cv-mod-job="${job.id}"]`);
@@ -317,6 +318,7 @@ try {
     status: "PASS",
     mockGenerations: 1,
     proofPdfs: 4,
+    coverEngine: "pdflatex",
     normalCoverPdf: true,
     standardCoverRoundTrip: true,
     realOfflinePdfs: 6,

@@ -261,7 +261,7 @@ export type CvModJob = {
     | FormSpec
     | {
         format: "bewerbung-cover-mod-v1";
-        engine: "lualatex";
+        engine: "pdflatex" | "lualatex";
         entrypoint: string;
       }
     | {

@@ -31,25 +31,27 @@ export function validateCover(value: unknown): asserts value is CoverLetter {
     "Ungültiger Anschreibentext",
   );
 }
+export function escapeCoverText(text: string) {
+  return text.replace(
+    /[\\{}%&#_$~^]/g,
+    (char) =>
+      ({
+        "\\": "\\textbackslash{}",
+        "{": "\\{",
+        "}": "\\}",
+        "%": "\\%",
+        "&": "\\&",
+        "#": "\\#",
+        _: "\\_",
+        $: "\\$",
+        "~": "\\textasciitilde{}",
+        "^": "\\textasciicircum{}",
+      })[char]!,
+  );
+}
 export function encodeCover(input: unknown) {
   validateCover(input);
-  const escape = (text: string) =>
-    text.replace(
-      /[\\{}%&#_$~^]/g,
-      (char) =>
-        ({
-          "\\": "\\textbackslash{}",
-          "{": "\\{",
-          "}": "\\}",
-          "%": "\\%",
-          "&": "\\&",
-          "#": "\\#",
-          _: "\\_",
-          $: "\\$",
-          "~": "\\textasciitilde{}",
-          "^": "\\textasciicircum{}",
-        })[char]!,
-    );
+  const escape = escapeCoverText;
   const lines = (text: string) =>
     text.trim().split("\n").map(escape).join("\\\\\n");
   const body = input.body

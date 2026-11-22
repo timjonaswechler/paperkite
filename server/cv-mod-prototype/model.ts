@@ -3,7 +3,7 @@ import { safeRelative } from "./archive.ts";
 import { parseForm, type FormSpec } from "../../shared/cv-form.ts";
 export type CoverModManifest = {
   format: "bewerbung-cover-mod-v1";
-  engine: "lualatex";
+  engine: "pdflatex" | "lualatex";
   entrypoint: string;
 };
 export type ImportManifest = ModManifest | FormSpec | CoverModManifest;
@@ -22,7 +22,8 @@ export function importManifest(value: unknown): ImportManifest {
     check(
       Object.keys(m).every((k) =>
         ["format", "engine", "entrypoint"].includes(k),
-      ) && m.engine === "lualatex",
+      ) &&
+        (m.engine === "pdflatex" || m.engine === "lualatex"),
       "Ungültiges Anschreiben-Manifest",
     );
     safeRelative(m.entrypoint);

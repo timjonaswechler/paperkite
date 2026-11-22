@@ -353,6 +353,12 @@ export class CvModImports {
       ].some((n) => Object.hasOwn(files, n)),
       "Reservierter Mod-Buildpfad",
     );
+    check(
+      !Object.keys(files).some(
+        (name) => path.posix.basename(name) === "letter-data.tex",
+      ),
+      "Reservierter Mod-Buildpfad letter-data.tex",
+    );
     check(files["mod.json"], "KI hat keine mod.json erzeugt");
     let value: unknown;
     try {
