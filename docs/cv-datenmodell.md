@@ -1,6 +1,6 @@
 # CV-Daten und eigene LaTeX-Vorlagen
 
-**Stand: 21.11.2026. Status: erste integrierte Fassung für Bewerbungs-CVs und Vorlagen-Mods; zentrale Master-Verwaltung weiterhin Entwurf.** Die beiden Prototypen sind auf `prototype/cv-mod-import` in die App eingebunden. Der [isolierte Entwicklungsstart](../prototypes/cv-mod-import/README.md) bleibt erhalten. Die erste Daten-ABI ist ausdrücklich versioniert und noch keine Zusage allgemeiner LaTeX-Kompatibilität. Ziel ist eine eigene hochgeladene LaTeX-Vorlage, deren vorgesehene Stellen beim Build mit strukturierten CV-Daten aus der App befüllt werden. Der Inhalt soll nicht bei jeder Bearbeitung in neu angelegte, dauerhaft zu pflegende TeX-Dokumente umgeschrieben werden.
+**Stand: 22.11.2026. Status: integrierte Bewerbungs-CVs und Vorlagen-Mods auf `main`; zentrale Master-Verwaltung weiterhin Entwurf.** Die CV- und Formular-Mod-Implementierungen sind Teil der normalen App. Der [isolierte Entwicklungsstart](../prototypes/cv-mod-import/README.md) bleibt erhalten. Die erste Daten-ABI ist ausdrücklich versioniert und noch keine Zusage allgemeiner LaTeX-Kompatibilität. Ziel ist eine eigene hochgeladene LaTeX-Vorlage, deren vorgesehene Stellen beim Build mit strukturierten CV-Daten aus der App befüllt werden. Der Inhalt soll nicht bei jeder Bearbeitung in neu angelegte, dauerhaft zu pflegende TeX-Dokumente umgeschrieben werden.
 
 ## Maßgebliches Ziel und erster Formular-Prototyp
 
