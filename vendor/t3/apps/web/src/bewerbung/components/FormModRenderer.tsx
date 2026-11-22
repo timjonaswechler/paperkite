@@ -1,11 +1,13 @@
+import { ArrowUp, ArrowDown, Plus, Trash2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
 import { Checkbox } from "~/components/ui/checkbox";
 import { randomUUID } from "~/lib/utils";
 import type { CvBlock } from "../shared/api";
 import type { FormSpec, FormNode, Values, Entry } from "../../../../../../../shared/cv-form";
 import { unmapped } from "../../../../../../../shared/cv-form";
 import { CvContentEditor } from "./CvContentEditor";
+import { CvEditable } from "./CvEditable";
+import documentStyles from "./cv-editor.module.css";
 import styles from "./form-mod.module.css";
 
 export function FormModRenderer({
@@ -32,7 +34,7 @@ export function FormModRenderer({
             className={node.type === "columns" ? styles.columns : styles.group}
             aria-label={node.label}
           >
-            {!reading && <h3 className="text-sm font-medium">{node.label}</h3>}
+            {!reading && <h3 className={styles.heading}>{node.label}</h3>}
             <div>{render(node.children, data, change, id)}</div>
           </section>
         );
@@ -46,7 +48,7 @@ export function FormModRenderer({
             data-collection={node.key}
             aria-label={node.label}
           >
-            {!reading && <h3 className="text-base font-medium">{node.label}</h3>}
+            {!reading && <h3 className={styles.heading}>{node.label}</h3>}
             {entries
               .filter((e) => !reading || e.included)
               .map((entry) => {
@@ -62,10 +64,11 @@ export function FormModRenderer({
                       <div className={styles.actions}>
                         <label
                           htmlFor={"include-" + entry.id}
-                          className="flex items-center gap-2 text-xs"
+                          className="flex items-center gap-2 text-xs text-muted-foreground"
                         >
                           <Checkbox
                             id={"include-" + entry.id}
+                            aria-label="Im PDF"
                             checked={entry.included}
                             disabled={disabled}
                             onCheckedChange={(checked) =>
@@ -76,11 +79,11 @@ export function FormModRenderer({
                               )
                             }
                           />
-                          Im PDF
+                          {entry.included ? "Im PDF" : "Nicht im PDF"}
                         </label>
                         <Button
-                          size="xs"
-                          variant="ghost"
+                          size="icon-xs"
+                          variant="ghost-muted"
                           disabled={!editable || at === 0}
                           aria-label="Nach oben"
                           onClick={() => {
@@ -89,11 +92,11 @@ export function FormModRenderer({
                             update(next);
                           }}
                         >
-                          ↑
+                          <ArrowUp />
                         </Button>
                         <Button
-                          size="xs"
-                          variant="ghost"
+                          size="icon-xs"
+                          variant="ghost-muted"
                           disabled={!editable || at === entries.length - 1}
                           aria-label="Nach unten"
                           onClick={() => {
@@ -102,40 +105,48 @@ export function FormModRenderer({
                             update(next);
                           }}
                         >
-                          ↓
+                          <ArrowDown />
                         </Button>
                         <Button
-                          size="xs"
-                          variant="ghost-destructive"
+                          size="icon-xs"
+                          variant="ghost-muted"
                           disabled={!editable}
                           aria-label="Eintrag löschen"
-                          onClick={() => update(entries.filter((e) => e.id !== entry.id))}
+                          onClick={() => {
+                            if (confirm("Diesen Eintrag dauerhaft aus dem Lebenslauf entfernen?"))
+                              update(entries.filter((e) => e.id !== entry.id));
+                          }}
                         >
-                          Löschen
+                          <Trash2 />
                         </Button>
                       </div>
                     )}
-                    {render(
-                      node.children,
-                      entry.values,
-                      (v) =>
-                        update(entries.map((e) => (e.id === entry.id ? { ...e, values: v } : e))),
-                      entry.id,
-                    )}
+                    <div className={styles.entryContent}>
+                      {render(
+                        node.children,
+                        entry.values,
+                        (v) =>
+                          update(entries.map((e) => (e.id === entry.id ? { ...e, values: v } : e))),
+                        entry.id,
+                      )}
+                    </div>
                   </article>
                 );
               })}
             {!reading && (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!editable}
-                onClick={() =>
-                  update([...entries, { id: randomUUID(), included: true, values: {} }])
-                }
-              >
-                Eintrag hinzufügen
-              </Button>
+              <div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!editable}
+                  onClick={() =>
+                    update([...entries, { id: randomUUID(), included: true, values: {} }])
+                  }
+                >
+                  <Plus />
+                  Eintrag hinzufügen
+                </Button>
+              </div>
             )}
           </section>
         );
@@ -143,34 +154,34 @@ export function FormModRenderer({
       if (reading && node.target === "metadata") return null;
       const value = data[node.key];
       return (
-        <div key={id} className={styles.field} data-field={node.key}>
-          {!reading && (
-            <label className="text-xs text-muted-foreground" htmlFor={id}>
-              {node.label}
-              {node.required ? " *" : ""}
-              {node.target === "metadata" ? " · nur Formular" : ""}
-            </label>
-          )}
+        <div key={id} className={styles.field} data-field={node.key} data-target={node.target}>
           {node.type === "text" ? (
-            reading ? (
-              <p>{String(value || "")}</p>
-            ) : (
-              <Input
-                id={id}
-                aria-label={node.label}
-                value={typeof value === "string" ? value : ""}
-                disabled={disabled}
-                onChange={(e) => change({ ...data, [node.key]: e.target.value })}
-              />
-            )
-          ) : (
-            <CvContentEditor
+            <CvEditable
               label={node.label}
-              showLabel={false}
-              value={(value || []) as CvBlock[]}
+              value={typeof value === "string" ? value : ""}
               readonly={!editable}
-              onChange={(content) => change({ ...data, [node.key]: content })}
+              showLabel={!reading}
+              required={Boolean(node.required)}
+              hint={node.target === "metadata" ? " · nur Formular" : ""}
+              onChange={(text) => change({ ...data, [node.key]: text })}
             />
+          ) : (
+            <>
+              {!reading && (
+                <span className={documentStyles["cv-field-label"]} aria-hidden>
+                  {node.label}
+                  {node.required ? " *" : ""}
+                  {node.target === "metadata" ? " · nur Formular" : ""}
+                </span>
+              )}
+              <CvContentEditor
+                label={node.label}
+                showLabel={false}
+                value={(value || []) as CvBlock[]}
+                readonly={!editable}
+                onChange={(content) => change({ ...data, [node.key]: content })}
+              />
+            </>
           )}
         </div>
       );
@@ -178,13 +189,18 @@ export function FormModRenderer({
   }
   const missing = unmapped(spec, values);
   return (
-    <div className={styles.form} data-form-mod data-reading={reading}>
+    <article
+      className={`${documentStyles["cv-document"]} ${styles.form} rounded-lg border bg-card p-4 sm:p-6`}
+      aria-label="Direkt bearbeitbares Vorlagenformular"
+      data-form-mod
+      data-reading={reading}
+    >
       {missing.length > 0 && (
         <p role="status" className="text-xs text-muted-foreground">
           Nicht zugeordnet, aber erhalten: {missing.join(", ")}
         </p>
       )}
       {render(spec.form, values, onChange, "form")}
-    </div>
+    </article>
   );
 }

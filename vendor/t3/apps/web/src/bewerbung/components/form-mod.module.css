@@ -2,37 +2,79 @@
 .group,
 .collection {
   display: grid;
-  gap: 1rem;
+  gap: 0.75rem;
   min-width: 0;
+}
+.form {
+  font-size: 0.875rem;
+  gap: 1.5rem;
+}
+.group > div,
+.entryContent {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.heading {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted-foreground);
+}
+.columns > .heading,
+.group .group > .heading,
+.group .collection > .heading {
+  border: 0;
+  padding: 0;
+  font-size: 0.65rem;
+  letter-spacing: normal;
+  text-transform: none;
 }
 .columns > div {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 0.35rem 1.5rem;
+  align-items: baseline;
 }
 .field {
-  display: grid;
-  gap: 0.35rem;
   min-width: 0;
+  overflow-wrap: anywhere;
+}
+.form > .group:first-of-type > div > .field:first-child [role="textbox"],
+.form
+  > .columns:first-of-type
+  > div
+  > .group:first-child
+  > div
+  > .field:first-child
+  [role="textbox"] {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
 }
 .entry {
-  display: grid;
-  gap: 0.8rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem;
   min-width: 0;
 }
+.entry + .entry {
+  margin-top: 0.25rem;
+}
+.entryContent > .field:first-child [role="textbox"] {
+  font-weight: 500;
+}
 .entry[data-included="false"] {
-  border-style: dashed;
-  background: var(--secondary);
+  border-left: 2px dashed var(--border);
+  padding-left: 0.75rem;
 }
 .actions {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.3rem;
   flex-wrap: wrap;
+  margin-bottom: 0.2rem;
 }
 .form p {
   overflow-wrap: anywhere;

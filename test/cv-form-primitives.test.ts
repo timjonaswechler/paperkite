@@ -15,7 +15,7 @@ import {
 import { Store } from "../server/store.ts";
 import { Builds, dockerRunner } from "../server/builds.ts";
 import { cvDocumentTemplate } from "./fixtures/cv-document-template.ts";
-const dir = path.resolve("examples/cv-form-mods");
+const dir = path.resolve("test/fixtures/cv-form-mods");
 function fixture(name: string) {
   return {
     spec: JSON.parse(fs.readFileSync(path.join(dir, name, "mod.json"), "utf8")),
@@ -148,7 +148,7 @@ test("D/G: normal CV documents preserve legacy sources, CAS, copies and unknown 
       b = store.create({ company: "Form B", template: template.id });
     const legacy = store.cv.read(a.id),
       source = store.read(a.id, "cv/profiles/general.lua");
-    assert.equal(store.cv.forms.list().length, 2);
+    assert.deepEqual(store.cv.forms.list(), []);
     assert.equal(
       store.db.prepare("SELECT count(*) n FROM cv_form_mods").get()!.n,
       0,
@@ -227,6 +227,83 @@ test("D/G: normal CV documents preserve legacy sources, CAS, copies and unknown 
       0,
     );
     assert.ok(store.cv.read(a.id));
+  } finally {
+    store.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("removed demos disappear and unused copies are deleted without dropping bound documents or saved values", () => {
+  const root = temp();
+  let store = new Store(root);
+  try {
+    const f = fixture("cv"),
+      p = fixture("portfolio");
+    const retired = store.cv.forms.install("Beispiel · CV", f.spec, f.files);
+    const unused = store.cv.forms.install(
+      "Beispiel · Portfolio",
+      p.spec,
+      p.files,
+    );
+    assert.equal(
+      retired.id,
+      "form:efc734bb7b61b4871f0f4a8e0b082f9a18a7dd75f5be3fec1b734829330e0a1a",
+    );
+    assert.equal(
+      unused.id,
+      "form:297d74eed2a4fd6e0a9d2a8d5dfc2e5f088db3f33c6024b43673491b1ee55a86",
+    );
+    const current = store.cv.forms.install(
+      "Real user template",
+      f.spec,
+      f.files,
+    );
+    const app = store.create({ company: "Existing document" });
+    store.cv.bind(app.id, app.revision, current.id);
+    save(store, app.id, sample());
+    // Reconstruct a pre-removal binding; new selections must not create one.
+    store.db
+      .prepare("UPDATE cv_documents SET mod_id=? WHERE app=?")
+      .run(retired.id, app.id);
+    const original = store.cv.read(app.id);
+    store.close();
+    store = new Store(root);
+    assert.deepEqual(store.cv.read(app.id), original);
+    assert.ok(store.cv.forms.snapshot(retired.id, sample())["cv-data.lua"]);
+    assert.equal(
+      store.db.prepare("SELECT id FROM cv_form_mods WHERE id=?").get(unused.id),
+      undefined,
+    );
+    assert.deepEqual(
+      store.cv.forms.list().map((m) => m.id),
+      [current.id],
+    );
+    const other = store.create({ company: "New document" });
+    assert.throws(
+      () => store.cv.bind(other.id, other.revision, retired.id),
+      /entfernt/,
+    );
+    assert.equal(store.cv.read(other.id).modId, null);
+    store.cv.bind(app.id, store.app(app.id).revision, null);
+    store.close();
+    store = new Store(root);
+    assert.equal(
+      store.db
+        .prepare("SELECT id FROM cv_form_mods WHERE id=?")
+        .get(retired.id),
+      undefined,
+    );
+    assert.deepEqual(
+      JSON.parse(
+        String(
+          store.db
+            .prepare("SELECT data FROM cv_form_values WHERE app=?")
+            .get(app.id)!.data,
+        ),
+      ),
+      sample(),
+    );
+    assert.deepEqual(store.cv.forms.mod(current.id).spec, f.spec);
   } finally {
     store.close();
     fs.rmSync(root, { recursive: true, force: true });

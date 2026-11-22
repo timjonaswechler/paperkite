@@ -1,6 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
@@ -10,7 +7,6 @@ import {
   type FormSpec,
   type Values,
 } from "../shared/cv-form.ts";
-import { collect } from "./cv-mod-prototype/imports.ts";
 import { safeRelative } from "./cv-mod-prototype/archive.ts";
 import { formBuildFiles } from "./cv-form-model.ts";
 import { check, HttpError } from "./files.ts";
@@ -30,35 +26,16 @@ export function validateFormValues(
 }
 export const isFormMod = (id: string | null) =>
   Boolean(id?.startsWith("form:"));
+const retiredExamples = [
+  "form:efc734bb7b61b4871f0f4a8e0b082f9a18a7dd75f5be3fec1b734829330e0a1a",
+  "form:297d74eed2a4fd6e0a9d2a8d5dfc2e5f088db3f33c6024b43673491b1ee55a86",
+];
 export class CvFormMods {
   resolveImported?: (id: string) => FormMod;
-  private examples = new Map<string, FormMod>();
   constructor(private db: DatabaseSync) {
     db.exec(
       "CREATE TABLE IF NOT EXISTS cv_form_mods(id TEXT PRIMARY KEY,payload TEXT NOT NULL)",
     );
-    const directory = fileURLToPath(
-      new URL("../examples/cv-form-mods/", import.meta.url),
-    );
-    for (const entry of fs
-      .readdirSync(directory, { withFileTypes: true })
-      .filter((e) => e.isDirectory())) {
-      const files = collect(path.join(directory, entry.name)),
-        spec = JSON.parse(files["mod.json"]!.toString());
-      delete files["mod.json"];
-      files["format.lua"] ||= fs.readFileSync(
-        path.join(directory, "format.lua"),
-      );
-      const mod = this.package(
-        "Beispiel · " +
-          (entry.name === "cv"
-            ? "CV"
-            : entry.name[0]!.toUpperCase() + entry.name.slice(1)),
-        spec,
-        files,
-      );
-      this.examples.set(mod.id, mod);
-    }
   }
   private package(
     name: string,
@@ -117,13 +94,20 @@ export class CvFormMods {
       .prepare("INSERT OR IGNORE INTO cv_form_mods VALUES(?,?)")
       .run(mod.id, JSON.stringify(mod));
   }
+  removeRetiredExamples() {
+    for (const id of retiredExamples)
+      this.db
+        .prepare(
+          "DELETE FROM cv_form_mods WHERE id=? AND NOT EXISTS (SELECT 1 FROM cv_documents WHERE mod_id=?)",
+        )
+        .run(id, id);
+  }
   pin(id: string) {
-    const mod = this.mod(id);
-    if (
-      this.examples.has(id) ||
-      this.db.prepare("SELECT id FROM cv_form_mods WHERE id=?").get(id)
-    )
-      this.persist(mod);
+    check(
+      !retiredExamples.includes(id),
+      "Diese Beispielvorlage wurde entfernt",
+    );
+    this.mod(id);
   }
   mod(id: string): FormMod {
     const row = this.db
@@ -131,24 +115,17 @@ export class CvFormMods {
         .get(id),
       mod = row
         ? (JSON.parse(String(row.payload)) as FormMod)
-        : this.examples.get(id) || this.resolveImported?.(id);
+        : this.resolveImported?.(id);
     check(mod, "Formular-Modversion nicht gefunden", 404);
     return mod;
   }
   list() {
-    const local = [
-      ...new Map([
-        ...this.examples,
-        ...this.db
-          .prepare("SELECT payload FROM cv_form_mods ORDER BY rowid")
-          .all()
-          .map((r) => {
-            const m = JSON.parse(String(r.payload)) as FormMod;
-            return [m.id, m] as const;
-          }),
-      ]).values(),
-    ].map(({ files: _files, ...m }) => m);
-    return local;
+    return this.db
+      .prepare("SELECT payload FROM cv_form_mods ORDER BY rowid")
+      .all()
+      .map((r) => JSON.parse(String(r.payload)) as FormMod)
+      .filter((mod) => !retiredExamples.includes(mod.id))
+      .map(({ files: _files, ...mod }) => mod);
   }
   snapshot(id: string, values: Values) {
     const mod = this.mod(id);

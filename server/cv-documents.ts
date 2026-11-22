@@ -225,6 +225,7 @@ export class CvDocuments {
     store.db.exec(
       "CREATE TABLE IF NOT EXISTS cv_documents(app TEXT PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,data TEXT NOT NULL,source_fingerprint TEXT NOT NULL,mod_id TEXT)",
     );
+    this.forms.removeRetiredExamples();
   }
   private load(id: string) {
     const app = this.store.app(id),

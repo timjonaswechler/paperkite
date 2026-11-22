@@ -30,7 +30,7 @@ function generated(workspace: string) {
   const dir = path.join(workspace, "mod");
   fs.mkdirSync(dir, { recursive: true });
   const spec = JSON.parse(
-    fs.readFileSync("examples/cv-form-mods/portfolio/mod.json", "utf8"),
+    fs.readFileSync("test/fixtures/cv-form-mods/portfolio/mod.json", "utf8"),
   );
   spec.form.push({
     type: "text",
@@ -42,8 +42,8 @@ function generated(workspace: string) {
   for (const file of ["main.tex", "format.lua"])
     fs.copyFileSync(
       file === "main.tex"
-        ? "examples/cv-form-mods/portfolio/main.tex"
-        : "examples/cv-form-mods/format.lua",
+        ? "test/fixtures/cv-form-mods/portfolio/main.tex"
+        : "test/fixtures/cv-form-mods/format.lua",
       path.join(dir, file),
     );
 }
@@ -308,7 +308,7 @@ test("real v2 import PDFs seal immutable versions that bind to normal CV documen
     assert.equal(imports.reviewedForm(next.versionId!).id, next.versionId);
     store.cv.bind(app.id, store.app(app.id).revision, null);
     await imports.remove(job.id, imports.get(job.id).updated);
-    assert.equal(store.cv.forms.list().length, 2);
+    assert.deepEqual(store.cv.forms.list(), []);
     assert.throws(() => store.cv.forms.mod(first.versionId!), /nicht gefunden/);
   } finally {
     await imports.close();

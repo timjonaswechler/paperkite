@@ -38,6 +38,29 @@ const store = new Store(data),
   template = store.import(cvDocumentTemplate()),
   a = store.create({ company: "SYNTHETIC CV A", template: template.id }),
   b = store.create({ company: "SYNTHETIC CV B", template: template.id });
+assert.deepEqual(
+  store.cv.forms.list(),
+  [],
+  "Normal startup must not preload demo mods",
+);
+const formFixtures = path.join(project, "test/fixtures/cv-form-mods");
+for (const [directory, name] of [
+  ["cv", "Prüfvorlage CV"],
+  ["portfolio", "Prüfvorlage Portfolio"],
+]) {
+  store.cv.forms.install(
+    name!,
+    JSON.parse(
+      fs.readFileSync(path.join(formFixtures, directory!, "mod.json"), "utf8"),
+    ),
+    {
+      "main.tex": fs.readFileSync(
+        path.join(formFixtures, directory!, "main.tex"),
+      ),
+      "format.lua": fs.readFileSync(path.join(formFixtures, "format.lua")),
+    },
+  );
+}
 const legacyDraft = store.cv.read(a.id);
 legacyDraft.data.sections
   .find((section) => section.kind === "experience")!
@@ -96,11 +119,11 @@ try {
           fs.mkdirSync(path.join(workspace, "mod"), { recursive: true });
           for (const file of ["main.tex", "mod.json"])
             fs.copyFileSync(
-              path.join(project, "examples/cv-form-mods/portfolio", file),
+              path.join(formFixtures, "portfolio", file),
               path.join(workspace, "mod", file),
             );
           fs.copyFileSync(
-            path.join(project, "examples/cv-form-mods/format.lua"),
+            path.join(formFixtures, "format.lua"),
             path.join(workspace, "mod/format.lua"),
           );
           onThread(
@@ -405,7 +428,7 @@ try {
       .click();
     assert.equal((await response).status(), 200);
   };
-  await choose(/Formular · Beispiel · CV/);
+  await choose(/Formular · Prüfvorlage CV/);
   await expect(page.locator("[data-form-mod]")).toBeVisible();
   await expect(
     page.getByRole("textbox", {
@@ -422,6 +445,41 @@ try {
   await page
     .getByRole("textbox", { name: "UI-only Notizen", exact: true })
     .fill("HiddenNotes13");
+  const inlineName = page.getByRole("textbox", { name: "Name", exact: true });
+  await expect(inlineName).toHaveAttribute("contenteditable", "true");
+  await expect(
+    page.locator(
+      "[data-form-mod] input:not([type=checkbox]):not([type=hidden])",
+    ),
+  ).toHaveCount(0);
+  await inlineName.focus();
+  await inlineName.press("End");
+  await inlineName.pressSequentially("Tail");
+  await expect(inlineName).toHaveText("IntegratedForm11Tail");
+  await inlineName.press("Escape");
+  await expect(inlineName).toHaveText("IntegratedForm11");
+  const notes = page.getByRole("textbox", {
+    name: "UI-only Notizen",
+    exact: true,
+  });
+  await notes.focus();
+  await notes.press("Control+A");
+  await notes.evaluate((element) => {
+    const clipboard = new DataTransfer();
+    clipboard.setData("text/plain", "<b>PlainPaste</b>");
+    clipboard.setData("text/html", "<b>RichPaste</b>");
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        clipboardData: clipboard,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+  await expect(notes).toHaveText("<b>PlainPaste</b>");
+  await expect(notes.locator("b")).toHaveCount(0);
+  await notes.press("Escape");
+  await expect(notes).toHaveText("HiddenNotes13");
   const collection = page.locator('[data-collection="career"]'),
     entries = collection.locator("[data-entry]");
   for (const title of ["FirstRole15", "SecondRole17", "HiddenRole19"]) {
@@ -476,7 +534,7 @@ try {
   await page.getByRole("button", { name: "Lebenslauf", exact: true }).click();
   await expect(
     page.getByRole("textbox", { name: "Name", exact: true }),
-  ).toHaveValue("IntegratedForm11");
+  ).toHaveText("IntegratedForm11");
   assert.deepEqual(
     app.app.store.cv.read(a.id).form!.values,
     formData.form!.values,
@@ -524,7 +582,7 @@ try {
     path: path.join(output, "form-cv-mobile.png"),
     fullPage: true,
   });
-  await choose(/Formular · Beispiel · Portfolio/);
+  await choose(/Formular · Prüfvorlage Portfolio/);
   await expect(
     page.getByRole("textbox", { name: "Name", exact: true }),
   ).toHaveCount(0);
@@ -580,10 +638,10 @@ try {
     }),
   ).toHaveText("BrowserRoleMarker");
   assert.deepEqual(app.app.store.cv.read(a.id).data, beforeForm.data);
-  await choose(/Formular · Beispiel · CV/);
+  await choose(/Formular · Prüfvorlage CV/);
   await expect(
     page.getByRole("textbox", { name: "Name", exact: true }),
-  ).toHaveValue("IntegratedForm11");
+  ).toHaveText("IntegratedForm11");
   await page.getByText("LaTeX-Vorlage hochladen", { exact: true }).click();
   await imports.getByLabel("Datei für Vorlagenimport auswählen").setInputFiles({
     name: "v2-portfolio.zip",
@@ -644,7 +702,7 @@ try {
   await page.getByRole("button", { name: "Lebenslauf", exact: true }).click();
   await expect(
     page.getByRole("textbox", { name: "Überschrift", exact: true }),
-  ).toHaveValue("ImportedV2Marker83");
+  ).toHaveText("ImportedV2Marker83");
   await page.getByText("LaTeX-Vorlage hochladen", { exact: true }).click();
   await imports
     .locator(`[data-cv-mod-job="${v2Job.id}"]`)
@@ -660,7 +718,7 @@ try {
   assert.equal(proof.status(), 200);
   assert.equal((await proof.body()).subarray(0, 5).toString(), "%PDF-");
   assert.equal(generated, 2);
-  await choose(/Formular · Beispiel · CV/);
+  await choose(/Formular · Prüfvorlage CV/);
   const removedV2 = page.waitForResponse(
     (r) =>
       r.request().method() === "DELETE" &&
