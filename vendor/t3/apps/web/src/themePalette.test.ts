@@ -19,6 +19,7 @@ import {
   installCustomTheme,
   parseThemeFile,
   parseThemeHalves,
+  resolveThemeHalf,
   publishedThemeDefinitions,
   removeCustomTheme,
   replaceCustomThemeCollection,
@@ -49,11 +50,16 @@ function canonical(value: string): string {
   return color;
 }
 
-function contrastRatio(first: string, second: string): number {
+function contrastRatio(first: string, second: string, underlay = "#ffffff"): number {
   const toRgb = (value: string) => {
     const hex = asHex(value).slice(1);
+    const base = asHex(underlay).slice(1);
+    const alpha = converter("rgb")(value)!.alpha ?? 1;
     return [0, 1, 2].map(
-      (channel) => Number.parseInt(hex.slice(channel * 2, channel * 2 + 2), 16) / 255,
+      (channel) =>
+        (Number.parseInt(hex.slice(channel * 2, channel * 2 + 2), 16) * alpha +
+          Number.parseInt(base.slice(channel * 2, channel * 2 + 2), 16) * (1 - alpha)) /
+        255,
     );
   };
   const luminance = (value: string) =>
@@ -66,6 +72,103 @@ function contrastRatio(first: string, second: string): number {
 }
 
 describe("theme files", () => {
+  it("maps the pinned non-Islands JetBrains Dark and Light references, retaining alpha", () => {
+    const theme = getThemeDefinition("jetbrains")!;
+    expect(theme.label).toBe("JetBrains");
+    expect(theme.appearance).toBe("dark");
+    expect(getThemeModes(theme)).toEqual(["light", "dark"]);
+    expect(theme.colors).toMatchObject({
+      canvas: "#1e1f22",
+      chrome: "#26282b",
+      toolbar: "#1e1f22",
+      text: "#dfe1e5ff",
+      codeForeground: "#bcbec4ff",
+      textMuted: "#b0b1b3",
+      accent: "#3474f0ff",
+      focus: "#467ff2",
+      border: "#393b41ff",
+      sidebar: "#26282b",
+      sidebarRowHover: "#3c3e41ff",
+      sidebarRowActive: "#494a4dff",
+      sidebarRowSelected: "#43454a",
+      error: "#fa6675ff",
+      errorSurface: "#402929ff",
+      warning: "#f2c55cff",
+      warningSurface: "#665014ff",
+      terminalSelection: "#214283ff",
+      terminalScrollbar: "#ffffff26",
+      searchMatchBackground: "#0DCDFB66",
+    });
+    expect(getThemeColorsForMode(theme, "light")).toMatchObject({
+      canvas: "#ffffffff",
+      chrome: "#f7f8faff",
+      surface: "#f5f7f9ff",
+      toolbar: "#ffffffff",
+      text: "#000000ff",
+      codeForeground: "#080808ff",
+      textMuted: "#404040",
+      accent: "#3573f0ff",
+      focus: "#0055ff",
+      border: "#ebecf0ff",
+      sidebar: "#f7f8faff",
+      sidebarRowHover: "#edededff",
+      sidebarRowActive: "#dbdcdeff",
+      sidebarRowSelected: "#dfe1e5",
+      error: "#ff0000",
+      errorSurface: "#ffe8e8",
+      warning: "#f49810",
+      warningSurface: "#fff8dc",
+      terminalSelection: "#a6d2ffff",
+      terminalScrollbar: "#383a414c",
+      searchMatchBackground: "#FFBE349F",
+    });
+    expect(resolveThemeAppearance("jetbrains", false)).toBe("dark");
+    expect(resolveThemeAppearance("jetbrains", true, false, "light")).toBe("light");
+    expect(resolveThemeAppearance("jetbrains", false, true)).toBe("light");
+    expect(resolveThemeAppearance("jetbrains", true, true)).toBe("dark");
+    expect(resolveDesktopTheme("jetbrains", true)).toBe("system");
+    expect(
+      publishedThemeDefinitions([
+        { id: "jetbrains", name: "Captured", appearance: "light", colors: { canvas: "#ff0000" } },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("redirects legacy Darcula to JetBrains without offering or allowing capture of the old id", () => {
+    expect(BUILT_IN_THEMES.map((theme) => theme.id)).not.toContain("jetbrains-darcula");
+    expect(canonicalThemePreference("jetbrains-darcula")).toBe("jetbrains");
+    expect(getThemeDefinition("jetbrains-darcula")?.id).toBe("jetbrains");
+    expect(resolveThemeAppearance("jetbrains-darcula", false)).toBe("dark");
+    expect(resolveDesktopTheme("jetbrains-darcula")).toBe("dark");
+    expect(resolveDesktopTheme("jetbrains-darcula", true)).toBe("system");
+    expect(resolveThemeAppearance("jetbrains-darcula", true, false, "light")).toBe("light");
+    const halves = parseThemeHalves(
+      JSON.stringify({ light: "jetbrains-darcula", dark: "jetbrains-darcula" }),
+    );
+    expect(halves).toEqual({ light: "jetbrains", dark: "jetbrains" });
+    expect(resolveThemeHalf("ocean", halves, "light")).toBe("jetbrains");
+    expect(resolveThemeHalf("ocean", halves, "dark")).toBe("jetbrains");
+    expect(
+      publishedThemeDefinitions([
+        {
+          id: "jetbrains-darcula",
+          name: "Captured",
+          appearance: "light",
+          colors: { canvas: "#ff0000" },
+        },
+      ]),
+    ).toEqual([]);
+    expect(() =>
+      parseThemeFile({
+        version: THEME_FILE_VERSION,
+        id: "jetbrains-darcula",
+        name: "Captured",
+        appearance: "light",
+        colors: { canvas: "#ff0000" },
+      }),
+    ).toThrow(/reserved/i);
+  });
+
   it("gives non-Latin theme names distinct stable ids", () => {
     const file = {
       version: THEME_FILE_VERSION,
@@ -91,10 +194,14 @@ describe("theme files", () => {
     ];
     for (const colors of palettes) {
       expect(
-        contrastRatio(colors.searchMatchForeground, colors.searchMatchBackground),
+        contrastRatio(colors.searchMatchForeground, colors.searchMatchBackground, colors.canvas),
       ).toBeGreaterThanOrEqual(4.5);
       expect(
-        contrastRatio(colors.searchMatchActiveForeground, colors.searchMatchActiveBackground),
+        contrastRatio(
+          colors.searchMatchActiveForeground,
+          colors.searchMatchActiveBackground,
+          colors.canvas,
+        ),
       ).toBeGreaterThanOrEqual(4.5);
       expect(
         distance(colors.searchMatchBackground, colors.searchMatchActiveBackground),

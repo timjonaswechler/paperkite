@@ -1,0 +1,8 @@
+Paperkite's JetBrains palette adapts the non-Islands JetBrains Dark and JetBrains Light UI color roles from zed-theme-jetbrains by Artem Evsevev.
+Copyright 2025 Artem Evsevev. Use of this source code is governed by the Apache 2.0 license (LICENSE.txt). Upstream attribution is preserved in NOTICE.txt.
+
+Pinned revision: 4385ff2c112e693716badf22e8fb348bede26f93 (extension1.4.0)
+https://github.com/artemevsevev/zed-theme-jetbrains/tree/4385ff2c112e693716badf22e8fb348bede26f93
+Sources: themes/jetbrains-dark.json and themes/jetbrains-light.json
+
+Modified for Paperkite: mapped editor colors to conversation/code, panel colors to chrome/sidebar, and element colors to controls; retained source alpha. Search foreground uses white in dark mode for contrast over translucent matches. This is a UI palette adaptation, not a Zed layout or syntax-token implementation.

@@ -1,20 +1,20 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
+import { BUILT_IN_THEMES } from "@t3tools/shared/themePalettes";
+
 import indexHtml from "../index.html?raw";
+import { readAppearanceModePreference, readThemePreference } from "./hooks/useTheme";
 import {
   CUSTOM_THEMES_STORAGE_KEY,
   ENVIRONMENT_THEMES_STORAGE_KEY,
   getDefaultThemeColors,
   getThemeColorsForMode,
+  getThemeModes,
   invalidateCustomThemes,
-  isKnownThemePreference,
   publishedThemeDefinitions,
   resolveThemeAppearance,
   T3_CHAT_THEME,
-  EMBER_THEME,
   GROVE_THEME,
-  IRIS_THEME,
-  OCEAN_THEME,
   THEME_APPEARANCE_MODE_STORAGE_KEY,
   THEME_FOLLOW_SYSTEM_STORAGE_KEY,
   toCanonicalThemeColor,
@@ -36,6 +36,7 @@ type BootResult = {
   backgroundColor: string;
   bootVariables: Record<string, string>;
   metaContent: string | null;
+  storageWrites: number;
 };
 
 function runBootScript(options: {
@@ -74,8 +75,12 @@ function runBootScript(options: {
     documentElement,
     querySelectorAll: (selector: string) => (selector === 'meta[name="theme-color"]' ? [meta] : []),
   };
+  const setItem = vi.fn();
+  const removeItem = vi.fn();
   const fakeWindow = {
     localStorage: {
+      setItem,
+      removeItem,
       getItem: (key: string): string | null => {
         if (options.storageThrows) throw new Error("storage blocked");
         return options.storage?.[key] ?? null;
@@ -98,6 +103,7 @@ function runBootScript(options: {
     backgroundColor: documentElement.style.backgroundColor,
     bootVariables,
     metaContent: meta.content,
+    storageWrites: setItem.mock.calls.length + removeItem.mock.calls.length,
   };
 }
 
@@ -111,22 +117,9 @@ function runtimeResolvedAppearance(
   });
   invalidateCustomThemes();
   try {
-    const raw = storage[THEME_STORAGE_KEY] ?? null;
-    const theme = raw !== null && isKnownThemePreference(raw) ? raw : "system";
-    const followRaw = storage[THEME_FOLLOW_SYSTEM_STORAGE_KEY] ?? null;
-    const appearanceRaw = storage[THEME_APPEARANCE_MODE_STORAGE_KEY] ?? null;
-    const appearanceMode =
-      appearanceRaw === "light" || appearanceRaw === "dark" || appearanceRaw === "system"
-        ? appearanceRaw
-        : followRaw === "true"
-          ? "system"
-          : followRaw === "false"
-            ? null
-            : theme === "system"
-              ? "system"
-              : null;
-    const followSystem = appearanceMode === "system";
-    return resolveThemeAppearance(theme, prefersDark, followSystem, appearanceMode ?? undefined);
+    const theme = readThemePreference();
+    const appearanceMode = readAppearanceModePreference(theme);
+    return resolveThemeAppearance(theme, prefersDark, appearanceMode === "system", appearanceMode);
   } finally {
     vi.unstubAllGlobals();
     invalidateCustomThemes();
@@ -148,12 +141,110 @@ const CHARCOAL_DARK_ONLY = {
 };
 
 describe("index.html boot script", () => {
+  it.each([
+    { mode: "light", prefersDark: true, light: true },
+    { mode: "system", prefersDark: false, light: true },
+    { mode: "system", prefersDark: true, light: false },
+  ])(
+    "paints the reference variant for $mode / OS dark $prefersDark",
+    ({ mode, prefersDark, light }) => {
+      const boot = runBootScript({
+        storage: { [THEME_APPEARANCE_MODE_STORAGE_KEY]: mode },
+        prefersDark,
+      });
+      expect(boot.themeId).toBe("jetbrains");
+      expect(boot.isDark).toBe(!light);
+      expect(boot.backgroundColor).toBe(light ? "#f7f8faff" : "#26282b");
+      expect(boot.bootVariables["--boot-background"]).toBe(light ? "#ffffffff" : "#1e1f22");
+      expect(boot.bootVariables["--boot-accent"]).toBe(light ? "#3573f0ff" : "#3474f0ff");
+      expect(boot.storageWrites).toBe(0);
+    },
+  );
+
+  it.each([
+    { preferences: {}, prefersDark: false, light: false },
+    {
+      preferences: { [THEME_APPEARANCE_MODE_STORAGE_KEY]: "dark" },
+      prefersDark: false,
+      light: false,
+    },
+    {
+      preferences: { [THEME_APPEARANCE_MODE_STORAGE_KEY]: "light" },
+      prefersDark: true,
+      light: true,
+    },
+    {
+      preferences: { [THEME_APPEARANCE_MODE_STORAGE_KEY]: "system" },
+      prefersDark: false,
+      light: true,
+    },
+    {
+      preferences: { [THEME_APPEARANCE_MODE_STORAGE_KEY]: "system" },
+      prefersDark: true,
+      light: false,
+    },
+    { preferences: { [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "true" }, prefersDark: false, light: true },
+  ])(
+    "redirects saved Darcula and mix halves without rewriting appearance: %j",
+    ({ preferences, prefersDark, light }) => {
+      for (const useHalves of [false, true]) {
+        const storage = {
+          ...preferences,
+          [THEME_STORAGE_KEY]: useHalves ? "jetbrains" : "jetbrains-darcula",
+          ...(useHalves
+            ? {
+                "t3code:theme-halves:v1": JSON.stringify({
+                  light: "jetbrains-darcula",
+                  dark: "jetbrains-darcula",
+                }),
+              }
+            : {}),
+          [CUSTOM_THEMES_STORAGE_KEY]: JSON.stringify([
+            { ...AURORA_DUAL, id: "jetbrains-darcula" },
+            { ...AURORA_DUAL, id: "jetbrains" },
+          ]),
+        };
+        const boot = runBootScript({ storage, prefersDark });
+        expect(boot.themeId).toBe("jetbrains");
+        expect(boot.isDark).toBe(!light);
+        expect(boot.bootVariables["--boot-background"]).toBe(light ? "#ffffffff" : "#1e1f22");
+        expect(boot.backgroundColor).toBe(light ? "#f7f8faff" : "#26282b");
+        expect(boot.isDark).toBe(runtimeResolvedAppearance(storage, prefersDark) === "dark");
+        expect(boot.storageWrites).toBe(0);
+      }
+    },
+  );
+
   const parityCases: ReadonlyArray<{
     name: string;
     storage: Record<string, string>;
     prefersDark: boolean;
   }> = [
     { name: "no stored preference on a dark OS", storage: {}, prefersDark: true },
+    { name: "no stored preference on a light OS", storage: {}, prefersDark: false },
+    {
+      name: "a saved light appearance wins over the JetBrains Dark default",
+      storage: { [THEME_APPEARANCE_MODE_STORAGE_KEY]: "light" },
+      prefersDark: true,
+    },
+    {
+      name: "a saved automatic appearance wins over the JetBrains Dark default",
+      storage: { [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "true" },
+      prefersDark: false,
+    },
+    {
+      name: "invalid appearance preferences fall back to JetBrains Dark",
+      storage: {
+        [THEME_APPEARANCE_MODE_STORAGE_KEY]: "corrupt",
+        [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "corrupt",
+      },
+      prefersDark: false,
+    },
+    {
+      name: "a removed theme retains the saved light appearance",
+      storage: { [THEME_STORAGE_KEY]: "gone-theme", [THEME_APPEARANCE_MODE_STORAGE_KEY]: "light" },
+      prefersDark: true,
+    },
     {
       name: "T3 Chat follows a dark OS",
       storage: { [THEME_STORAGE_KEY]: "t3-chat", [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "true" },
@@ -225,7 +316,7 @@ describe("index.html boot script", () => {
       prefersDark: true,
     },
     {
-      name: "a removed custom theme falls back to system",
+      name: "a removed custom theme falls back to JetBrains Dark",
       storage: { [THEME_STORAGE_KEY]: "gone-theme" },
       prefersDark: true,
     },
@@ -310,9 +401,8 @@ describe("index.html boot script", () => {
   });
 
   it("keeps every built-in boot splash in sync with the real palettes", () => {
-    for (const theme of [T3_CHAT_THEME, GROVE_THEME, OCEAN_THEME, EMBER_THEME, IRIS_THEME]) {
-      expect(theme.appearance).toBe("light");
-      for (const mode of ["light", "dark"] as const) {
+    for (const theme of BUILT_IN_THEMES) {
+      for (const mode of getThemeModes(theme)) {
         const colors = getThemeColorsForMode(theme, mode);
         expect(colors).not.toBeNull();
         const boot = runBootScript({
@@ -397,12 +487,37 @@ describe("index.html boot script", () => {
     expect(boot.metaContent).toBe(DEFAULT_DARK_CHROME);
   });
 
-  it("follows the OS appearance when storage is unavailable", () => {
-    const light = runBootScript({ storageThrows: true, prefersDark: false });
-    expect(light.isDark).toBe(false);
-    expect(light.themeId).toBeUndefined();
+  it.each([false, true])(
+    "paints JetBrains Dark when storage is unavailable (OS dark: %s)",
+    (prefersDark) => {
+      const boot = runBootScript({ storageThrows: true, prefersDark });
+      expect(boot.isDark).toBe(true);
+      expect(boot.themeId).toBe("jetbrains");
+      expect(boot.themeSelected).toBe("true");
+      expect(boot.backgroundColor).toBe("#26282b");
+      expect(boot.metaContent).toBe("#26282b");
+      expect(boot.bootVariables["--boot-background"]).toBe("#1e1f22");
+      expect(boot.bootVariables["--boot-foreground"]).toBe("#dfe1e5ff");
+      expect(boot.bootVariables["--boot-accent"]).toBe("#3474f0ff");
+    },
+  );
 
-    const dark = runBootScript({ storageThrows: true, prefersDark: true });
-    expect(dark.isDark).toBe(true);
-  });
+  it.each([null, "", "gone-theme", "jetbrains"])(
+    "paints the JetBrains Dark default immediately for %s without depending on OS appearance",
+    (preference) => {
+      for (const prefersDark of [false, true]) {
+        const storage = preference === null ? {} : { [THEME_STORAGE_KEY]: preference };
+        const boot = runBootScript({ storage, prefersDark });
+        expect(boot.isDark).toBe(true);
+        expect(boot.themeId).toBe("jetbrains");
+        expect(boot.themeSelected).toBe("true");
+        expect(boot.backgroundColor).toBe("#26282b");
+        expect(boot.metaContent).toBe("#26282b");
+        expect(boot.bootVariables["--boot-background"]).toBe("#1e1f22");
+        expect(boot.bootVariables["--boot-foreground"]).toBe("#dfe1e5ff");
+        expect(boot.bootVariables["--boot-accent"]).toBe("#3474f0ff");
+        expect(boot.storageWrites).toBe(0);
+      }
+    },
+  );
 });
