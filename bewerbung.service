@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/redjoker/workspace/containers/bewerbung
+WorkingDirectory=/home/redjoker/workspace/repositories/timjonaswechler/personal/paperkite
 ExecStart=/home/redjoker/.local/bin/node --import tsx server/main.ts
 Environment=PATH=/home/redjoker/.local/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PUBLIC_ORIGIN=https://bewerbung.teejayslab.de
