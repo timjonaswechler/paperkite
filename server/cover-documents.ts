@@ -23,6 +23,16 @@ export class CoverDocuments {
       "CREATE TABLE IF NOT EXISTS cover_documents(app TEXT PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,fields TEXT NOT NULL,source_fingerprint TEXT NOT NULL,mod_id TEXT)",
     );
   }
+  private initialFields(app: { company: string; role: string }): CoverLetter {
+    return {
+      sender: this.store.preferences.settings().applicantName,
+      recipient: app.company,
+      subject: "Bewerbung als " + app.role,
+      salutation: "Sehr geehrte Damen und Herren,",
+      body: "",
+      closing: "Mit freundlichen Grüßen",
+    };
+  }
   private load(id: string) {
     const app = this.store.app(id),
       source = this.store.read(id, sourceFile).toString("utf8");
@@ -31,17 +41,10 @@ export class CoverDocuments {
       .get(id);
     const decoded = decodeCover(source),
       cached = row ? (JSON.parse(String(row.fields)) as CoverLetter) : null;
-    const fields = (row &&
-    (row.mod_id || row.source_fingerprint === hash(source))
-      ? cached
-      : decoded || cached) || {
-      sender: this.store.preferences.settings().applicantName,
-      recipient: app.company,
-      subject: "Bewerbung als " + app.role,
-      salutation: "Sehr geehrte Damen und Herren,",
-      body: "",
-      closing: "Mit freundlichen Grüßen",
-    };
+    const fields =
+      (row && (row.mod_id || row.source_fingerprint === hash(source))
+        ? cached
+        : decoded || cached) || this.initialFields(app);
     validateCover(fields);
     return {
       app,
@@ -63,6 +66,26 @@ export class CoverDocuments {
       modId: s.modId,
       ...(mod ? { modName: mod.name } : {}),
     };
+  }
+  create(id: string, input: { revision: unknown }): CoverLetterState {
+    const app = this.store.app(id);
+    if (fs.existsSync(safeFile(this.store.workspace(id), sourceFile)))
+      return this.read(id);
+    check(
+      app.status !== "Gesendet",
+      "Gesendetes Anschreiben ist schreibgeschützt.",
+      409,
+    );
+    check(
+      app.revision === input.revision,
+      "Bewerbung inzwischen geändert. Neu laden.",
+      409,
+    );
+    const fields = this.initialFields(app),
+      source = encodeCover(fields);
+    return this.commit(id, fields, null, source, {
+      [sourceFile]: Buffer.from(source),
+    });
   }
   private mod(id: string) {
     check(this.resolveMod, "Anschreiben-Vorlagen nicht verfügbar", 503);

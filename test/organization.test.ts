@@ -270,6 +270,178 @@ test("creation chooses CV and cover independently, never inherits company facts 
   }
 });
 
+test("cover preparation is a persistent default for new applications, not a rewrite of existing documents or masters", () => {
+  const root = temporary();
+  let store = new Store(root);
+  try {
+    assert.equal(store.preferences.settings().prepareCoverLetter, true);
+    const template = store.import(master("CV unchanged"));
+    const originalMaster = store.templateLibrary.files(template.id);
+    const existing = store.create({
+      company: "Existing",
+      template: template.id,
+    });
+    store.save(
+      existing.id,
+      "anschreiben/Anschreiben.tex",
+      "Existing personal letter",
+      existing.revision,
+    );
+    const before = store.app(existing.id);
+    const settings = store.preferences.update({
+      revision: store.preferences.settings().revision,
+      prepareCoverLetter: false,
+    });
+    const skipped = store.create({
+      company: "No letter",
+      role: "Engineer",
+      template: template.id,
+    });
+    const withoutTemplate = store.create({
+      company: "No master",
+      role: "Engineer",
+    });
+    for (const app of [skipped, withoutTemplate]) {
+      assert.equal(
+        store
+          .files(app.id)
+          .some((file) => file.name === "anschreiben/Anschreiben.tex"),
+        false,
+      );
+      assert.throws(() => store.cover.read(app.id), /Datei nicht gefunden/);
+      assert.equal(
+        store.db
+          .prepare("SELECT 1 FROM cover_documents WHERE app=?")
+          .get(app.id),
+        undefined,
+      );
+    }
+    assert.equal(
+      store.read(skipped.id, "cv/Lebenslauf.tex").toString(),
+      "CV unchanged",
+    );
+    assert.deepEqual(store.templateLibrary.files(template.id), originalMaster);
+    assert.deepEqual(store.app(existing.id), before);
+    assert.equal(
+      store.read(existing.id, "anschreiben/Anschreiben.tex").toString(),
+      "Existing personal letter",
+    );
+    // Explicitly choosing a source is intentional reuse, not automatic preparation.
+    const reused = store.create({
+      company: "Explicit reuse",
+      coverSource: existing.id,
+    });
+    assert.equal(
+      store.read(reused.id, "anschreiben/Anschreiben.tex").toString(),
+      "Existing personal letter",
+    );
+    store.close();
+    store = new Store(root);
+    assert.deepEqual(store.preferences.settings(), settings);
+    assert.equal(
+      store
+        .files(skipped.id)
+        .some((file) => file.name.startsWith("anschreiben/")),
+      false,
+    );
+    store.preferences.update({
+      revision: settings.revision,
+      prepareCoverLetter: true,
+    });
+    const enabled = store.create({ company: "Enabled again" });
+    assert.equal(
+      store.read(enabled.id, "anschreiben/Anschreiben.tex").toString(),
+      neutralCover,
+    );
+    assert.equal(
+      store
+        .files(skipped.id)
+        .some((file) => file.name.startsWith("anschreiben/")),
+      false,
+    );
+    assert.equal(
+      store.read(existing.id, "anschreiben/Anschreiben.tex").toString(),
+      "Existing personal letter",
+    );
+  } finally {
+    store.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("later manual cover preparation is idempotent, revision checked and rolls back files and records together", () => {
+  const root = temporary(),
+    store = new Store(root);
+  try {
+    store.preferences.update({
+      revision: store.preferences.settings().revision,
+      prepareCoverLetter: false,
+      applicantName: "Ada Example",
+    });
+    const app = store.create({ company: "Fresh company", role: "Fresh role" });
+    assert.throws(
+      () => store.cover.create(app.id, { revision: app.revision + 1 }),
+      /inzwischen geändert/,
+    );
+    assert.equal(
+      store.files(app.id).some((file) => file.name.startsWith("anschreiben/")),
+      false,
+    );
+    store.db.exec(
+      "CREATE TRIGGER reject_cover_insert BEFORE INSERT ON cover_documents BEGIN SELECT RAISE(ABORT, 'synthetic cover failure'); END",
+    );
+    assert.throws(
+      () => store.cover.create(app.id, { revision: app.revision }),
+      /synthetic cover failure/,
+    );
+    assert.deepEqual(store.app(app.id), app);
+    assert.equal(
+      store.files(app.id).some((file) => file.name.startsWith("anschreiben/")),
+      false,
+    );
+    assert.equal(
+      store.db.prepare("SELECT COUNT(*) AS n FROM cover_documents").get()!.n,
+      0,
+    );
+    store.db.exec("DROP TRIGGER reject_cover_insert");
+    const prepared = store.cover.create(app.id, { revision: app.revision });
+    assert.deepEqual(prepared.fields, {
+      sender: "Ada Example",
+      recipient: "Fresh company",
+      subject: "Bewerbung als Fresh role",
+      salutation: "Sehr geehrte Damen und Herren,",
+      body: "",
+      closing: "Mit freundlichen Grüßen",
+    });
+    assert.equal(prepared.revision, app.revision + 1);
+    assert.equal(prepared.requiresConversion, false);
+    assert.deepEqual(
+      store.cover.create(app.id, { revision: app.revision }),
+      prepared,
+    );
+    const edited = store.cover.save(app.id, {
+      ...prepared,
+      fields: { ...prepared.fields, body: "Manual user text" },
+    });
+    assert.deepEqual(
+      store.cover.create(app.id, { revision: app.revision }),
+      edited,
+    );
+    const sent = store.create({ company: "Sent", status: "Gesendet" });
+    assert.throws(
+      () => store.cover.create(sent.id, { revision: sent.revision }),
+      /schreibgeschützt/,
+    );
+    assert.equal(
+      store.db.prepare("SELECT COUNT(*) AS n FROM cover_documents").get()!.n,
+      1,
+    );
+  } finally {
+    store.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("settings, opened applications and per-application chat drafts persist independently of application status and revisions", () => {
   const root = temporary();
   let store = new Store(root);
@@ -278,8 +450,10 @@ test("settings, opened applications and per-application chat drafts persist inde
       b = store.create({ company: "B" });
     const defaults = store.preferences.settings();
     assert.equal(defaults.autoPruneBuilds, false);
+    assert.equal(defaults.prepareCoverLetter, true);
     const saved = store.preferences.update({
       revision: defaults.revision,
+      prepareCoverLetter: false,
       autoPruneBuilds: true,
       autoBuild: true,
       collapsedStatuses: ["Absage"],
@@ -297,6 +471,9 @@ test("settings, opened applications and per-application chat drafts persist inde
       { autoBuild: "true" },
       { autoPruneBuilds: "true" },
       { autoPruneBuilds: null },
+      { prepareCoverLetter: "false" },
+      { prepareCoverLetter: null },
+      { prepareCoverLetter: 0 },
       { theme: "dark" },
       { sendOnEnter: false },
       { defaultProvider: "codex" },
@@ -369,6 +546,7 @@ test("business preferences migrate retired T3 fields once without losing busines
       revision: 18,
       analysisModel: null,
       applicantName: "",
+      prepareCoverLetter: true,
       autoPruneBuilds: false,
       autoBuild: true,
       collapsedStatuses: ["In Arbeit", "Fertig", "Zusage"],

@@ -277,7 +277,8 @@ export class Store {
           ([name]) => !/^anschreiben\/[^/]+\.tex$/.test(name),
         ),
       );
-      files["anschreiben/Anschreiben.tex"] = Buffer.from(neutralCover);
+      if (this.preferences.settings().prepareCoverLetter)
+        files["anschreiben/Anschreiben.tex"] = Buffer.from(neutralCover);
     }
     if (input.profile !== undefined) {
       check(

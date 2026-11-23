@@ -123,14 +123,21 @@ export function Workspace({
   const breadcrumbApplication = app ?? applications.find((application) => application.id === id);
   const sourceUrl = app?.posting.match(/^(?:Quelle:\s*)?(https?:\/\/\S+)/)?.[1];
   const state = (kind: "cv" | "cover") => app?.documentStatus?.[kind] ?? "missing";
+  const hasCover = app?.files.some((file) => file.name === "anschreiben/Anschreiben.tex");
   const status = (kind: "cv" | "cover") =>
-    state(kind) === "current"
-      ? "PDF aktuell"
-      : state(kind) === "outdated"
-        ? "PDF neu bauen"
-        : "Noch kein PDF";
+    kind === "cover" && !hasCover
+      ? "Nicht vorbereitet · bei Bedarf anlegen"
+      : state(kind) === "current"
+        ? "PDF aktuell"
+        : state(kind) === "outdated"
+          ? "PDF neu bauen"
+          : "Noch kein PDF";
   const nextStep: Area =
-    state("cv") !== "current" ? "cv" : state("cover") !== "current" ? "cover" : "package";
+    state("cv") !== "current"
+      ? "cv"
+      : hasCover && state("cover") !== "current"
+        ? "cover"
+        : "package";
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
       <WorkspacePageHeader data-application-header>

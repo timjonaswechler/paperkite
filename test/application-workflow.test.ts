@@ -56,6 +56,189 @@ test("plain letter round-trips exactly and escapes TeX commands instead of execu
   );
 });
 
+test("manual and link-based creation use server cover preferences; later cover creation is explicit and retry safe", async () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "bewerbung-optional-cover-"),
+  );
+  let analyses = 0,
+    builds = 0;
+  const app = createApp(
+    root,
+    async () => {
+      builds++;
+      return "No build expected";
+    },
+    3148,
+    undefined,
+    {
+      analysisRunner: async () => {
+        analyses++;
+        return {
+          company: "Link company",
+          role: "Link role",
+          requirements: ["TypeScript"],
+        };
+      },
+    },
+  );
+  const server = app.web.listen(3148, "127.0.0.1");
+  await once(server, "listening");
+  const base = "http://127.0.0.1:3148/bewerbung/api";
+  const request = (p: string, method = "GET", body?: unknown) =>
+    fetch(base + p, {
+      method,
+      headers:
+        method === "GET"
+          ? {}
+          : { "Content-Type": "application/json", "X-Bewerbung-Request": "1" },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  try {
+    const master = app.store.import(template),
+      masterBefore = app.store.templateLibrary.files(master.id);
+    const existing = app.store.create({
+      company: "Existing company",
+      role: "Existing role",
+      template: master.id,
+    });
+    const existingSource = app.store.read(
+      existing.id,
+      "anschreiben/Anschreiben.tex",
+    );
+    const skipped: { id: string; revision: number }[] = [];
+    for (const enabled of [false, true]) {
+      const settings = await (await request("/settings")).json();
+      assert.equal(typeof settings.prepareCoverLetter, "boolean");
+      for (const invalid of [null, "false", 0, {}]) {
+        assert.equal(
+          (
+            await request("/settings", "PUT", {
+              revision: settings.revision,
+              prepareCoverLetter: invalid,
+            })
+          ).status,
+          400,
+        );
+        assert.deepEqual(await (await request("/settings")).json(), settings);
+      }
+      assert.equal(
+        (
+          await request("/settings", "PUT", {
+            revision: settings.revision,
+            prepareCoverLetter: enabled,
+          })
+        ).status,
+        200,
+      );
+      const manual = await request("/applications", "POST", {
+        company: "Manual company",
+        role: "Manual role",
+        template: master.id,
+      });
+      assert.equal(manual.status, 201);
+      const manualApp = await manual.json();
+      const count = app.store.list().length;
+      const analysis = await request("/job-analysis", "POST", {
+        url: "https://jobs.example/optional",
+        text: "Link company sucht einen Software Engineer mit TypeScript, Datenbanken und Erfahrung in der Entwicklung verlässlicher Anwendungen.",
+      });
+      assert.equal(analysis.status, 200);
+      const result = await analysis.json();
+      assert.equal(
+        app.store.list().length,
+        count,
+        "Analysis does not create applications or letters",
+      );
+      const linked = await request("/applications", "POST", {
+        company: result.company,
+        role: result.role,
+        posting: result.text,
+        template: master.id,
+      });
+      assert.equal(linked.status, 201);
+      for (const record of [manualApp, await linked.json()]) {
+        const detail = await (
+          await request(`/applications/${record.id}`)
+        ).json();
+        assert.equal(
+          detail.files.some(
+            (f: { name: string }) => f.name === "anschreiben/Anschreiben.tex",
+          ),
+          enabled,
+        );
+        assert.equal(
+          (await request(`/applications/${record.id}/cover-letter`)).status,
+          enabled ? 200 : 404,
+        );
+        assert.equal(
+          (
+            await request(
+              `/applications/${record.id}/profile?path=cv/profiles/general.lua`,
+            )
+          ).status,
+          200,
+        );
+        if (!enabled) skipped.push(record);
+      }
+    }
+    const record = skipped[0]!;
+    assert.equal(
+      (await request(`/applications/${record.id}/cover-letter`)).status,
+      404,
+      "A new setting must not retroactively prepare existing applications",
+    );
+    const attempts = await Promise.all(
+      [0, 1].map(() =>
+        request(`/applications/${record.id}/cover-letter`, "POST", {
+          revision: record.revision,
+        }),
+      ),
+    );
+    assert.deepEqual(
+      attempts.map((r) => r.status),
+      [200, 200],
+    );
+    const first = await attempts[0]!.json(),
+      second = await attempts[1]!.json();
+    assert.deepEqual(first, second);
+    assert.equal(first.revision, record.revision + 1);
+    assert.equal(first.fields.body, "");
+    assert.equal(first.fields.recipient, "Manual company");
+    assert.equal(first.fields.subject, "Bewerbung als Manual role");
+    assert.equal(
+      app.store.db
+        .prepare("SELECT COUNT(*) AS n FROM cover_documents WHERE app=?")
+        .get(record.id)!.n,
+      1,
+    );
+    assert.equal(app.store.list().length, 5);
+    assert.deepEqual(app.store.templateLibrary.files(master.id), masterBefore);
+    assert.deepEqual(
+      app.store.read(existing.id, "anschreiben/Anschreiben.tex"),
+      existingSource,
+    );
+    assert.equal(
+      (await request(`/applications/${skipped[1]!.id}/cover-letter`)).status,
+      404,
+    );
+    assert.equal(
+      analyses,
+      2,
+      "Only the explicitly requested link analyses call the fixture provider",
+    );
+    assert.equal(builds, 0);
+    assert.equal(
+      app.store.db.prepare("SELECT COUNT(*) AS n FROM sessions").get()!.n,
+      0,
+    );
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await app.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("document workflow preserves source revisions and custom fields, builds independent current PDFs and freezes PDF/ZIP outputs", async () => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "bewerbung-document-workflow-"),

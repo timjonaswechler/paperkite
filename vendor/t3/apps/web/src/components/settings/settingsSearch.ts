@@ -279,6 +279,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["bewerbung download paket pdf zip benennung vorname nachname"],
   },
   {
+    id: "bewerbung-prepare-cover-letter",
+    title: "Anschreiben bei neuen Bewerbungen vorbereiten",
+    to: "/settings/projects",
+    searchTerms: ["anschreiben vorbereiten neue bewerbung automatisch grundlage ohne ki"],
+  },
+  {
     id: "bewerbung-auto-build",
     title: "Nach dem Speichern bauen",
     to: "/settings/projects",

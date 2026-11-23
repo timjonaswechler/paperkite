@@ -10,6 +10,7 @@ const defaults: Settings = {
   revision: 1,
   autoBuild: false,
   autoPruneBuilds: false,
+  prepareCoverLetter: true,
   analysisModel: null,
   applicantName: "",
   collapsedStatuses: ["Fertig", "Gesendet", "Absage", "Zusage"],
@@ -35,6 +36,10 @@ export class Preferences {
       }
     if (normalized.autoPruneBuilds === undefined) {
       normalized.autoPruneBuilds = false;
+      changed = true;
+    }
+    if (normalized.prepareCoverLetter === undefined) {
+      normalized.prepareCoverLetter = true;
       changed = true;
     }
     if (normalized.analysisModel === undefined) {
@@ -120,6 +125,11 @@ export class Preferences {
       check(
         typeof patch.autoPruneBuilds === "boolean",
         "Ungültige Einstellung: autoPruneBuilds",
+      );
+    if (patch.prepareCoverLetter !== undefined)
+      check(
+        typeof patch.prepareCoverLetter === "boolean",
+        "Ungültige Einstellung: prepareCoverLetter",
       );
     if (patch.collapsedStatuses !== undefined) {
       const values = patch.collapsedStatuses;

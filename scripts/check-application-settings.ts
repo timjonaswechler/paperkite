@@ -21,6 +21,7 @@ export async function checkApplicationSettings(
     "autoBuild",
     "autoPruneBuilds",
     "collapsedStatuses",
+    "prepareCoverLetter",
     "revision",
   ]);
 
@@ -58,6 +59,21 @@ export async function checkApplicationSettings(
     0,
   );
   await expect(page.locator("[data-document-library]")).toHaveCount(1);
+
+  const prepareCover = page.getByRole("switch", {
+    name: "Anschreiben bei neuen Bewerbungen vorbereiten",
+    exact: true,
+  });
+  await expect(prepareCover).toBeChecked();
+  await prepareCover.click();
+  await expect(prepareCover).not.toBeChecked();
+  assert.equal((await settings()).prepareCoverLetter, false);
+  await page.reload();
+  await expect(prepareCover).not.toBeChecked();
+  await prepareCover.focus();
+  await prepareCover.press("Space");
+  await expect(prepareCover).toBeChecked();
+  assert.equal((await settings()).prepareCoverLetter, true);
 
   const autoBuild = page.getByRole("switch", {
     name: "Nach dem Speichern bauen",

@@ -68,6 +68,20 @@ export function ApplicationSettingsPage() {
         {notice}
       </p>
       <AnalysisModelSettings settings={app.settings} busy={busy} save={saveSettings} />
+      <SettingsSection id="bewerbung-creation" title="Neue Bewerbungen">
+        <SettingsRow
+          {...searchableSetting("bewerbung-prepare-cover-letter")}
+          description="Für neue Bewerbungen eine neutrale, editierbare Anschreiben-Grundlage anlegen – ohne KI-Generierung. Bestehende Bewerbungen bleiben unverändert; späteres manuelles Anlegen ist möglich."
+          control={
+            <Switch
+              aria-label="Anschreiben bei neuen Bewerbungen vorbereiten"
+              checked={app.settings?.prepareCoverLetter ?? true}
+              disabled={busy || app.settings === null}
+              onCheckedChange={(prepareCoverLetter) => void saveSettings({ prepareCoverLetter })}
+            />
+          }
+        />
+      </SettingsSection>
       <SettingsSection id="bewerbung-pdf" title="PDF-Erstellung">
         <SettingsRow
           {...searchableSetting("bewerbung-auto-build")}

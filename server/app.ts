@@ -362,6 +362,10 @@ export function createApp(
   api.get("/applications/:id/cover-letter", (req, res) =>
     res.json(store.cover.read(req.params.id)),
   );
+  api.post("/applications/:id/cover-letter", (req, res) => {
+    editable(req.params.id);
+    res.json(store.cover.create(req.params.id, req.body));
+  });
   api.put("/applications/:id/cover-letter", (req, res) => {
     editable(req.params.id);
     res.json(store.cover.save(req.params.id, req.body));

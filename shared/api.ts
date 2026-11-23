@@ -12,6 +12,7 @@ export type Settings = {
   revision: number;
   autoBuild: boolean;
   autoPruneBuilds: boolean;
+  prepareCoverLetter: boolean;
   collapsedStatuses: ApplicationStatus[];
   analysisModel: { instanceId: string; model: string } | null;
   applicantName: string;

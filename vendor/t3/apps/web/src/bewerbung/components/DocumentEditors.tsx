@@ -44,7 +44,56 @@ type EditorProps = {
   onAdvanced: () => void;
 };
 
-export function CoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: EditorProps) {
+export function CoverLetterEditor(props: EditorProps) {
+  return props.app.files.some((file) => file.name === "anschreiben/Anschreiben.tex") ? (
+    <PreparedCoverLetterEditor {...props} />
+  ) : (
+    <UnpreparedCoverLetter {...props} />
+  );
+}
+
+function UnpreparedCoverLetter({ app, onRefresh }: EditorProps) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function prepare() {
+    if (busy || app.harness.busy || app.status === "Gesendet") return;
+    setBusy(true);
+    setError("");
+    try {
+      await api<CoverLetterState>(`/applications/${app.id}/cover-letter`, "POST", {
+        revision: app.revision,
+      });
+      await onRefresh();
+    } catch (error) {
+      setError(errorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="max-w-2xl space-y-4 rounded-xl border p-5">
+      <h2 className="text-lg font-medium">Noch kein Anschreiben vorbereitet</h2>
+      <p className="text-sm text-muted-foreground">
+        Du kannst diese Bewerbung ohne Anschreiben bearbeiten. Bei Bedarf legst du hier eine
+        neutrale, editierbare Grundlage an. Es wird kein KI-Text erzeugt.
+      </p>
+      <ErrorNotice error={error} onClose={() => setError("")} />
+      {app.status === "Gesendet" && (
+        <p className="text-sm text-muted-foreground">
+          Gesendete Bewerbungen sind schreibgeschützt.
+        </p>
+      )}
+      <Button
+        disabled={busy || app.harness.busy || app.status === "Gesendet"}
+        onClick={() => void prepare()}
+      >
+        {busy ? "Wird angelegt…" : "Anschreiben anlegen"}
+      </Button>
+    </section>
+  );
+}
+
+function PreparedCoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: EditorProps) {
   const [fields, setFields] = useState<CoverLetter | null>(null);
   const [revision, setRevision] = useState(app.revision);
   const [fingerprint, setFingerprint] = useState("");

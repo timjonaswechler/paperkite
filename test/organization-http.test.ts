@@ -59,6 +59,7 @@ test("organization HTTP routes protect binary uploads, create only validated app
       "autoBuild",
       "autoPruneBuilds",
       "collapsedStatuses",
+      "prepareCoverLetter",
       "revision",
     ]);
     for (const patch of [
