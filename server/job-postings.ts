@@ -107,7 +107,7 @@ export function postingText(html: string) {
 type Resolver = (
   hostname: string,
 ) => Promise<{ address: string; family: number }[]>;
-export async function loadPosting(
+async function loadPage(
   input: string,
   signal: AbortSignal,
   resolve: Resolver = (hostname) => lookup(hostname, { all: true }),
@@ -208,7 +208,7 @@ export async function loadPosting(
       },
     );
     if (response.text !== undefined)
-      return { url: url.href, text: postingText(response.text) };
+      return { url: url.href, body: response.text };
     check(
       typeof response.location === "string",
       "Stellen-Link leitet ungültig weiter",
@@ -219,6 +219,62 @@ export async function loadPosting(
     422,
     "Zu viele Weiterleitungen. Bitte Ausschreibungstext einfügen.",
   );
+}
+
+export async function loadPosting(
+  input: string,
+  signal: AbortSignal,
+  resolve?: Resolver,
+) {
+  const page = await loadPage(input, signal, resolve);
+  const text = postingText(page.body);
+  const url = new URL(page.url);
+  const portalJob = /^\/tu-darmstadt\/job\/([1-9]\d*)\/?$/.exec(url.pathname);
+  if (
+    text.length >= 80 ||
+    url.origin !== "https://www.career.tu-darmstadt.de" ||
+    !portalJob
+  )
+    return { url: page.url, text };
+
+  // This portal serves an empty SPA shell; its public job view loads these
+  // details separately. Keep the fallback scoped to public, token-free routes.
+  const endpoint = new URL(
+    "https://api.career.hidden-professionals.de/job/details",
+  );
+  endpoint.search = new URLSearchParams({
+    slug: "tu-darmstadt",
+    jobofferId: portalJob[1]!,
+    isInternal: "false",
+  }).toString();
+  const details = await loadPage(endpoint.href, signal, resolve);
+  const error =
+    "Diese Seite enthält keinen lesbaren Ausschreibungstext. Bitte Ausschreibungstext einfügen.";
+  try {
+    const metadata = JSON.parse(details.body)?.google4JobsData;
+    check(typeof metadata === "string", error, 422);
+    // The provider includes literal line breaks inside the JSON description.
+    const job = JSON.parse(metadata.replace(/[\r\n\t]/g, " "));
+    check(
+      job?.["@type"] === "JobPosting" &&
+        typeof job.title === "string" &&
+        job.title.trim() &&
+        typeof job.hiringOrganization?.name === "string" &&
+        job.hiringOrganization.name.trim() &&
+        typeof job.description === "string" &&
+        postingText(job.description).length >= 80,
+      error,
+      422,
+    );
+    return {
+      url: page.url,
+      text: postingText(
+        [job.title, job.hiringOrganization.name, job.description].join("\n"),
+      ),
+    };
+  } catch {
+    throw new HttpError(422, error);
+  }
 }
 
 export type AnalysisRequest = {
