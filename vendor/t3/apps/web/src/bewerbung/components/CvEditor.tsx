@@ -18,6 +18,7 @@ import {
 import { Choice, ErrorNotice } from "./Controls";
 import { DocumentPreview, useDocumentDraftGuard } from "./DocumentEditors";
 import { CvModImportPanel } from "./CvModImportPanel";
+import { ApplicantProfilePanel } from "./ApplicantProfilePanel";
 import { CvContentEditor } from "./CvContentEditor";
 import { FormModRenderer } from "./FormModRenderer";
 import { CvEditable as Editable } from "./CvEditable";
@@ -35,6 +36,9 @@ const names: Record<string, string> = {
   phone: "Telefon",
   street: "Straße",
   postalCode: "PLZ",
+  addressLine2: "Adresszusatz",
+  address: "Adresse",
+  country: "Land",
   city: "Ort",
   birthday: "Geburtsdatum",
   birthplace: "Geburtsort",
@@ -136,7 +140,10 @@ export function CvEditor({
   function person(key: string, value: string) {
     if (!data) return;
     const next = { ...data.person, [key]: value };
-    if (key === "firstName" || key === "lastName")
+    if (
+      (key === "firstName" || key === "lastName") &&
+      !state?.applicantBindings?.fields["person.displayName"]
+    )
       next.displayName = [next.firstName, next.lastName].filter(Boolean).join(" ");
     change({ ...data, person: next });
   }
@@ -256,6 +263,7 @@ export function CvEditor({
       key
     );
   }
+  const profileBound = (key: string) => Boolean(state?.applicantBindings?.fields["person." + key]);
   const personLabel = (key: string) =>
     selectedMod?.fields.find((f) => f.key === "person." + key)?.label || names[key] || key;
   const modOptions = mods
@@ -345,6 +353,25 @@ export function CvEditor({
       </div>
       <ErrorNotice error={error} onClose={() => setError("")} />
       {state?.modWarning && <ErrorNotice error={state.modWarning} />}
+      <ApplicantProfilePanel
+        key={app.id}
+        app={app}
+        bindings={state?.applicantBindings}
+        dirty={dirty}
+        busy={busy || loading}
+        onApplied={async (signal) => {
+          const next = await api<CvState>(
+            `/applications/${app.id}/cv-data`,
+            "GET",
+            undefined,
+            signal,
+          );
+          if (!signal.aborted) {
+            accept(next);
+            await onRefresh();
+          }
+        }}
+      />
       {error && (
         <Button
           size="sm"
@@ -401,13 +428,15 @@ export function CvEditor({
                     label="Vorname"
                     value={data.person.firstName || ""}
                     onChange={(v) => person("firstName", v)}
-                    readonly={readonly}
+                    readonly={readonly || profileBound("firstName")}
+                    hint={profileBound("firstName") ? " · Bewerberprofil" : ""}
                   />
                   <Editable
                     label="Nachname"
                     value={data.person.lastName || ""}
                     onChange={(v) => person("lastName", v)}
-                    readonly={readonly}
+                    readonly={readonly || profileBound("lastName")}
+                    hint={profileBound("lastName") ? " · Bewerberprofil" : ""}
                   />
                 </>
               ) : (
@@ -415,7 +444,8 @@ export function CvEditor({
                   label="Name"
                   value={data.person.displayName || ""}
                   onChange={(v) => person("displayName", v)}
-                  readonly={readonly}
+                  readonly={readonly || profileBound("displayName")}
+                  hint={profileBound("displayName") ? " · Bewerberprofil" : ""}
                 />
               )}
             </h3>
@@ -426,7 +456,8 @@ export function CvEditor({
                   <Editable
                     label={personLabel(key)}
                     value={data.person[key] || ""}
-                    readonly={readonly}
+                    readonly={readonly || profileBound(key)}
+                    hint={profileBound(key) ? " · Bewerberprofil" : ""}
                     onChange={(v) => person(key, v)}
                   />
                 </div>

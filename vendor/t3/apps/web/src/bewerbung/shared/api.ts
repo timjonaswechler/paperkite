@@ -1,4 +1,20 @@
 import type { FormSpec, Values } from "../../../../../../../shared/cv-form";
+import type {
+  ApplicantProfile,
+  ApplicantBindings,
+} from "../../../../../../../shared/applicant-profile";
+export type {
+  ApplicantProfile,
+  ApplicantBindings,
+} from "../../../../../../../shared/applicant-profile";
+export type SignatureInfo = { id: string; bytes: number; width: number; height: number };
+export type ApplicationApplicantProfile = {
+  revision: number;
+  profile: ApplicantProfile | null;
+  current: ApplicantProfile;
+  outdated: boolean;
+  signature: SignatureInfo | null;
+};
 export const APPLICATION_STATUSES = [
   "In Arbeit",
   "Fertig",
@@ -16,6 +32,7 @@ export type Settings = {
   collapsedStatuses: ApplicationStatus[];
   analysisModel: { instanceId: string; model: string } | null;
   applicantName: string;
+  applicantProfile: ApplicantProfile;
 };
 export type UiState = { openIds: string[] };
 export type ApplicationChat = {
@@ -133,6 +150,7 @@ export type CoverLetterState = {
   requiresConversion: boolean;
   modId: string | null;
   modName?: string;
+  applicantBindings?: ApplicantBindings;
 };
 export type JobAnalysis = {
   company: string;
@@ -221,6 +239,7 @@ export type CvState = {
     fields: { key: string; label: string; type: "text"; required: boolean }[];
   };
   modWarning?: string;
+  applicantBindings?: ApplicantBindings;
 };
 export type CvModJob = {
   id: string;

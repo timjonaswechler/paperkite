@@ -8,11 +8,24 @@ import {
 } from "../shared/cv-form.ts";
 import { luaData } from "./cv-mod-prototype/model.ts";
 import { check } from "./files.ts";
+import { applicantAdapterContract } from "./applicant-contract.ts";
+import { syntheticApplicantExpected } from "./cv-mod-prototype/synthetic-applicant.ts";
+import {
+  applicantBuildFiles,
+  bindApplicantForm,
+  type ApplicantRenderContext,
+} from "./applicant-rendering.ts";
 export function formBuildFiles(
   spec: FormSpec,
   files: Record<string, Buffer>,
   values: Values,
+  applicant?: ApplicantRenderContext,
 ) {
+  values = bindApplicantForm(
+    values,
+    spec.applicant,
+    applicant?.profile || null,
+  );
   validateValues(spec, values, true);
   return {
     ...files,
@@ -23,6 +36,7 @@ export function formBuildFiles(
         engine: spec.engine,
         entrypoint: spec.entrypoint,
         fields: [],
+        ...(spec.applicant ? { applicant: spec.applicant } : {}),
       }),
     ),
     "cv-data.lua": Buffer.from(
@@ -30,6 +44,7 @@ export function formBuildFiles(
         luaData({ schemaVersion: 2, values: pdfValues(spec, values) }) +
         "\n",
     ),
+    ...applicantBuildFiles(spec.applicant, applicant),
   };
 }
 export type FormBuildCase = {
@@ -52,11 +67,15 @@ export function formBuildCases(spec: FormSpec): FormBuildCase[] {
         (metadata || excluded ? forbidden : expected).push(m);
         return m;
       };
-      function fields(nodes: FormNode[], excluded = false): Values {
+      function fields(
+        nodes: FormNode[],
+        excluded = false,
+        inEntry = false,
+      ): Values {
         const values: Values = {};
         for (const n of nodes) {
           if (n.type === "group" || n.type === "columns")
-            Object.assign(values, fields(n.children, excluded));
+            Object.assign(values, fields(n.children, excluded, inEntry));
           else if (n.type === "entries") {
             const entries =
               name === "form-empty"
@@ -65,7 +84,7 @@ export function formBuildCases(spec: FormSpec): FormBuildCase[] {
                     (index) => {
                       const skip = name === "form-excluded" && index === 1,
                         start = expected.length;
-                      const data = fields(n.children, skip),
+                      const data = fields(n.children, skip, true),
                         first = expected[start];
                       return {
                         entry: {
@@ -84,9 +103,15 @@ export function formBuildCases(spec: FormSpec): FormBuildCase[] {
             for (let i = 1; i < firsts.length; i++)
               order.push([firsts[i - 1]!, firsts[i]!]);
             values[n.key] = entries.map((e) => e.entry);
-          } else if (n.type === "text")
-            values[n.key] = marker(n.target === "metadata", excluded);
-          else if (name === "form-empty" && !n.required) values[n.key] = [];
+          } else if (n.type === "text") {
+            const source = !inEntry ? spec.applicant?.fields[n.key] : undefined;
+            if (source) {
+              values[n.key] = syntheticApplicantExpected[source];
+              (n.target === "metadata" || excluded ? forbidden : expected).push(
+                syntheticApplicantExpected[source].replace(/\s+/g, " "),
+              );
+            } else values[n.key] = marker(n.target === "metadata", excluded);
+          } else if (name === "form-empty" && !n.required) values[n.key] = [];
           else {
             const a = marker(n.target === "metadata", excluded),
               b = marker(n.target === "metadata", excluded),
@@ -212,7 +237,7 @@ LuaLaTeX erhält den absoluten Datenpfad in os.getenv('CV_DATA_FILE'). Lade nur 
 {schemaVersion=2,values={applicant='...',stations={{id='stable-id',included=true,values={designation='...',period='...',description={{id='p',type='paragraph',text='...'},{id='b',type='bulletList',items={{id='i',text='...'}}}}}}}}}
 Feldnamen entsprechen exakt mod.json. IDs und included sind technische App-Felder, keine selbst anzulegenden Formulareingaben. Die App entfernt metadata-Felder und ausgeschlossene Einträge aus den PDF-Builddaten. Keine ausgeschlossenen Inhalte, labels oder Interne-Notiz-Werte aus anderen Quellen nachladen.
 Für jede deklarierte PDF-Bindung die entsprechende Ausgabe im bestehenden Layout anbinden. Eingaben niemals erfinden, kürzen oder umformulieren. Absätze, Listenpunkte und Einträge in ihrer aktuellen Datenreihenfolge ausgeben, auch nach Umsortieren. Alle Texte für TeX korrekt maskieren, insbesondere %, &, _, Backslash, Dollar, Raute und geschweifte Klammern. Keine Eingabetexte als TeX ausführen. Fehlende optionale Angaben und leere Sammlungen ohne Leerüberschriften behandeln; bei vollständig leerem Inhalt trotzdem eine gültige leere PDF-Seite erzeugen.
-Vorhandene Layout-/Makrodateien möglichst erhalten, die alte Daten-Ladeschicht/Formatter einmalig passend ersetzen. Keine echten personenbezogenen Texte, Fotos oder Signaturen als Beispieldaten oder fest verdrahtete Ausgabe einbauen. Synthetische Prüfwerte müssen allein aus CV_DATA_FILE erscheinen.
+Vorhandene Layout-/Makrodateien möglichst erhalten, die alte Daten-Ladeschicht/Formatter einmalig passend ersetzen. Keine echten personenbezogenen Texte, Fotos oder Signaturen als Beispieldaten oder fest verdrahtete Ausgabe einbauen. Dokumentwerte kommen aus CV_DATA_FILE, Profil- und Unterschriftswerte aus dem ergänzenden Profilvertrag. Keine hart codierten Prüfwerte verwenden.
 mod.json ist der Formularvertrag. Die App erzeugt ein technisches Runner-Manifest nur im unveränderlichen Build-Snapshot; dieses nicht als v1-Ergebnis liefern. Reservierte Pfade cv-data.lua, form-mod.json, application.json und cv-build.json nicht unter mod/ anlegen.
 
 ## Prüfen und Rückfragen
@@ -221,4 +246,5 @@ Die tatsächliche Buildumgebung steht in BUILD-ENVIRONMENT.json: gepinnte Builde
 Fehlende Original-Fonts/Pakete selbst ermitteln und aus offiziellen Paketquellen in einem isolierten Builder-Kandidaten nachinstallieren, nicht nur als Rückfrage weiterreichen. Unter build-support/ im Workspace den reproduzierbaren Buildkontext und Installationsnachweise ablegen, das Kandidatenimage tatsächlich bauen und den Mod damit prüfen. Image-ID, Paketversionen, Änderungen vorhandener Pakete und Prüfergebnis in build-support/RESULT.json festhalten. Keine Ersatzschriften oder abgespeckten Vorlagen als stillen Workaround. Keine Installation auf dem Host, kein Überschreiben produktiver Images/Pins, keine Dienst-/Datenbankänderung. Die Aktivierung des geprüften Kandidaten übernimmt der Betreiber; nicht behaupten, dass ein nur lokal vorbereiteter Kandidat bereits produktiv verwendet wird. Netzwerk ist nur bei der Vorbereitung/Installation erlaubt; PDF-Builds behalten Netzsperre, Read-only-Dateisystem und ausgeschaltetes Shell-Escape. build-support/ gehört nicht zum veröffentlichten Modpaket und ersetzt keinen App-Recheck.
 Bei fehlendem Zugriff auf die Buildumgebung, nicht beschaffbaren/lizenzpflichtigen Abhängigkeiten, nicht abbildbaren Layoutteilen oder ungeklärten Wünschen: konkrete Fragen in NEEDS-INPUT.md im Workspace-Hauptverzeichnis schreiben und im bestehenden Thread stellen. Keine Abhängigkeit oder Funktion still weglassen. Nach Klärung NEEDS-INPUT.md entfernen und mod/ fertigstellen; danach kann ohne neuen KI-Thread erneut geprüft werden.
 Keine produktiven Änderungen, Unteragenten oder zusätzlichen Threads. Keinen eigenen Host-Runner, Shell-Escape oder Datenbankzugriff in den Mod einbauen; der endgültige PDF-Build gehört dem App-Builder. Die normalen nativen Werkzeuge zum Analysieren und Erstellen der Dateien bleiben mit den bestehenden Provider-, Modell- und Berechtigungsmodi nutzbar. Keine zusätzliche allgemeine Werkzeug-Allowlist oder Shellsperre einführen. Ergebnis und bekannte Grenzen im bestehenden Thread erläutern.
+${applicantAdapterContract}
 `;

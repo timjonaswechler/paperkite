@@ -56,6 +56,7 @@ test("organization HTTP routes protect binary uploads, create only validated app
     assert.deepEqual(Object.keys(defaults).sort(), [
       "analysisModel",
       "applicantName",
+      "applicantProfile",
       "autoBuild",
       "autoPruneBuilds",
       "collapsedStatuses",

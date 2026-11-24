@@ -11,11 +11,13 @@ if engine == 'pdflatex':
     assert cover['format'] == 'bewerbung-cover-mod-v1'
     assert cover['engine'] == engine and cover['entrypoint'] == config['entrypoint']
     assert (root / 'letter-data.tex').is_file()
+if engine == 'pdflatex' or config.get('applicant'):
     os.environ['TEXINPUTS'] = str(root) + ':' + os.environ.get('TEXINPUTS', '')
 entry = (root / config['entrypoint']).resolve()
 assert entry.is_relative_to(root) and entry.suffix == '.tex'
 os.environ['CV_DATA_FILE'] = str(root / 'cv-data.lua')
 os.environ['LETTER_DATA_FILE'] = str(root / 'cv-data.lua')
+os.environ['APPLICANT_DATA_FILE'] = str(root / 'applicant-data.lua')
 os.environ['HOME'] = '/tmp'
 output = pathlib.Path('/work/output')
 output.mkdir()

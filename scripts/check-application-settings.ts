@@ -18,6 +18,7 @@ export async function checkApplicationSettings(
   assert.deepEqual(Object.keys(initial).sort(), [
     "analysisModel",
     "applicantName",
+    "applicantProfile",
     "autoBuild",
     "autoPruneBuilds",
     "collapsedStatuses",

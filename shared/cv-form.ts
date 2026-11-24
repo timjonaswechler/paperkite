@@ -1,4 +1,8 @@
 import type { CvBlock } from "./api.ts";
+import {
+  validateApplicantBindings,
+  type ApplicantBindings,
+} from "./applicant-profile.ts";
 export type Entry = { id: string; included: boolean; values: Values };
 export type Values = { [key: string]: string | CvBlock[] | Entry[] };
 export type FormNode =
@@ -17,6 +21,7 @@ export type FormSpec = {
   engine: "lualatex";
   entrypoint: string;
   form: FormNode[];
+  applicant?: ApplicantBindings;
 };
 export type FormMod = {
   id: string;
@@ -42,7 +47,7 @@ function keys(v: Record<string, unknown>, allowed: string[]) {
 }
 export function parseForm(value: unknown): FormSpec {
   record(value);
-  keys(value, ["format", "engine", "entrypoint", "form"]);
+  keys(value, ["format", "engine", "entrypoint", "form", "applicant"]);
   ensure(
     value.format === "bewerbung-cv-form-v2" && value.engine === "lualatex",
     "Nicht unterstützter Formular-Mod",
@@ -55,6 +60,7 @@ export function parseForm(value: unknown): FormSpec {
     "Ungültiger Einstiegspunkt",
   );
   let count = 0;
+  const applicantTargets: string[] = [];
   function walk(
     nodes: unknown,
     used: Set<string>,
@@ -108,6 +114,8 @@ export function parseForm(value: unknown): FormSpec {
           node.target === "pdf" || node.target === "metadata",
           "Ausgabeziel erwartet",
         );
+        if (!inEntry && node.type === "text" && node.target === "pdf")
+          applicantTargets.push(node.key);
         ensure(
           node.required === undefined || typeof node.required === "boolean",
           "Ungültiges Pflichtfeld",
@@ -116,6 +124,8 @@ export function parseForm(value: unknown): FormSpec {
     }
   }
   walk(value.form, new Set(), false, 0);
+  if (value.applicant !== undefined)
+    validateApplicantBindings(value.applicant, applicantTargets);
   return value as unknown as FormSpec;
 }
 export function validateValues(

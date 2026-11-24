@@ -7,7 +7,6 @@ import { useTextGenerationTargets } from "~/textGenerators";
 import { getTextGenerationModelOptionsByInstance } from "~/modelSelection";
 import { ProviderModelPicker } from "~/components/chat/ProviderModelPicker";
 import { Button } from "~/components/ui/button";
-import { DraftInput } from "~/components/ui/draft-input";
 import {
   SettingsRow,
   SettingsSection,
@@ -100,18 +99,11 @@ export function AnalysisModelSettings({
       <SettingsSection id="bewerbung-download-names" title="Download-Benennung">
         <SettingsRow
           {...searchableSetting("bewerbung-applicant-name")}
-          description="Name für automatisch benannte PDFs und ZIP-Pakete. Schema: Dokument_Name_Firma_Stelle. Originaldateien werden nicht umbenannt."
+          description="PDFs und ZIP-Pakete verwenden den Namen aus dem Bewerberprofil. Schema: Dokument_Name_Firma_Stelle. Originaldateien werden nicht umbenannt."
           control={
-            <div className="w-full sm:w-64">
-              <DraftInput
-                aria-label="Name für Dateinamen"
-                value={settings?.applicantName ?? ""}
-                disabled={busy || !settings}
-                maxLength={120}
-                placeholder="Vorname Nachname"
-                onCommit={(applicantName) => void save({ applicantName: applicantName.trim() })}
-              />
-            </div>
+            <span className="text-sm">
+              {settings?.applicantName || "Im Bewerberprofil erfassen"}
+            </span>
           }
         />
       </SettingsSection>

@@ -273,6 +273,40 @@ export function dockerModBuilder(
       extract,
       signal,
     );
-    return { text: text.stdout, log: result.stdout + "\n" + result.stderr };
+    let signatureLog = "";
+    const applicant = JSON.parse(
+      fs.readFileSync(path.join(input, "mod.json"), "utf8"),
+    ).applicant;
+    if (
+      applicant &&
+      applicant.signature !== "none" &&
+      fs.existsSync(path.join(input, "applicant-signature.png"))
+    ) {
+      const verify = "cv-mod-signature-" + randomUUID();
+      const checked = await run(
+        [
+          ...common,
+          "--name",
+          verify,
+          "--mount",
+          `type=bind,src=${output},dst=/input,readonly`,
+          "--mount",
+          `type=bind,src=${input},dst=/source,readonly`,
+          "--mount",
+          `type=bind,src=${fileURLToPath(new URL("./check-signature.py", import.meta.url))},dst=/check-signature.py,readonly`,
+          "--entrypoint",
+          "python3",
+          pdfImage,
+          "/check-signature.py",
+        ],
+        verify,
+        signal,
+      );
+      signatureLog = checked.stdout;
+    }
+    return {
+      text: text.stdout,
+      log: result.stdout + "\n" + result.stderr + "\n" + signatureLog,
+    };
   };
 }

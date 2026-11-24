@@ -21,6 +21,8 @@ import {
 } from "~/components/ui/dialog";
 import { ErrorNotice, Field } from "./Controls";
 import { normalizeJobLink } from "./job-link";
+import { useApplications } from "../ApplicationsProvider";
+import { ApplicantProfileEditor } from "./ApplicantProfileEditor";
 
 export function JobOnboarding({
   templates,
@@ -31,6 +33,8 @@ export function JobOnboarding({
   onClose: () => void;
   onSaved: (app: ApplicationDetail) => Promise<void>;
 }) {
+  const applications = useApplications();
+  const [profileOpen, setProfileOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
   const [company, setCompany] = useState("");
@@ -157,137 +161,168 @@ export function JobOnboarding({
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open && !saving) onClose();
+        if (!open && !saving && !profileOpen) onClose();
       }}
     >
-      <DialogPopup className="max-w-2xl" showCloseButton={!saving}>
+      <DialogPopup className="max-w-2xl" showCloseButton={!saving && !profileOpen}>
         <DialogHeader>
-          <DialogTitle>Neue Bewerbung</DialogTitle>
+          <DialogTitle>{profileOpen ? "Bewerberprofil" : "Neue Bewerbung"}</DialogTitle>
           <DialogDescription>
-            Stellen-Link einfügen. Die Anzeige wird automatisch gelesen und analysiert; anschließend
-            prüfst du Unternehmen und Stelle.
+            {profileOpen
+              ? "Name, Adresse und eigene Unterschrift einmal speichern. Anschließend mit der Bewerbung fortfahren; deine bisherigen Eingaben bleiben erhalten."
+              : "Stellen-Link einfügen. Die Anzeige wird automatisch gelesen und analysiert; anschließend prüfst du Unternehmen und Stelle."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={(event) => void submit(event)} className="flex min-h-0 flex-col">
+        {profileOpen && applications.settings ? (
           <DialogPanel>
-            <div className="space-y-5">
-              <Field label="Stellen-Link">
-                <Input
-                  autoFocus
-                  type="url"
-                  aria-label="Stellen-Link"
-                  placeholder="https://…"
-                  value={url}
-                  disabled={saving}
-                  onChange={(event) => changeUrl(event.target.value)}
-                  onBlur={() => {
-                    if (!manual) void analyze(url);
-                  }}
-                  onPaste={(event) => {
-                    const next = normalizeJobLink(event.clipboardData.getData("text"));
-                    if (next) {
-                      event.preventDefault();
-                      changeUrl(next);
-                      void analyze(next);
-                    }
-                  }}
-                />
-              </Field>
-              <p className="text-xs text-muted-foreground">
-                Die Ausschreibung wird an das Modell für Stellenanalysen übermittelt. Die Modellwahl
-                findest du unter Settings → Bewerbungen. Es wird kein Chat gestartet.
-              </p>
-              <p role="status" className="text-sm">
-                {analyzing
-                  ? "Stellenanzeige wird gelesen und analysiert…"
-                  : analysis
-                    ? "Analyse abgeschlossen. Bitte Angaben prüfen."
-                    : ""}
-              </p>
-              <ErrorNotice error={error} onClose={() => setError("")} />
-              <details open={Boolean(error && !analysis)}>
-                <summary className="cursor-pointer text-sm text-muted-foreground">
-                  Seite nicht lesbar? Ausschreibungstext einfügen
-                </summary>
-                <div className="mt-3 space-y-2">
-                  <Textarea
-                    aria-label="Ausschreibungstext"
-                    rows={6}
-                    maxLength={60000}
-                    value={text}
-                    disabled={saving}
-                    placeholder="Bei Login, abgelaufener Anzeige oder Zugriffssperre hier den Text einfügen."
-                    onChange={(event) => setText(event.target.value)}
-                    onPaste={(event) => {
-                      const next = event.clipboardData.getData("text");
-                      if (next.trim().length >= 80) {
-                        event.preventDefault();
-                        setText(next);
-                        void analyze(url, next);
-                      }
-                    }}
-                  />
+            <ApplicantProfileEditor
+              settings={applications.settings}
+              onSaved={() => setProfileOpen(false)}
+              onClose={() => setProfileOpen(false)}
+            />
+          </DialogPanel>
+        ) : (
+          <form onSubmit={(event) => void submit(event)} className="flex min-h-0 flex-col">
+            <DialogPanel>
+              <div className="space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    Bewerberprofil:{" "}
+                    {applications.settings?.applicantName || "Noch kein Name erfasst"}
+                  </p>
                   <Button
                     type="button"
                     variant="outline"
-                    disabled={analyzing || saving || text.trim().length < 80 || !url.trim()}
-                    onClick={() => void analyze(url, text, true)}
+                    size="sm"
+                    disabled={saving || !applications.settings}
+                    onClick={() => setProfileOpen(true)}
                   >
-                    Text analysieren
+                    Bewerberprofil bearbeiten
                   </Button>
                 </div>
-              </details>
-              {(analysis || manual) && (
-                <div className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Unternehmen *">
-                      <Input
-                        aria-label="Unternehmen"
-                        required
-                        maxLength={200}
-                        value={company}
-                        disabled={analyzing || saving}
-                        onChange={(event) => setCompany(event.target.value)}
-                      />
-                    </Field>
-                    <Field label="Rolle / Stelle *">
-                      <Input
-                        aria-label="Rolle / Stelle"
-                        required
-                        maxLength={200}
-                        value={role}
-                        disabled={analyzing || saving}
-                        onChange={(event) => setRole(event.target.value)}
-                      />
-                    </Field>
+                <Field label="Stellen-Link">
+                  <Input
+                    autoFocus
+                    type="url"
+                    aria-label="Stellen-Link"
+                    placeholder="https://…"
+                    value={url}
+                    disabled={saving}
+                    onChange={(event) => changeUrl(event.target.value)}
+                    onBlur={() => {
+                      if (!manual) void analyze(url);
+                    }}
+                    onPaste={(event) => {
+                      const next = normalizeJobLink(event.clipboardData.getData("text"));
+                      if (next) {
+                        event.preventDefault();
+                        changeUrl(next);
+                        void analyze(next);
+                      }
+                    }}
+                  />
+                </Field>
+                <p className="text-xs text-muted-foreground">
+                  Die Ausschreibung wird an das Modell für Stellenanalysen übermittelt. Die
+                  Modellwahl findest du unter Settings → Bewerbungen. Es wird kein Chat gestartet.
+                </p>
+                <p role="status" className="text-sm">
+                  {analyzing
+                    ? "Stellenanzeige wird gelesen und analysiert…"
+                    : analysis
+                      ? "Analyse abgeschlossen. Bitte Angaben prüfen."
+                      : ""}
+                </p>
+                <ErrorNotice error={error} onClose={() => setError("")} />
+                <details open={Boolean(error && !analysis)}>
+                  <summary className="cursor-pointer text-sm text-muted-foreground">
+                    Seite nicht lesbar? Ausschreibungstext einfügen
+                  </summary>
+                  <div className="mt-3 space-y-2">
+                    <Textarea
+                      aria-label="Ausschreibungstext"
+                      rows={6}
+                      maxLength={60000}
+                      value={text}
+                      disabled={saving}
+                      placeholder="Bei Login, abgelaufener Anzeige oder Zugriffssperre hier den Text einfügen."
+                      onChange={(event) => setText(event.target.value)}
+                      onPaste={(event) => {
+                        const next = event.clipboardData.getData("text");
+                        if (next.trim().length >= 80) {
+                          event.preventDefault();
+                          setText(next);
+                          void analyze(url, next);
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={analyzing || saving || text.trim().length < 80 || !url.trim()}
+                      onClick={() => void analyze(url, text, true)}
+                    >
+                      Text analysieren
+                    </Button>
                   </div>
-                  {analysis && analysis.requirements.length > 0 && (
-                    <section className="space-y-2">
-                      <h3 className="text-sm font-medium">Erkannte Anforderungen</h3>
-                      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                        {[...new Set(analysis.requirements)].map((value) => (
-                          <li key={value}>{value}</li>
-                        ))}
-                      </ul>
-                    </section>
-                  )}
-                </div>
-              )}
-              <Button type="button" variant="ghost" disabled={saving} onClick={enterManually}>
-                {analyzing ? "Analyse abbrechen und manuell eingeben" : "Angaben manuell eingeben"}
+                </details>
+                {(analysis || manual) && (
+                  <div className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Unternehmen *">
+                        <Input
+                          aria-label="Unternehmen"
+                          required
+                          maxLength={200}
+                          value={company}
+                          disabled={analyzing || saving}
+                          onChange={(event) => setCompany(event.target.value)}
+                        />
+                      </Field>
+                      <Field label="Rolle / Stelle *">
+                        <Input
+                          aria-label="Rolle / Stelle"
+                          required
+                          maxLength={200}
+                          value={role}
+                          disabled={analyzing || saving}
+                          onChange={(event) => setRole(event.target.value)}
+                        />
+                      </Field>
+                    </div>
+                    {analysis && analysis.requirements.length > 0 && (
+                      <section className="space-y-2">
+                        <h3 className="text-sm font-medium">Erkannte Anforderungen</h3>
+                        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                          {[...new Set(analysis.requirements)].map((value) => (
+                            <li key={value}>{value}</li>
+                          ))}
+                        </ul>
+                      </section>
+                    )}
+                  </div>
+                )}
+                <Button type="button" variant="ghost" disabled={saving} onClick={enterManually}>
+                  {analyzing
+                    ? "Analyse abbrechen und manuell eingeben"
+                    : "Angaben manuell eingeben"}
+                </Button>
+              </div>
+            </DialogPanel>
+            <DialogFooter>
+              <Button type="button" variant="ghost" disabled={saving} onClick={onClose}>
+                Abbrechen
               </Button>
-            </div>
-          </DialogPanel>
-          <DialogFooter>
-            <Button type="button" variant="ghost" disabled={saving} onClick={onClose}>
-              Abbrechen
-            </Button>
-            <Button type="submit" disabled={analyzing || saving || !company.trim() || !role.trim()}>
-              <Link2 />
-              {saving ? "Wird angelegt…" : "Bewerbung anlegen"}
-            </Button>
-          </DialogFooter>
-        </form>
+              <Button
+                type="submit"
+                disabled={analyzing || saving || !company.trim() || !role.trim()}
+              >
+                <Link2 />
+                {saving ? "Wird angelegt…" : "Bewerbung anlegen"}
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
       </DialogPopup>
     </Dialog>
   );

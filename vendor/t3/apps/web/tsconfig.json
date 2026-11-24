@@ -29,6 +29,7 @@
     "src",
     "../../../../shared/cv-form.ts",
     "../../../../shared/api.ts",
+    "../../../../shared/applicant-profile.ts",
     "vite",
     "vite.config.ts",
     "vercel.ts",

@@ -1,10 +1,16 @@
 import { check } from "../files.ts";
+import { applicantAdapterContract } from "../applicant-contract.ts";
 import { safeRelative } from "./archive.ts";
 import { parseForm, type FormSpec } from "../../shared/cv-form.ts";
+import {
+  validateApplicantBindings,
+  type ApplicantBindings,
+} from "../../shared/applicant-profile.ts";
 export type CoverModManifest = {
   format: "bewerbung-cover-mod-v1";
   engine: "pdflatex" | "lualatex";
   entrypoint: string;
+  applicant?: ApplicantBindings;
 };
 export type ImportManifest = ModManifest | FormSpec | CoverModManifest;
 export function importManifest(value: unknown): ImportManifest {
@@ -21,13 +27,15 @@ export function importManifest(value: unknown): ImportManifest {
     const m = value as CoverModManifest;
     check(
       Object.keys(m).every((k) =>
-        ["format", "engine", "entrypoint"].includes(k),
+        ["format", "engine", "entrypoint", "applicant"].includes(k),
       ) &&
         (m.engine === "pdflatex" || m.engine === "lualatex"),
       "Ungültiges Anschreiben-Manifest",
     );
     safeRelative(m.entrypoint);
     check(m.entrypoint.endsWith(".tex"), "LaTeX-Hauptdatei benötigt .tex");
+    if (m.applicant !== undefined)
+      validateApplicantBindings(m.applicant, ["sender"]);
     return m;
   }
   return value.format === "bewerbung-cv-form-v2"
@@ -42,6 +50,7 @@ export type ModManifest = {
   engine: "lualatex";
   entrypoint: string;
   fields: { key: string; label: string; type: "text"; required: boolean }[];
+  applicant?: ApplicantBindings;
 };
 export function manifest(value: unknown): ModManifest {
   check(
@@ -81,6 +90,21 @@ export function manifest(value: unknown): ModManifest {
     new Set(m.fields.map((f) => f.key)).size === m.fields.length,
     "Doppelte Mod-Feldschlüssel",
   );
+  if (m.applicant !== undefined)
+    validateApplicantBindings(
+      m.applicant,
+      [
+        "firstName",
+        "lastName",
+        "displayName",
+        "street",
+        "addressLine2",
+        "postalCode",
+        "city",
+        "country",
+        "address",
+      ].map((key) => "person." + key),
+    );
   return m;
 }
 // Literal data only: delimiter cannot occur inside its string. Never interpolate executable Lua.
@@ -253,4 +277,5 @@ Layout/Preamble soweit möglich erhalten, aber die alte Daten-Ladeschicht und de
 Keinen eigenen Host-Runner, Shell-Escape oder Datenbankzugriff einbauen. LuaLaTeX läuft im isolierten App-Builder.
 Keine Unteragenten oder neuen Threads erzeugen. Die normalen nativen Werkzeugrechte und Berechtigungsmodi bleiben ansonsten maßgeblich.
 Diese Datei definiert einen Prototypvertrag, keinen Produktionsimport. Ergebnis im bestehenden Thread erläutern.
+${applicantAdapterContract}
 `;

@@ -4,7 +4,12 @@ import {
   type Settings,
   type UiState,
 } from "../shared/api.ts";
-import { check } from "./files.ts";
+import { check, HttpError } from "./files.ts";
+import {
+  applicantVariables,
+  emptyApplicantProfile,
+  validateApplicantProfile,
+} from "../shared/applicant-profile.ts";
 
 const defaults: Settings = {
   revision: 1,
@@ -13,6 +18,7 @@ const defaults: Settings = {
   prepareCoverLetter: true,
   analysisModel: null,
   applicantName: "",
+  applicantProfile: emptyApplicantProfile(),
   collapsedStatuses: ["Fertig", "Gesendet", "Absage", "Zusage"],
 };
 
@@ -48,6 +54,22 @@ export class Preferences {
     }
     if (normalized.applicantName === undefined) {
       normalized.applicantName = "";
+      changed = true;
+    }
+    if (normalized.applicantProfile === undefined) {
+      normalized.applicantProfile = emptyApplicantProfile(
+        normalized.applicantName.trim(),
+      );
+      changed = true;
+    }
+    validateApplicantProfile(normalized.applicantProfile);
+    if (
+      applicantVariables(normalized.applicantProfile).name !==
+      normalized.applicantName
+    ) {
+      normalized.applicantName = applicantVariables(
+        normalized.applicantProfile,
+      ).name;
       changed = true;
     }
     if ((stored.collapsedStatuses as string[]).includes("Entwurf")) {
@@ -116,6 +138,30 @@ export class Preferences {
           !/[\x00-\x1f\x7f]/.test(patch.applicantName),
         "Ungültiger Bewerbername",
       );
+    if (patch.applicantProfile !== undefined) {
+      try {
+        validateApplicantProfile(patch.applicantProfile);
+      } catch (error) {
+        throw new HttpError(
+          400,
+          error instanceof Error ? error.message : "Ungültiges Bewerberprofil",
+        );
+      }
+      if (patch.applicantProfile.signatureId)
+        check(
+          this.db
+            .prepare("SELECT 1 FROM applicant_signatures WHERE id=?")
+            .get(patch.applicantProfile.signatureId),
+          "Unterschrift nicht gefunden",
+          404,
+        );
+      check(
+        patch.applicantName === undefined ||
+          String(patch.applicantName).trim() ===
+            applicantVariables(patch.applicantProfile).name,
+        "Widersprüchliche Bewerbernamen",
+      );
+    }
     if (patch.autoBuild !== undefined)
       check(
         typeof patch.autoBuild === "boolean",
@@ -146,6 +192,17 @@ export class Preferences {
       ...patch,
       revision: current.revision + 1,
     } as Settings;
+    if (
+      patch.applicantProfile === undefined &&
+      patch.applicantName !== undefined &&
+      String(patch.applicantName).trim() !== current.applicantName
+    )
+      result.applicantProfile = {
+        ...current.applicantProfile,
+        firstName: String(patch.applicantName).trim(),
+        lastName: "",
+      };
+    result.applicantName = applicantVariables(result.applicantProfile).name;
     this.db
       .prepare("UPDATE preferences SET value=? WHERE singleton=1")
       .run(JSON.stringify(result));

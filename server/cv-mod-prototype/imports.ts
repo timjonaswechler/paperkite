@@ -17,7 +17,21 @@ import {
   formBuildFiles,
 } from "../cv-form-model.ts";
 import type { FormMod, Values } from "../../shared/cv-form.ts";
-import type { CoverLetter } from "../../shared/api.ts";
+import type { CoverLetter, CvData } from "../../shared/api.ts";
+import {
+  applicantReservedFiles,
+  applicantBuildFiles,
+  bindApplicantCv,
+} from "../applicant-rendering.ts";
+import {
+  verificationApplicant,
+  syntheticApplicantContext,
+  syntheticApplicant,
+  syntheticApplicantExpected,
+  secondSyntheticApplicant,
+  secondSyntheticApplicantExpected,
+  secondSyntheticSignature,
+} from "./synthetic-applicant.ts";
 import {
   coverAdapterContract,
   coverBuildCases,
@@ -359,6 +373,12 @@ export class CvModImports {
       ),
       "Reservierter Mod-Buildpfad letter-data.tex",
     );
+    check(
+      !Object.keys(files).some((name) =>
+        applicantReservedFiles.includes(path.posix.basename(name)),
+      ),
+      "Reservierter Bewerberprofil-Buildpfad",
+    );
     check(files["mod.json"], "KI hat keine mod.json erzeugt");
     let value: unknown;
     try {
@@ -376,12 +396,38 @@ export class CvModImports {
       !job.targetFormat || config.format === job.targetFormat,
       "KI-Ergebnis entspricht nicht dem beauftragten Mod-Format",
     );
-    const tests =
+    const ordinaryTests =
       config.format === "bewerbung-cover-mod-v1"
         ? coverBuildCases
         : config.format === "bewerbung-cv-form-v2"
           ? formBuildCases(config)
           : buildCases;
+    const tests: {
+      id: string;
+      data: unknown;
+      expected: string[];
+      forbidden: string[];
+      requiresField?: string;
+      order?: [string, string][];
+    }[] = [...ordinaryTests];
+    if (config.applicant) {
+      for (const [id, expected] of [
+        ["applicant-primary", syntheticApplicantExpected],
+        ["applicant-second", secondSyntheticApplicantExpected],
+        ...(config.applicant.signature === "optional"
+          ? [["applicant-unsigned", syntheticApplicantExpected] as const]
+          : []),
+      ] as const) {
+        tests.push({
+          id,
+          data: ordinaryTests[0]!.data,
+          expected: [...new Set(Object.values(config.applicant.fields))]
+            .map((source) => expected[source].replace(/\s+/g, " "))
+            .filter(Boolean),
+          forbidden: [],
+        });
+      }
+    }
     check(files[config.entrypoint], "Hauptdatei aus mod.json fehlt");
     const hash = fingerprint(files);
     const buildId = randomUUID(),
@@ -409,17 +455,37 @@ export class CvModImports {
       signal.throwIfAborted();
       const input = path.join(base, test.id, "input"),
         output = path.join(base, test.id, "output");
+      const applicant =
+        test.id === "applicant-primary"
+          ? syntheticApplicantContext(syntheticApplicant)
+          : test.id === "applicant-second"
+            ? syntheticApplicantContext(
+                secondSyntheticApplicant,
+                secondSyntheticSignature,
+              )
+            : test.id === "applicant-unsigned"
+              ? { profile: syntheticApplicant }
+              : verificationApplicant(config, test.data);
       put(
         input,
         config.format === "bewerbung-cover-mod-v1"
-          ? coverBuildFiles(config, files, test.data as CoverLetter)
+          ? coverBuildFiles(config, files, test.data as CoverLetter, applicant)
           : config.format === "bewerbung-cv-form-v2"
-            ? formBuildFiles(config, files, test.data as Values)
+            ? formBuildFiles(config, files, test.data as Values, applicant)
             : {
                 ...files,
                 "cv-data.lua": Buffer.from(
-                  "return " + luaData(test.data) + "\n",
+                  "return " +
+                    luaData(
+                      bindApplicantCv(
+                        test.data as CvData,
+                        config.applicant,
+                        applicant?.profile || null,
+                      ),
+                    ) +
+                    "\n",
                 ),
+                ...applicantBuildFiles(config.applicant, applicant),
               },
       );
       fs.mkdirSync(output, { recursive: true, mode: 0o700 });
@@ -447,7 +513,7 @@ export class CvModImports {
             "Unerwarteter Inhalt im PDF: " + forbidden,
           );
         if ("order" in test)
-          for (const [before, after] of test.order)
+          for (const [before, after] of test.order || [])
             check(
               text.indexOf(before) < text.indexOf(after),
               "Reihenfolge im PDF verändert: " + before,
@@ -601,7 +667,11 @@ export class CvModImports {
       "Formular-Mod über den v2-Editor verwenden",
       409,
     );
-    return { ...version, fields: config.fields };
+    return {
+      ...version,
+      fields: config.fields,
+      ...(config.applicant ? { applicant: config.applicant } : {}),
+    };
   }
   reviewedCover(id: string) {
     const { config, ...version } = this.version(id);
@@ -640,6 +710,9 @@ export class CvModImports {
         "form-reordered",
         "form-excluded",
         "form-empty",
+        "applicant-primary",
+        "applicant-second",
+        "applicant-unsigned",
       ].includes(testId) &&
         job.checks.some((c) => c.id === testId && c.status === "passed") &&
         job.buildId,

@@ -10,16 +10,25 @@ import {
   type CvBlock,
 } from "./cv-mod-prototype/model.ts";
 
-import type { CvState } from "../shared/api.ts";
+import type { CvState, ApplicantBindings } from "../shared/api.ts";
 export type { CvState } from "../shared/api.ts";
 import { CvFormMods, isFormMod, validateFormValues } from "./cv-form-mods.ts";
 import { pdfValues, type Values } from "../shared/cv-form.ts";
+import { applicantVariables } from "../shared/applicant-profile.ts";
+import {
+  applicantBuildFiles,
+  bindApplicantCv,
+  bindApplicantForm,
+  assertApplicantFieldsUnchanged,
+  preserveApplicantSourceFields,
+} from "./applicant-rendering.ts";
 export type ReviewedCvMod = {
   id: string;
   name: string;
   digest: string;
   files: Record<string, Buffer>;
   fields: { key: string; label: string; type: "text"; required: boolean }[];
+  applicant?: ApplicantBindings;
 };
 type RecordValue = { [key: string]: Literal };
 const hash = (value: string | Buffer) =>
@@ -355,7 +364,9 @@ export class CvDocuments {
     const person = strings(personal, { ...personAliases, name: "displayName" });
     if (!Object.keys(person).length)
       Object.assign(person, {
-        displayName: this.store.preferences.settings().applicantName || "",
+        displayName: this.store.applicantProfiles.snapshot(id)
+          ? applicantVariables(this.store.applicantProfiles.snapshot(id)!).name
+          : "",
         email: "",
         phone: "",
         city: "",
@@ -400,17 +411,25 @@ export class CvDocuments {
     let mod: CvState["mod"];
     let modWarning: string | undefined;
     let form: CvState["form"];
+    let applicantBindings: ApplicantBindings | undefined;
+    const profile = this.store.applicantProfiles.snapshot(id);
     if (s.modId) {
       try {
         if (isFormMod(s.modId)) {
-          const value = this.forms.mod(s.modId),
-            values = this.formValues(id);
+          const value = this.forms.mod(s.modId);
+          applicantBindings = value.spec.applicant;
+          const values = bindApplicantForm(
+            this.formValues(id),
+            applicantBindings,
+            profile,
+          );
           validateFormValues(value.spec, values);
           mod = { id: value.id, name: value.name, fields: [] };
           form = { spec: value.spec, values };
         } else {
           check(this.resolveMod, "Vorlagen-Mods nicht verfügbar", 503);
           const value = this.resolveMod(s.modId);
+          applicantBindings = value.applicant;
           mod = { id: value.id, name: value.name, fields: value.fields };
         }
       } catch (e) {
@@ -419,7 +438,11 @@ export class CvDocuments {
       }
     }
     return {
-      data: s.data,
+      data: bindApplicantCv(
+        s.data,
+        isFormMod(s.modId) ? undefined : applicantBindings,
+        profile,
+      ),
       revision: s.app.revision,
       fingerprint: s.fingerprint,
       modId: s.modId,
@@ -427,6 +450,7 @@ export class CvDocuments {
       ...(mod ? { mod } : {}),
       ...(form ? { form } : {}),
       ...(modWarning ? { modWarning } : {}),
+      ...(applicantBindings ? { applicantBindings } : {}),
     };
   }
   private commit(
@@ -478,17 +502,52 @@ export class CvDocuments {
     if (s.modId && isFormMod(s.modId)) {
       const mod = this.forms.mod(s.modId);
       validateFormValues(mod.spec, input.formValues);
+      const profile = this.store.applicantProfiles.snapshot(id);
+      const effective = bindApplicantForm(
+        input.formValues,
+        mod.spec.applicant,
+        profile,
+      );
+      if (profile)
+        assertApplicantFieldsUnchanged(
+          input.formValues,
+          effective,
+          mod.spec.applicant,
+        );
+      const values = preserveApplicantSourceFields(
+        input.formValues,
+        this.formValues(id),
+        mod.spec.applicant,
+      );
       this.commit(id, {}, () =>
         this.store.db
           .prepare(
             "INSERT INTO cv_form_values VALUES(?,?) ON CONFLICT(app) DO UPDATE SET data=excluded.data",
           )
-          .run(id, JSON.stringify(input.formValues)),
+          .run(id, JSON.stringify(values)),
       );
       return this.read(id);
     }
     validateCv(input.data);
-    const data = input.data;
+    const bindings = s.modId ? this.resolveMod?.(s.modId).applicant : undefined;
+    const profileSnapshot = this.store.applicantProfiles.snapshot(id);
+    const effective = bindApplicantCv(input.data, bindings, profileSnapshot);
+    if (profileSnapshot)
+      assertApplicantFieldsUnchanged(
+        input.data.person,
+        effective.person,
+        bindings,
+        "person.",
+      );
+    const data = {
+      ...input.data,
+      person: preserveApplicantSourceFields(
+        input.data.person,
+        s.data.person,
+        bindings,
+        "person.",
+      ),
+    };
     if (!s.compatible && !s.modId && s.main.trim())
       check(
         !data.sections.some((section) =>
@@ -652,13 +711,36 @@ export class CvDocuments {
         return hash(
           JSON.stringify({
             mod: mod.id,
-            values: pdfValues(mod.spec, this.formValues(id)),
+            values: pdfValues(
+              mod.spec,
+              bindApplicantForm(
+                this.formValues(id),
+                mod.spec.applicant,
+                this.store.applicantProfiles.snapshot(id),
+              ),
+            ),
+            applicant: mod.spec.applicant
+              ? this.store.applicantProfiles.fingerprint(id)
+              : undefined,
           }),
         );
       }
       check(this.resolveMod, "Vorlagen-Mods nicht verfügbar", 503);
       const mod = this.resolveMod(s.modId);
-      return hash(JSON.stringify({ data, mod: mod.id, digest: mod.digest }));
+      return hash(
+        JSON.stringify({
+          data: bindApplicantCv(
+            data,
+            mod.applicant,
+            this.store.applicantProfiles.snapshot(id),
+          ),
+          mod: mod.id,
+          digest: mod.digest,
+          applicant: mod.applicant
+            ? this.store.applicantProfiles.fingerprint(id)
+            : undefined,
+        }),
+      );
     }
     const files = fileMap(s.dir);
     return hash(
@@ -691,18 +773,30 @@ export class CvDocuments {
         return {
           mod: true,
           files: {
-            ...this.forms.snapshot(s.modId, this.formValues(id)),
+            ...this.forms.snapshot(
+              s.modId,
+              this.formValues(id),
+              this.store.applicantProfiles.renderContext(
+                id,
+                this.forms.mod(s.modId).spec.applicant,
+              ),
+            ),
             "application.json": this.store.read(id, "application.json"),
             "cv-build.json": marker,
           },
         };
       check(this.resolveMod, "Vorlagen-Mods nicht verfügbar", 503);
       const mod = this.resolveMod(s.modId);
+      const boundData = bindApplicantCv(
+        data,
+        mod.applicant,
+        this.store.applicantProfiles.snapshot(id),
+      );
       for (const field of mod.fields.filter((f) => f.required)) {
         const [scope, key] = field.key.split(".");
         if (scope === "person")
           check(
-            data.person[key!]?.trim(),
+            boundData.person[key!]?.trim(),
             `Benötigte Vorlagenangabe fehlt: ${field.label}`,
             409,
           );
@@ -721,7 +815,11 @@ export class CvDocuments {
         mod: true,
         files: {
           ...mod.files,
-          "cv-data.lua": Buffer.from("return " + luaData(data) + "\n"),
+          "cv-data.lua": Buffer.from("return " + luaData(boundData) + "\n"),
+          ...applicantBuildFiles(
+            mod.applicant,
+            this.store.applicantProfiles.renderContext(id, mod.applicant),
+          ),
           "application.json": this.store.read(id, "application.json"),
           "cv-build.json": marker,
         },

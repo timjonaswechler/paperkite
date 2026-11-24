@@ -5,6 +5,7 @@ import { Store } from "./store.ts";
 import { Builds } from "./builds.ts";
 import { DOCUMENT_LIMIT } from "./documents.ts";
 import { check, HttpError } from "./files.ts";
+import { SIGNATURE_LIMIT } from "./signature-image.ts";
 
 export function organizationRoutes(
   api: express.Router,
@@ -15,6 +16,21 @@ export function organizationRoutes(
   api.put("/settings", (req, res) =>
     res.json(store.preferences.update(req.body)),
   );
+  api.post(
+    "/applicant-signatures",
+    express.raw({ type: "image/png", limit: SIGNATURE_LIMIT }),
+    (req, res) => {
+      check(req.is("image/png"), "Unterschrift als PNG benötigt", 415);
+      res.status(201).json(store.applicantProfiles.uploadSignature(req.body));
+    },
+  );
+  api.get("/applicant-signatures/:id", (req, res) => {
+    const image = store.applicantProfiles.signature(req.params.id);
+    res
+      .type("image/png")
+      .set("Content-Disposition", 'inline; filename="unterschrift.png"')
+      .send(image.png);
+  });
   api.get("/ui-state", (_req, res) => res.json(store.preferences.ui()));
   api.post("/applications/:id/open", (req, res) => {
     store.app(req.params.id);
@@ -35,7 +51,9 @@ export function organizationRoutes(
   api.get("/search", (req, res) =>
     res.json(store.search(req.query.q ?? "", req.query.status)),
   );
-  api.get("/documents", (req, res) => res.json(store.documents.list(req.query.tag)));
+  api.get("/documents", (req, res) =>
+    res.json(store.documents.list(req.query.tag)),
+  );
   api.post(
     "/documents",
     express.raw({ type: "application/octet-stream", limit: DOCUMENT_LIMIT }),

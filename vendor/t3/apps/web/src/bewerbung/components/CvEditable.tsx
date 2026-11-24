@@ -52,9 +52,11 @@ export function CvEditable({
         onFocus={() => {
           before.current = ref.current?.innerText || "";
         }}
-        onInput={(e) => onChange(e.currentTarget.innerText)}
+        onInput={(e) => {
+          if (!readonly) onChange(e.currentTarget.innerText);
+        }}
         onKeyDown={(e) => {
-          if (e.key === "Escape") {
+          if (!readonly && e.key === "Escape") {
             e.preventDefault();
             e.currentTarget.textContent = before.current;
             onChange(before.current);
@@ -63,6 +65,7 @@ export function CvEditable({
         }}
         onPaste={(e) => {
           e.preventDefault();
+          if (readonly) return;
           const selection = window.getSelection();
           if (!selection?.rangeCount) return;
           const range = selection.getRangeAt(0);

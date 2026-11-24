@@ -22,7 +22,13 @@ export function FormModRenderer({
   disabled?: boolean;
 }) {
   const editable = !reading && !disabled;
-  function render(nodes: FormNode[], data: Values, change: (v: Values) => void, prefix: string) {
+  function render(
+    nodes: FormNode[],
+    data: Values,
+    change: (v: Values) => void,
+    prefix: string,
+    inEntry = false,
+  ) {
     return nodes.map((node, index) => {
       const id = prefix + "-" + index;
       if (node.type === "group" || node.type === "columns")
@@ -33,7 +39,7 @@ export function FormModRenderer({
             aria-label={node.label}
           >
             {!reading && <h3 className={styles.heading}>{node.label}</h3>}
-            <div>{render(node.children, data, change, id)}</div>
+            <div>{render(node.children, data, change, id, inEntry)}</div>
           </section>
         );
       if (node.type === "entries") {
@@ -63,6 +69,7 @@ export function FormModRenderer({
                     (v) =>
                       update(entries.map((e) => (e.id === entry.id ? { ...e, values: v } : e))),
                     entry.id,
+                    true,
                   )}
                 </div>
               )}
@@ -72,16 +79,23 @@ export function FormModRenderer({
       }
       if (reading && node.target === "metadata") return null;
       const value = data[node.key];
+      const profileBound = !inEntry && Boolean(spec.applicant?.fields[node.key]);
       return (
         <div key={id} className={styles.field} data-field={node.key} data-target={node.target}>
           {node.type === "text" ? (
             <CvEditable
               label={node.label}
               value={typeof value === "string" ? value : ""}
-              readonly={!editable}
+              readonly={!editable || profileBound}
               showLabel={!reading}
               required={Boolean(node.required)}
-              hint={node.target === "metadata" ? " · nur Formular" : ""}
+              hint={
+                profileBound
+                  ? " · Bewerberprofil"
+                  : node.target === "metadata"
+                    ? " · nur Formular"
+                    : ""
+              }
               onChange={(text) => change({ ...data, [node.key]: text })}
             />
           ) : (

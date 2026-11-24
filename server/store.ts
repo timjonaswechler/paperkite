@@ -15,6 +15,7 @@ import { Preferences } from "./preferences.ts";
 import { Templates } from "./templates.ts";
 import { CvDocuments } from "./cv-documents.ts";
 import { CoverDocuments } from "./cover-documents.ts";
+import { ApplicantProfiles } from "./applicant-profiles.ts";
 import {
   deletionSchema,
   cleanDeletions,
@@ -41,6 +42,7 @@ export class Store {
   db: DatabaseSync;
   documents: DocumentLibrary;
   preferences: Preferences;
+  applicantProfiles: ApplicantProfiles;
   templateLibrary: Templates;
   cv: CvDocuments;
   cover: CoverDocuments;
@@ -60,6 +62,7 @@ export class Store {
     this.templateLibrary = new Templates(this.db, root);
     this.documents = new DocumentLibrary(this.db, root);
     this.preferences = new Preferences(this.db);
+    this.applicantProfiles = new ApplicantProfiles(this);
     this.cv = new CvDocuments(this);
     this.cover = new CoverDocuments(this);
     this.db
@@ -328,6 +331,7 @@ export class Store {
           now,
         );
       this.documents.assign(id, documents);
+      this.applicantProfiles.capture(id, input.source);
       const cvSource =
         input.cvSource || (!input.template ? input.source : undefined);
       if (

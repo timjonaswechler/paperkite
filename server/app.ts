@@ -103,8 +103,14 @@ export function createApp(
         req.method === "POST" &&
         req.path === "/bewerbung/api/documents" &&
         contentType === "application/octet-stream";
+      const signatureUpload =
+        req.method === "POST" &&
+        req.path === "/bewerbung/api/applicant-signatures" &&
+        contentType === "image/png";
       if (
-        (!documentUpload && contentType !== "application/json") ||
+        (!documentUpload &&
+          !signatureUpload &&
+          contentType !== "application/json") ||
         req.headers["x-bewerbung-request"] !== "1"
       )
         return res.status(415).json({
@@ -356,6 +362,31 @@ export function createApp(
         req.body.source,
         req.body.files,
         req.body.revision,
+      ),
+    );
+  });
+  api.get("/applications/:id/applicant-profile", (req, res) => {
+    available(req.params.id);
+    res.json(store.applicantProfiles.read(req.params.id));
+  });
+  api.post("/applications/:id/applicant-profile", (req, res) => {
+    editable(req.params.id);
+    check(
+      req.body &&
+        typeof req.body === "object" &&
+        !Array.isArray(req.body) &&
+        Object.keys(req.body).every(
+          (key) => key === "revision" || key === "signatureOnly",
+        ) &&
+        (req.body.signatureOnly === undefined ||
+          typeof req.body.signatureOnly === "boolean"),
+      "Ungültige Profilübernahme",
+    );
+    res.json(
+      store.applicantProfiles.adopt(
+        req.params.id,
+        req.body.revision,
+        req.body.signatureOnly === true,
       ),
     );
   });

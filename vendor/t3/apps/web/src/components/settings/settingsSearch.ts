@@ -273,6 +273,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["bewerbung onboarding stellenanzeige analyse link ki modell"],
   },
   {
+    id: "bewerbung-applicant-profile",
+    title: "Bewerberprofil & Unterschrift",
+    to: "/settings/projects",
+    searchTerms: [
+      "name vorname nachname adresse straße plz ort land signatur unterschrift zeichnen hochladen profil lebenslauf anschreiben",
+    ],
+  },
+  {
     id: "bewerbung-applicant-name",
     title: "Name für Dateinamen",
     to: "/settings/projects",

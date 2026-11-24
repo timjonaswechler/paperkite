@@ -5,6 +5,12 @@ import type { CoverLetter, CoverLetterState } from "../shared/api.ts";
 import type { CoverModManifest } from "./cv-mod-prototype/model.ts";
 import { decodeCover, encodeCover, validateCover } from "./cover-letter.ts";
 import { coverBuildFiles } from "./cover-mod.ts";
+import { applicantVariables } from "../shared/applicant-profile.ts";
+import {
+  bindApplicantCover,
+  assertApplicantFieldsUnchanged,
+  preserveApplicantSourceFields,
+} from "./applicant-rendering.ts";
 import { check, neutralCover, putMap, safeFile } from "./files.ts";
 const sourceFile = "anschreiben/Anschreiben.tex";
 const hash = (value: string | Buffer) =>
@@ -23,9 +29,14 @@ export class CoverDocuments {
       "CREATE TABLE IF NOT EXISTS cover_documents(app TEXT PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,fields TEXT NOT NULL,source_fingerprint TEXT NOT NULL,mod_id TEXT)",
     );
   }
-  private initialFields(app: { company: string; role: string }): CoverLetter {
+  private initialFields(app: {
+    id: string;
+    company: string;
+    role: string;
+  }): CoverLetter {
+    const profile = this.store.applicantProfiles.snapshot(app.id);
     return {
-      sender: this.store.preferences.settings().applicantName,
+      sender: profile ? applicantVariables(profile).sender : "",
       recipient: app.company,
       subject: "Bewerbung als " + app.role,
       salutation: "Sehr geehrte Damen und Herren,",
@@ -41,23 +52,41 @@ export class CoverDocuments {
       .get(id);
     const decoded = decodeCover(source),
       cached = row ? (JSON.parse(String(row.fields)) as CoverLetter) : null;
-    const fields =
+    const baseFields =
       (row && (row.mod_id || row.source_fingerprint === hash(source))
         ? cached
         : decoded || cached) || this.initialFields(app);
-    validateCover(fields);
+    validateCover(baseFields);
+    const mod = row?.mod_id ? this.mod(String(row.mod_id)) : null;
+    const bindings = mod?.manifest.applicant;
+    const fields = bindApplicantCover(
+      baseFields,
+      bindings,
+      this.store.applicantProfiles.snapshot(id),
+    );
     return {
       app,
       source,
       fields,
+      baseFields,
+      bindings,
+      mod,
       modId: row?.mod_id ? String(row.mod_id) : null,
-      fingerprint: hash(JSON.stringify({ source, record: row || null })),
+      fingerprint: hash(
+        JSON.stringify({
+          source,
+          record: row || null,
+          applicant: bindings
+            ? this.store.applicantProfiles.fingerprint(id)
+            : undefined,
+        }),
+      ),
       requiresConversion: !decoded && source !== neutralCover,
     };
   }
   read(id: string): CoverLetterState {
     const s = this.load(id);
-    const mod = s.modId ? this.mod(s.modId) : null;
+    const mod = s.mod;
     return {
       revision: s.app.revision,
       fingerprint: s.fingerprint,
@@ -65,6 +94,7 @@ export class CoverDocuments {
       requiresConversion: !s.modId && s.requiresConversion,
       modId: s.modId,
       ...(mod ? { modName: mod.name } : {}),
+      ...(s.bindings ? { applicantBindings: s.bindings } : {}),
     };
   }
   create(id: string, input: { revision: unknown }): CoverLetterState {
@@ -168,11 +198,22 @@ export class CoverDocuments {
       "Vorhandene TeX-Vorlage zuerst ausdrücklich zum Ersetzen bestätigen.",
       409,
     );
-    const source = s.modId ? s.source : encodeCover(input.fields);
+    const bound = bindApplicantCover(
+      input.fields,
+      s.bindings,
+      this.store.applicantProfiles.snapshot(id),
+    );
+    assertApplicantFieldsUnchanged(input.fields, bound, s.bindings);
+    const fields = preserveApplicantSourceFields(
+      input.fields,
+      s.baseFields,
+      s.bindings,
+    );
+    const source = s.modId ? s.source : encodeCover(fields);
     if (s.modId) this.mod(s.modId);
     return this.commit(
       id,
-      input.fields,
+      fields,
       s.modId,
       source,
       s.modId ? {} : { [sourceFile]: Buffer.from(source) },
@@ -221,7 +262,14 @@ export class CoverDocuments {
     check(s.modId, "Keine Anschreiben-Vorlage gewählt");
     const mod = this.mod(s.modId);
     return hash(
-      JSON.stringify({ mod: mod.id, digest: mod.digest, fields: s.fields }),
+      JSON.stringify({
+        mod: mod.id,
+        digest: mod.digest,
+        fields: s.fields,
+        applicant: s.bindings
+          ? this.store.applicantProfiles.fingerprint(id)
+          : undefined,
+      }),
     );
   }
   plan(id: string) {
@@ -231,7 +279,15 @@ export class CoverDocuments {
     return {
       mod: true,
       files: {
-        ...coverBuildFiles(mod.manifest, mod.files, s.fields),
+        ...coverBuildFiles(
+          mod.manifest,
+          mod.files,
+          s.fields,
+          this.store.applicantProfiles.renderContext(
+            id,
+            mod.manifest.applicant,
+          ),
+        ),
         "cover-build.json": Buffer.from(
           JSON.stringify({ fingerprint: this.fingerprint(id), modId: mod.id }),
         ),

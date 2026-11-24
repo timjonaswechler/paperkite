@@ -5,6 +5,9 @@ import os from "node:os";
 import http from "node:http";
 import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { applicantBuildFiles } from "../server/applicant-rendering.ts";
+import { emptyApplicantProfile } from "../shared/applicant-profile.ts";
 import { zipSync } from "fflate";
 import { readTemplateZip } from "../server/cv-mod-prototype/archive.ts";
 import { luaData } from "../server/cv-mod-prototype/model.ts";
@@ -135,6 +138,70 @@ test("technical Lua serialization round-trips hostile strings without evaluating
     JSON.parse(JSON.stringify(parseLiteralLua("return " + luaData(value)))),
     value,
   );
+});
+
+test("profile verification changes classic CV inputs and signature assets and tests the unsigned optional state", async () => {
+  const root = temp();
+  const imageHashes = new Map<string, string>();
+  const runner = fakeThread(true, (workspace) => {
+    const filename = path.join(workspace, "mod", "mod.json");
+    const manifest = JSON.parse(fs.readFileSync(filename, "utf8"));
+    manifest.applicant = {
+      fields: { "person.displayName": "name" },
+      signature: "optional",
+    };
+    fs.writeFileSync(filename, JSON.stringify(manifest));
+  });
+  const imports = new CvModImports(root, runner, async (input, output) => {
+    const id = path.basename(path.dirname(input));
+    if (!id.startsWith("applicant-")) return fakeBuild(input, output);
+    const data = parseLiteralLua(
+      fs.readFileSync(path.join(input, "cv-data.lua"), "utf8"),
+    ) as { person: { displayName: string } };
+    assert.equal(
+      data.person.displayName,
+      id === "applicant-second"
+        ? "ChangedFirst197 ChangedLast199"
+        : "Demo Applicant",
+    );
+    const image = path.join(input, "applicant-signature.png");
+    assert.equal(fs.existsSync(image), id !== "applicant-unsigned");
+    if (fs.existsSync(image))
+      imageHashes.set(
+        id,
+        createHash("sha256").update(fs.readFileSync(image)).digest("hex"),
+      );
+    fs.writeFileSync(
+      path.join(output, "document.pdf"),
+      "%PDF-1.4\nsynthetic compiler boundary",
+    );
+    return {
+      text: data.person.displayName,
+      log: "synthetic boundary; snapshot inputs asserted",
+    };
+  });
+  try {
+    const job = imports.upload(
+      "profile.zip",
+      input(),
+      "cv-template",
+      "bewerbung-cv-mod-prototype-v1",
+    );
+    imports.start(job.id);
+    await imports.idle();
+    const checked = imports.get(job.id);
+    assert.equal(checked.status, "review", JSON.stringify(checked));
+    assert.equal(checked.checks.length, 8);
+    assert(checked.checks.every((c) => c.status === "passed"));
+    assert.equal(imageHashes.size, 2);
+    assert.notEqual(
+      imageHashes.get("applicant-primary"),
+      imageHashes.get("applicant-second"),
+    );
+  } finally {
+    await imports.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("upload has no model side effect; double-start is idempotent and generated state survives reopening", async () => {
@@ -424,6 +491,89 @@ test("real offline LuaLaTeX/PDF extraction covers lists, multiple entries, parag
     assert.ok(!store.list().some((x) => x.id !== j.id));
   } finally {
     await store.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("offline signature verification detects different strokes encoded only in transparency", async () => {
+  const root = temp(),
+    input = path.join(root, "input"),
+    output = path.join(root, "output"),
+    wrong = path.join(root, "wrong-reference");
+  const image = fs.readFileSync("pdf-tools/image-id", "utf8").trim();
+  for (const directory of [input, output, wrong])
+    fs.mkdirSync(directory, { mode: 0o700 });
+  const bindings = { fields: {}, signature: "required" as const };
+  const files = {
+    "mod.json": Buffer.from(
+      JSON.stringify({
+        format: "bewerbung-cv-mod-prototype-v1",
+        engine: "lualatex",
+        entrypoint: "main.tex",
+        fields: [],
+        applicant: bindings,
+      }),
+    ),
+    "main.tex": Buffer.from(
+      String.raw`\documentclass{article}\usepackage{graphicx}\input{applicant-data.tex}\begin{document}\ApplicantSignature\end{document}`,
+    ),
+    "cv-data.lua": Buffer.from("return {}"),
+    ...applicantBuildFiles(bindings, {
+      profile: emptyApplicantProfile(),
+      signaturePng: fs.readFileSync(
+        "test/fixtures/applicant-signatures/alpha-ink-a.png",
+      ),
+    }),
+  };
+  for (const [name, bytes] of Object.entries(files))
+    fs.writeFileSync(path.join(input, name), bytes);
+  fs.copyFileSync(
+    "test/fixtures/applicant-signatures/alpha-ink-b.png",
+    path.join(wrong, "applicant-signature.png"),
+  );
+  try {
+    const result = await dockerModBuilder(
+      fs.readFileSync("builder/image-id", "utf8").trim(),
+      image,
+    )(input, output);
+    assert.match(result.log, /Unterschriftsgrafik im PDF nachgewiesen/);
+    assert.throws(
+      () =>
+        execFileSync(
+          "docker",
+          [
+            "run",
+            "--rm",
+            "--network=none",
+            "--read-only",
+            "--cap-drop=ALL",
+            "--security-opt=no-new-privileges",
+            "--user",
+            `${process.getuid!()}:${process.getgid!()}`,
+            "--tmpfs",
+            "/tmp:rw,nosuid,nodev,noexec,size=64m,mode=1777",
+            "--mount",
+            `type=bind,src=${output},dst=/input,readonly`,
+            "--mount",
+            `type=bind,src=${wrong},dst=/source,readonly`,
+            "--mount",
+            `type=bind,src=${path.resolve("server/cv-mod-prototype/check-signature.py")},dst=/check-signature.py,readonly`,
+            "--entrypoint",
+            "python3",
+            image,
+            "/check-signature.py",
+          ],
+          { stdio: "pipe" },
+        ),
+      (error: unknown) =>
+        Boolean(
+          error &&
+          typeof error === "object" &&
+          "stderr" in error &&
+          String(error.stderr).includes("nicht wiedergefunden"),
+        ),
+    );
+  } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
 });

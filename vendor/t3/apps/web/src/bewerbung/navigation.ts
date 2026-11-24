@@ -1,11 +1,11 @@
-// The advanced source editor can veto application navigation without leaking its draft into another app.
-let guard: (() => boolean) | undefined;
+const guards = new Set<() => boolean>();
 export function registerNavigationGuard(next: () => boolean) {
-  guard = next;
+  guards.add(next);
   return () => {
-    if (guard === next) guard = undefined;
+    guards.delete(next);
   };
 }
 export function confirmNavigation() {
-  return guard?.() ?? true;
+  for (const guard of guards) if (!guard()) return false;
+  return true;
 }

@@ -15,6 +15,7 @@ import { DocumentLibrary } from "./components/DocumentLibrary";
 import { TemplatesManager } from "./components/TemplatesManager";
 import { AnalysisModelSettings } from "./components/AnalysisModelSettings";
 import { CvModImportPanel } from "./components/CvModImportPanel";
+import { ApplicantProfileEditor } from "./components/ApplicantProfileEditor";
 import type { Settings } from "./shared/api";
 
 export function ApplicationSettingsPage() {
@@ -67,6 +68,15 @@ export function ApplicationSettingsPage() {
       <p role="status" className="px-3 text-xs text-muted-foreground sm:px-4">
         {notice}
       </p>
+      <SettingsSection id="bewerbung-profile" title="Bewerberprofil & Unterschrift">
+        <div id={searchableSetting("bewerbung-applicant-profile").id} className="p-3 sm:p-4">
+          {app.settings ? (
+            <ApplicantProfileEditor settings={app.settings} />
+          ) : (
+            <p className="text-sm text-muted-foreground">Bewerberprofil wird geladen…</p>
+          )}
+        </div>
+      </SettingsSection>
       <AnalysisModelSettings settings={app.settings} busy={busy} save={saveSettings} />
       <SettingsSection id="bewerbung-creation" title="Neue Bewerbungen">
         <SettingsRow

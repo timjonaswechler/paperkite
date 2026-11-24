@@ -6,9 +6,9 @@ import type {
   CoverLetter,
   CoverLetterState,
   CvModJob,
+  ApplicantBindings,
 } from "../shared/api";
 import { api, base, errorMessage, textFile } from "../api";
-import { registerNavigationGuard } from "../navigation";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
@@ -17,25 +17,10 @@ import { Badge } from "~/components/ui/badge";
 import { Choice, ErrorNotice, Field } from "./Controls";
 import { CvModImportPanel } from "./CvModImportPanel";
 import { BrowserDocumentFrame } from "~/components/files/BrowserDocumentFrame";
+import { ApplicantProfilePanel } from "./ApplicantProfilePanel";
 
-export function useDocumentDraftGuard(dirty: boolean) {
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- protects an unsaved document when navigating to another application or work area
-  useEffect(
-    () =>
-      registerNavigationGuard(
-        () => !dirty || confirm("Ungespeicherte Dokumentänderungen verwerfen?"),
-      ),
-    [dirty],
-  );
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- protects document input before a browser reload
-  useEffect(() => {
-    const warn = (event: BeforeUnloadEvent) => {
-      if (dirty) event.preventDefault();
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
-}
+import { useDocumentDraftGuard } from "./document-draft-guard";
+export { useDocumentDraftGuard } from "./document-draft-guard";
 
 type EditorProps = {
   app: ApplicationDetail;
@@ -99,6 +84,7 @@ function PreparedCoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Ed
   const [fingerprint, setFingerprint] = useState("");
   const [modId, setModId] = useState<string | null>(null);
   const [modName, setModName] = useState("");
+  const [applicantBindings, setApplicantBindings] = useState<ApplicantBindings | undefined>();
   const [mods, setMods] = useState<CvModJob[]>([]);
   const [conversion, setConversion] = useState(false);
   const [replace, setReplace] = useState(false);
@@ -122,6 +108,7 @@ function PreparedCoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Ed
         setFingerprint(result.fingerprint);
         setModId(result.modId);
         setModName(result.modName || "");
+        setApplicantBindings(result.applicantBindings);
         setConversion(result.requiresConversion);
       })
       .catch((error) => {
@@ -138,6 +125,7 @@ function PreparedCoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Ed
     setFingerprint(result.fingerprint);
     setModId(result.modId);
     setModName(result.modName || "");
+    setApplicantBindings(result.applicantBindings);
     setConversion(result.requiresConversion);
     setReplace(false);
     setDirty(false);
@@ -218,6 +206,25 @@ function PreparedCoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Ed
           </p>
         </div>
         <ErrorNotice error={error} onClose={() => setError("")} />
+        <ApplicantProfilePanel
+          key={app.id}
+          app={app}
+          bindings={applicantBindings}
+          dirty={dirty}
+          busy={busy}
+          onApplied={async (signal) => {
+            const next = await api<CoverLetterState>(
+              `/applications/${app.id}/cover-letter`,
+              "GET",
+              undefined,
+              signal,
+            );
+            if (!signal.aborted) {
+              accept(next);
+              await onRefresh();
+            }
+          }}
+        />
         <Choice
           label="LaTeX-Vorlage für dieses Anschreiben"
           value={modId || ""}
@@ -253,6 +260,7 @@ function PreparedCoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Ed
                   aria-label={label}
                   value={fields[key]}
                   disabled={!editable || busy || app.harness.busy}
+                  readOnly={Boolean(applicantBindings?.fields[key])}
                   maxLength={2000}
                   onChange={(event) => {
                     setFields({ ...fields, [key]: event.target.value });
@@ -265,12 +273,18 @@ function PreparedCoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Ed
                   rows={rows}
                   value={fields[key]}
                   disabled={!editable || busy || app.harness.busy}
+                  readOnly={Boolean(applicantBindings?.fields[key])}
                   maxLength={key === "body" ? 40000 : 2000}
                   onChange={(event) => {
                     setFields({ ...fields, [key]: event.target.value });
                     setDirty(true);
                   }}
                 />
+              )}
+              {applicantBindings?.fields[key] && (
+                <span className="text-xs text-muted-foreground">
+                  Aus dem gespeicherten Bewerberprofil dieser Bewerbung.
+                </span>
               )}
             </Field>
           ))}

@@ -10,6 +10,11 @@ import {
 import { safeRelative } from "./cv-mod-prototype/archive.ts";
 import { formBuildFiles } from "./cv-form-model.ts";
 import { check, HttpError } from "./files.ts";
+import {
+  applicantReservedFiles,
+  bindApplicantForm,
+  type ApplicantRenderContext,
+} from "./applicant-rendering.ts";
 export function validateFormValues(
   spec: FormSpec,
   values: unknown,
@@ -51,6 +56,10 @@ export class CvFormMods {
     check(Object.keys(files).length <= 200, "Zu viele Dateien");
     for (const [n, b] of Object.entries(files)) {
       safeRelative(n);
+      check(
+        !applicantReservedFiles.includes(n.split("/").at(-1)!),
+        "Reservierter Bewerberprofil-Buildpfad",
+      );
       check(
         ![
           "mod.json",
@@ -127,8 +136,13 @@ export class CvFormMods {
       .filter((mod) => !retiredExamples.includes(mod.id))
       .map(({ files: _files, ...mod }) => mod);
   }
-  snapshot(id: string, values: Values) {
+  snapshot(id: string, values: Values, applicant?: ApplicantRenderContext) {
     const mod = this.mod(id);
+    values = bindApplicantForm(
+      values,
+      mod.spec.applicant,
+      applicant?.profile || null,
+    );
     validateFormValues(mod.spec, values, true);
     return formBuildFiles(
       mod.spec,
@@ -139,6 +153,7 @@ export class CvFormMods {
         ]),
       ),
       values,
+      applicant,
     );
   }
 }
