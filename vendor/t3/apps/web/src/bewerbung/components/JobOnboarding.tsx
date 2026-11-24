@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from "~/components/ui/dialog";
 import { ErrorNotice, Field } from "./Controls";
+import { normalizeJobLink } from "./job-link";
 
 export function JobOnboarding({
   templates,
@@ -62,8 +63,16 @@ export function JobOnboarding({
     lastInput.current = "";
   }
   async function analyze(nextUrl: string, nextText = text, force = false) {
-    if (!/^https?:\/\//i.test(nextUrl.trim())) return;
-    const fingerprint = nextUrl.trim() + "\n" + nextText;
+    if (!nextUrl.trim()) return;
+    const link = normalizeJobLink(nextUrl);
+    if (!link) {
+      setError(
+        "Bitte einen vollständigen Stellen-Link mit https:// oder http:// eingeben – ohne zusätzlichen Text.",
+      );
+      return;
+    }
+    setUrl(link);
+    const fingerprint = link + "\n" + nextText;
     if (!force && fingerprint === lastInput.current) return;
     lastInput.current = fingerprint;
     request.current?.abort();
@@ -77,7 +86,7 @@ export function JobOnboarding({
       const result = await api<JobAnalysis>(
         "/job-analysis",
         "POST",
-        { url: nextUrl.trim(), ...(nextText.trim() ? { text: nextText } : {}) },
+        { url: link, ...(nextText.trim() ? { text: nextText } : {}) },
         controller.signal,
       );
       if (token === sequence.current) {
@@ -175,8 +184,8 @@ export function JobOnboarding({
                     if (!manual) void analyze(url);
                   }}
                   onPaste={(event) => {
-                    const next = event.clipboardData.getData("text").trim();
-                    if (/^https?:\/\//i.test(next)) {
+                    const next = normalizeJobLink(event.clipboardData.getData("text"));
+                    if (next) {
                       event.preventDefault();
                       changeUrl(next);
                       void analyze(next);
