@@ -12,6 +12,10 @@ export class InvalidRuntimeLocation extends Schema.TaggedError<InvalidRuntimeLoc
   }
 }
 
+const decodeRootManifest = Schema.decodeEffect(
+  Schema.fromJsonString(Schema.Struct({ name: Schema.Literal("paperkite") })),
+);
+
 export const resolve = Effect.fn("Paperkite.resolveIsolation")(function* (
   root: string,
   home: string,
@@ -27,9 +31,7 @@ export const resolve = Effect.fn("Paperkite.resolveIsolation")(function* (
     });
   }
   const manifest = yield* fs.readFileString(path.join(realRoot, "package.json"));
-  yield* Schema.decodeEffect(
-    Schema.fromJsonString(Schema.Struct({ name: Schema.Literal("paperkite") })),
-  )(manifest);
+  yield* decodeRootManifest(manifest);
   let current = target;
   while (!(yield* fs.exists(current))) current = path.dirname(current);
   const existing = yield* fs.realPath(current);

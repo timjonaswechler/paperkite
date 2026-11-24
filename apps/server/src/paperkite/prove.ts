@@ -37,6 +37,10 @@ class ProofFailure extends Schema.TaggedError<ProofFailure>()("ProofFailure", {
 const check = (condition: boolean, stage: string) =>
   condition ? Effect.void : Effect.fail(new ProofFailure({ stage }));
 
+const decodeStartedThread = Schema.decodeEffect(
+  Schema.fromJsonString(Schema.Struct({ threadId: ThreadId })),
+);
+
 const prove = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -224,9 +228,7 @@ const prove = Effect.gen(function* () {
     "--wait",
     "--json",
   ]);
-  const { threadId } = yield* Schema.decodeEffect(
-    Schema.fromJsonString(Schema.Struct({ threadId: ThreadId })),
-  )(started);
+  const { threadId } = yield* decodeStartedThread(started);
   const snapshot = () => rpc["orchestration.getThreadProjection"]({ threadId });
   const before = yield* snapshot();
   yield* check(
