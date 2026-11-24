@@ -196,6 +196,15 @@ export function createApp(
   organizationRoutes(api, store, builds);
   workflowRoutes(api, store, pdfs, editable, available, deliveries);
   api.get("/cv-form-mods", (_req, res) => res.json(store.cv.forms.list()));
+  api.get("/applications/:id/layouts", (req, res) => {
+    const app = store.app(req.params.id);
+    res.json({
+      revision: app.revision,
+      cvModId: store.cv.selection(app.id),
+      coverModId: store.cover.selection(app.id),
+      coverFingerprint: store.cover.selectionFingerprint(app.id),
+    });
+  });
   api.get("/applications/:id/cv-data", (req, res) =>
     res.json(store.cv.read(req.params.id)),
   );

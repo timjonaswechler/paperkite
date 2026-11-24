@@ -222,6 +222,28 @@ export class Store {
             (input[key] === "" || /^[a-f0-9-]{36}$/.test(input[key]))),
         "Ungültige Quelle: " + key,
       );
+    for (const key of ["cvModId", "coverModId"] as const)
+      check(
+        input[key] === undefined ||
+          input[key] === null ||
+          (typeof input[key] === "string" &&
+            input[key].length > 0 &&
+            input[key].length <= 300),
+        "Ungültige Layoutauswahl: " + key,
+      );
+    const settings = this.preferences.settings();
+    const cvLayout =
+      input.cvModId !== undefined
+        ? input.cvModId
+        : input.source || input.cvSource
+          ? undefined
+          : (settings.defaultCvModId ?? null);
+    const coverLayout =
+      input.coverModId !== undefined
+        ? input.coverModId
+        : input.source || input.coverSource
+          ? undefined
+          : (settings.defaultCoverModId ?? null);
     const id = randomUUID(),
       now = new Date().toISOString();
     let files: Record<string, Buffer> = {},
@@ -344,6 +366,16 @@ export class Store {
         input.coverSource ||
         (input.source && input.coverSource !== "" ? input.source : undefined);
       if (coverSource) this.cover.copy(coverSource, id);
+      if (
+        cvLayout !== undefined &&
+        (cvLayout !== null || this.cv.selection(id) !== null)
+      )
+        this.cv.initializeLayout(id, cvLayout);
+      if (
+        coverLayout !== undefined &&
+        (coverLayout !== null || this.cover.selection(id) !== null)
+      )
+        this.cover.initializeLayout(id, coverLayout);
       this.initializeWorkspace?.(id);
       this.db.exec("COMMIT");
     } catch (error) {

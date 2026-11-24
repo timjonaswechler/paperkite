@@ -29,6 +29,8 @@ export type Settings = {
   autoBuild: boolean;
   autoPruneBuilds: boolean;
   prepareCoverLetter: boolean;
+  defaultCvModId?: string | null;
+  defaultCoverModId?: string | null;
   collapsedStatuses: ApplicationStatus[];
   analysisModel: { instanceId: string; model: string } | null;
   applicantName: string;
@@ -94,6 +96,8 @@ export type NewApplication = {
   source?: string;
   cvSource?: string;
   coverSource?: string;
+  cvModId?: string | null;
+  coverModId?: string | null;
   documentIds?: string[];
 };
 export type Build = {
@@ -144,6 +148,7 @@ export type CoverLetter = {
   closing: string;
 };
 export type CoverLetterState = {
+  prepared?: boolean;
   fields: CoverLetter;
   revision: number;
   fingerprint: string;
@@ -256,9 +261,31 @@ export type ModProvenance = {
   notes: string | null;
   files: ModFileChange[];
 };
+export type LayoutVersion = {
+  importId: string;
+  versionId: string;
+  label: string;
+  kind: "cv" | "cover";
+  approvedAt: string;
+  updated: string;
+  available: boolean;
+  signature: "none" | "optional" | "required" | null;
+  error?: string;
+};
+export type LayoutLibrary = {
+  layouts: LayoutVersion[];
+  defaults: { cv: string | null; cover: string | null };
+};
+export type ApplicationLayouts = {
+  revision: number;
+  cvModId: string | null;
+  coverModId: string | null;
+  coverFingerprint?: string;
+};
 export type CvModJob = {
   id: string;
   name: string;
+  label?: string;
   documentType?: "cv-template" | "cover-template";
   status:
     | "uploaded"

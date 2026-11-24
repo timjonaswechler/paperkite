@@ -11,7 +11,7 @@ import {
 } from "./provenance.ts";
 import { originalLayoutContract } from "./original-contract.ts";
 import { inspectTemplate } from "./inspection.ts";
-import type { ModProvenance } from "../../shared/api.ts";
+import type { ModProvenance, LayoutVersion } from "../../shared/api.ts";
 import {
   adapterContract,
   buildCases,
@@ -49,6 +49,7 @@ import {
 export type ModJob = {
   id: string;
   name: string;
+  label?: string;
   documentType?: "cv-template" | "cover-template";
   status:
     | "uploaded"
@@ -519,9 +520,69 @@ export class CvModImports {
     }
     return job;
   }
-  assertUsable(id: string) {
-    const row = this.db.prepare("SELECT id FROM versions WHERE id=?").get(id);
-    if (!row && !/^(?:form:|cover:)?[a-f0-9-]{36}(?:\.|$)/.test(id)) return;
+  rename(id: string, label: unknown, updated: unknown) {
+    const job = this.get(id);
+    check(
+      job.updated === updated,
+      "Vorlagenimport inzwischen geändert. Neu laden.",
+      409,
+    );
+    check(!this.deleting.has(id), "Vorlagenimport wird gelöscht", 409);
+    check(
+      typeof label === "string" &&
+        label.trim().length > 0 &&
+        label.length <= 120 &&
+        !/[\x00-\x1f\x7f]/.test(label),
+      "Vorlagenname mit 1–120 Zeichen erwartet",
+    );
+    job.label = label.trim();
+    this.save(job);
+    return job;
+  }
+  catalogue(): LayoutVersion[] {
+    const rows = this.db
+      .prepare(
+        "SELECT v.id,v.import_id,v.manifest,a.created FROM versions v JOIN version_approvals a ON a.version=v.id ORDER BY a.created DESC,v.id",
+      )
+      .all();
+    return rows.map((row) => {
+      const job = this.get(String(row.import_id));
+      const manifest = JSON.parse(String(row.manifest)) as ImportManifest;
+      const info = {
+        importId: job.id,
+        versionId: String(row.id),
+        label: job.label || job.name,
+        kind:
+          manifest.format === "bewerbung-cover-mod-v1"
+            ? ("cover" as const)
+            : ("cv" as const),
+        approvedAt: String(row.created),
+        updated: job.updated,
+        signature: manifest.applicant?.signature ?? null,
+      };
+      try {
+        this.version(info.versionId);
+        return { ...info, available: true };
+      } catch (error) {
+        return {
+          ...info,
+          available: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+  }
+  selectLayout(kind: "cv" | "cover", id: string) {
+    const version = this.approvedVersion(id);
+    check(
+      (version.config.format === "bewerbung-cover-mod-v1") ===
+        (kind === "cover"),
+      "Vorlage passt nicht zum Dokumenttyp",
+      409,
+    );
+    return version.id;
+  }
+  private approvedVersion(id: string) {
     const version = this.version(id);
     check(
       this.db
@@ -530,6 +591,12 @@ export class CvModImports {
       "Vorlage noch nicht zur Verwendung freigegeben. Prüf-PDFs durchsehen und freigeben.",
       409,
     );
+    return version;
+  }
+  assertUsable(id: string) {
+    const row = this.db.prepare("SELECT id FROM versions WHERE id=?").get(id);
+    if (!row && !/^(?:form:|cover:)?[a-f0-9-]{36}(?:\.|$)/.test(id)) return;
+    this.approvedVersion(id);
   }
   start(id: string) {
     check(!this.closed, "Prototyp wird beendet", 503);

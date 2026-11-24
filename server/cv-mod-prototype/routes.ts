@@ -2,13 +2,18 @@ import path from "node:path";
 import type { Router, Request } from "express";
 import type { NetworkT3Access } from "../t3-access.ts";
 import { check } from "../files.ts";
+import type { Settings } from "../../shared/api.ts";
 import { CvModImports } from "./imports.ts";
 
 export function cvModRoutes(
   api: Router,
   imports: CvModImports,
   access: NetworkT3Access,
-  options: { prefix?: string; prototypeUi?: boolean } = {},
+  options: {
+    prefix?: string;
+    prototypeUi?: boolean;
+    settings?: () => Settings;
+  } = {},
 ) {
   const prefix = options.prefix || "/cv-mods";
   // Never turn a restricted API token into a broader local CLI identity.
@@ -43,6 +48,21 @@ export function cvModRoutes(
       res.type("text/css").sendFile("ui.css", { root: ui }),
     );
   }
+  api.get(prefix + "/library", (_req, res) => {
+    const settings = options.settings?.();
+    res.json({
+      layouts: imports.catalogue(),
+      defaults: {
+        cv: settings?.defaultCvModId ?? null,
+        cover: settings?.defaultCoverModId ?? null,
+      },
+    });
+  });
+  api.post(prefix + "/jobs/:id/label", (req, res) =>
+    res.json(
+      imports.rename(String(req.params.id), req.body.label, req.body.updated),
+    ),
+  );
   api.get(prefix + "/jobs", (_req, res) => res.json(imports.list()));
   function uploadBytes(req: Request) {
     check(

@@ -47,7 +47,8 @@ export class CoverDocuments {
   }
   private load(id: string) {
     const app = this.store.app(id),
-      source = this.store.read(id, sourceFile).toString("utf8");
+      prepared = fs.existsSync(safeFile(this.store.workspace(id), sourceFile)),
+      source = prepared ? this.store.read(id, sourceFile).toString("utf8") : "";
     const row = this.store.db
       .prepare("SELECT * FROM cover_documents WHERE app=?")
       .get(id);
@@ -67,6 +68,8 @@ export class CoverDocuments {
     );
     return {
       app,
+      prepared,
+      recorded: Boolean(row),
       source,
       fields,
       baseFields,
@@ -82,13 +85,15 @@ export class CoverDocuments {
             : undefined,
         }),
       ),
-      requiresConversion: !decoded && source !== neutralCover,
+      requiresConversion: prepared && !decoded && source !== neutralCover,
     };
   }
   read(id: string): CoverLetterState {
     const s = this.load(id);
+    check(s.prepared || s.recorded, "Datei nicht gefunden", 404);
     const mod = s.mod;
     return {
+      prepared: s.prepared,
       revision: s.app.revision,
       fingerprint: s.fingerprint,
       fields: s.fields,
@@ -112,11 +117,35 @@ export class CoverDocuments {
       "Bewerbung inzwischen geändert. Neu laden.",
       409,
     );
-    const fields = this.initialFields(app),
+    const pending = this.load(id),
+      fields = pending.baseFields,
       source = encodeCover(fields);
-    return this.commit(id, fields, null, source, {
+    return this.commit(id, fields, pending.modId, source, {
       [sourceFile]: Buffer.from(source),
     });
+  }
+  selection(id: string) {
+    const row = this.store.db
+      .prepare("SELECT mod_id FROM cover_documents WHERE app=?")
+      .get(id);
+    return row?.mod_id ? String(row.mod_id) : null;
+  }
+  selectionFingerprint(id: string) {
+    return this.selection(id) ? this.load(id).fingerprint : undefined;
+  }
+  initializeLayout(id: string, modId: string | null) {
+    const s = this.load(id);
+    if (modId === null && !s.prepared && !s.recorded) return;
+    let version: string | null = null;
+    if (modId !== null) {
+      this.assertModUsable?.(modId);
+      version = this.mod(modId).id;
+    }
+    this.store.db
+      .prepare(
+        "INSERT INTO cover_documents VALUES(?,?,?,?) ON CONFLICT(app) DO UPDATE SET fields=excluded.fields,source_fingerprint=excluded.source_fingerprint,mod_id=excluded.mod_id",
+      )
+      .run(id, JSON.stringify(s.baseFields), hash(s.source), version);
   }
   private mod(id: string) {
     check(this.resolveMod, "Anschreiben-Vorlagen nicht verfügbar", 503);
@@ -192,6 +221,7 @@ export class CoverDocuments {
     },
   ) {
     const s = this.load(id);
+    check(s.prepared, "Anschreiben zuerst ausdrücklich vorbereiten", 409);
     this.checkRevision(s, input);
     validateCover(input.fields);
     check(
@@ -253,6 +283,16 @@ export class CoverDocuments {
         .get(source)
     )
       return;
+    if (!fs.existsSync(safeFile(this.store.workspace(source), sourceFile))) {
+      const row = this.store.db
+        .prepare("SELECT * FROM cover_documents WHERE app=?")
+        .get(source)!;
+      if (row.mod_id) this.mod(String(row.mod_id));
+      this.store.db
+        .prepare("INSERT INTO cover_documents VALUES(?,?,?,?)")
+        .run(destination, String(row.fields), hash(""), row.mod_id);
+      return;
+    }
     const s = this.load(source),
       raw = this.store.read(destination, sourceFile);
     this.store.db
@@ -277,6 +317,7 @@ export class CoverDocuments {
   plan(id: string) {
     const s = this.load(id);
     if (!s.modId) return null;
+    check(s.prepared, "Anschreiben zuerst ausdrücklich vorbereiten", 409);
     const mod = this.mod(s.modId);
     return {
       mod: true,

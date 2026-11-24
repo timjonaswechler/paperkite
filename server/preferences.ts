@@ -16,6 +16,8 @@ const defaults: Settings = {
   autoBuild: false,
   autoPruneBuilds: false,
   prepareCoverLetter: true,
+  defaultCvModId: null,
+  defaultCoverModId: null,
   analysisModel: null,
   applicantName: "",
   applicantProfile: emptyApplicantProfile(),
@@ -23,6 +25,7 @@ const defaults: Settings = {
 };
 
 export class Preferences {
+  validateLayout?: (kind: "cv" | "cover", id: string) => string;
   constructor(private db: DatabaseSync) {
     db.exec(`
       CREATE TABLE IF NOT EXISTS preferences(singleton INTEGER PRIMARY KEY CHECK(singleton=1),value TEXT NOT NULL);
@@ -114,6 +117,27 @@ export class Preferences {
       Object.keys(patch).every((key) => Object.hasOwn(defaults, key)),
       "Unbekannte Einstellung",
     );
+    const layoutPatch: Pick<Settings, "defaultCvModId" | "defaultCoverModId"> =
+      {};
+    for (const [key, kind] of [
+      ["defaultCvModId", "cv"],
+      ["defaultCoverModId", "cover"],
+    ] as const) {
+      const value = patch[key];
+      if (value === undefined) continue;
+      check(
+        value === null ||
+          (typeof value === "string" &&
+            value.length > 0 &&
+            value.length <= 300),
+        "Ungültige Standardvorlage",
+      );
+      if (value === null) layoutPatch[key] = null;
+      else {
+        check(this.validateLayout, "Vorlagenbibliothek nicht verfügbar", 503);
+        layoutPatch[key] = this.validateLayout(kind, value);
+      }
+    }
     if (patch.analysisModel !== undefined && patch.analysisModel !== null) {
       const model = patch.analysisModel as Record<string, unknown>;
       check(
@@ -190,6 +214,7 @@ export class Preferences {
     const result = {
       ...current,
       ...patch,
+      ...layoutPatch,
       revision: current.revision + 1,
     } as Settings;
     if (

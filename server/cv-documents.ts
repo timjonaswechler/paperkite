@@ -641,6 +641,34 @@ export class CvDocuments {
     });
     return this.read(id);
   }
+  selection(id: string) {
+    return (
+      (this.store.db
+        .prepare("SELECT mod_id FROM cv_documents WHERE app=?")
+        .get(id)?.mod_id as string | null | undefined) ?? null
+    );
+  }
+  initializeLayout(id: string, modId: string | null) {
+    const s = this.load(id);
+    const version = this.layoutVersion(id, modId);
+    if (version && isFormMod(version)) this.forms.pin(version);
+    this.store.db
+      .prepare(
+        "INSERT INTO cv_documents VALUES(?,?,?,?) ON CONFLICT(app) DO UPDATE SET data=excluded.data,source_fingerprint=excluded.source_fingerprint,mod_id=excluded.mod_id",
+      )
+      .run(id, JSON.stringify(s.data), s.fingerprint, version);
+  }
+  private layoutVersion(id: string, modId: string | null) {
+    if (modId === null) return null;
+    this.assertModUsable?.(modId);
+    if (isFormMod(modId)) {
+      const mod = this.forms.mod(modId);
+      validateFormValues(mod.spec, this.formValues(id));
+      return mod.id;
+    }
+    check(this.resolveMod, "Vorlagen-Mods nicht verfügbar", 503);
+    return this.resolveMod(modId).id;
+  }
   bind(id: string, revision: unknown, modId: unknown) {
     const s = this.load(id);
     check(
@@ -649,18 +677,7 @@ export class CvDocuments {
       409,
     );
     check(modId === null || typeof modId === "string", "Ungültige Mod-ID");
-    let version: string | null = null;
-    if (modId !== null) {
-      this.assertModUsable?.(modId);
-      if (isFormMod(modId)) {
-        const mod = this.forms.mod(modId);
-        validateFormValues(mod.spec, this.formValues(id));
-        version = mod.id;
-      } else {
-        check(this.resolveMod, "Vorlagen-Mods nicht verfügbar", 503);
-        version = this.resolveMod(modId).id;
-      }
-    }
+    const version = this.layoutVersion(id, modId);
     this.commit(id, {}, () => {
       if (version && isFormMod(version)) this.forms.pin(version);
       this.store.db

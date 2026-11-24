@@ -72,6 +72,10 @@ Der private Build-Snapshot stellt `applicant-data.tex` mit bereits TeX-maskierte
 
 Die Importprüfung ergänzt bei dieser Erweiterung zwei unterschiedliche synthetische Profilstände. Sie prüft die erwarteten Profilwerte zusätzlich zum bisherigen Dokument-Evaluator. Der native Offline-Builder weist eine bereitgestellte Unterschriftsgrafik durch unabhängige PDF-Bildextraktion nach. Der verwendete synthetische Farbmarker ist keine echte persönliche Unterschrift. Das ersetzt keine menschliche Prüfung der Position und Layouttreue.
 
+## Bibliothek und feste Auswahl
+
+Freigegebene Versionen bilden die gemeinsame Bibliothek für Lebenslauf und Anschreiben. Anzeigenamen sind getrennte Importmetadaten und verändern keine Originalnamen, Modpakete oder historischen Prüfstände. Standards speichern je Dokumenttyp eine konkrete freigegebene Versions-ID; sie sind keine dynamischen Verweise auf den jeweils neuesten Prüfstand. Neue Bewerbungen übernehmen die sichtbare Auswahl atomar mit ihrer Anlage. Kopien behalten ohne ausdrückliche abweichende Auswahl ihre eigenen bisherigen Bindungen. Standardänderungen verändern keine vorhandene Bewerbung. [Bedienung und Grenzen beim Wechsel](../README.md#vorlagenbibliothek-und-layoutwahl).
+
 ## Anschreiben-Layoutimporte
 
 Anschreiben verwenden dieselbe normale App und Import-/Prüf-/Versionskette, aber einen getrennten Dokumenttyp `cover-template` und Vertrag `bewerbung-cover-mod-v1`. CV-Aufträge und Anschreiben-Aufträge akzeptieren nicht gegenseitig ihre Ergebnisse. Das Manifest enthält die Pflichtfelder `format`, `engine: pdflatex|lualatex` und einen sicheren relativen `.tex`-Einstiegspunkt; optional ergänzt `applicant` die oben beschriebene Profilbindung. Die Originalengine bleibt maßgeblich; pdfLaTeX-Vorlagen werden nicht grundlos auf LuaLaTeX umgestellt. Diese erste Anbindung verwendet die bestehenden sechs Brief-Felder, kein zusätzliches generiertes Formular und keine CV-Schemamigration. [Bedienablauf](../README.md#eigene-anschreiben-vorlagen).
@@ -81,6 +85,10 @@ Der Auftrag in [`server/cover-mod.ts`](../server/cover-mod.ts) erhält das urspr
 Vier feste Prüfungen decken alle sechs Felder, Sonderzeichen/Absatzfolge, sämtliche Marker eines 24-Absatz-Briefs und leere Eingaben ab. Erfolgreiche Ergebnisse erhalten `cover:<Import-ID>.<Prüfstand-ID>`. Sie erscheinen nur in der Anschreibenauswahl. Rechecks erzeugen neue Versionen, ohne bestehende Bindungen zu aktualisieren. Technische Prüfungen ersetzen keine Sichtprüfung und belegen keine allgemeine Modell- oder Vorlagenqualität.
 
 [`CoverDocuments`](../server/cover-documents.ts) speichert Brief-Felder und Version in `cover_documents`, unabhängig von CV-Daten. `GET /applications/:id/cover-letter` liefert zusätzlich Version und Quellenfingerprint. `PUT` speichert mit Revision/Fingerprint; `PUT /applications/:id/cover-mod` wählt eine geprüfte Version oder mit `modId: null` die bisherige Quelle. Veraltete Quellenstände und gesendete Bewerbungen werden abgewiesen. Normale Builds verwenden feste Paket-/Datensnapshots und dieselbe Buildwarteschlange, ohne KI.
+
+Layoutwahl und Briefvorbereitung bleiben getrennt. Bei ausgeschalteter Vorbereitung kann `cover_documents` bereits einen gewählten Stand vormerken, ohne eine TeX-Datei anzulegen; der gelesene Stand trägt dann `prepared: false`. Späteres ausdrückliches Anlegen verwendet diese Bindung und nicht einen inzwischen geänderten globalen Standard. PDF-Pläne und Textspeichern bleiben bis zur Vorbereitung gesperrt.
+
+Layoutwahl und Briefvorbereitung bleiben getrennt: `cover_documents` kann einen gewählten Stand vormerken, ohne eine TeX-Datei anzulegen (`prepared: false`). Späteres ausdrückliches Anlegen verwendet diesen gespeicherten Stand, nicht einen inzwischen geänderten globalen Standard. Ein PDF-Auftrag bleibt bis zur Vorbereitung gesperrt.
 
 Individuelles TeX wird beim Binden und bei Textänderungen nicht überschrieben oder automatisch interpretiert. Beim Rückwechsel bleibt individuelles TeX erhalten; bei einer früheren kanonischen Textvorlage wird der aktuelle Brieftext zurückgeschrieben. Kopien und ausdrücklich gewählte Anschreibenübernahmen erhalten unabhängige Werte. Der Löschschutz berücksichtigt jede gebundene Anschreiben-Version, auch ältere Prüfstände. Alte PDF-Bytes bleiben unabhängig von späterer Bearbeitung oder Importlöschung erhalten.
 

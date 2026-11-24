@@ -100,11 +100,26 @@ export async function startT3Application(
               throw new Error("PDF-Buildumgebung für Vorlagenprüfung fehlt");
             }),
     );
-    cvModRoutes(modRouter, cvMods, access);
+    cvModRoutes(modRouter, cvMods, access, {
+      settings: () => app!.store.preferences.settings(),
+    });
     const imports = cvMods;
     const cvStore = app.store;
+    cvStore.preferences.validateLayout = (kind, id) =>
+      imports.selectLayout(kind, id);
     imports.isUsed = (id) =>
       Boolean(
+        [
+          cvStore.preferences.settings().defaultCvModId,
+          cvStore.preferences.settings().defaultCoverModId,
+        ].some(
+          (version) =>
+            version &&
+            (version === id ||
+              version.startsWith(id + ".") ||
+              version.startsWith("form:" + id + ".") ||
+              version.startsWith("cover:" + id + ".")),
+        ) ||
         cvStore.db
           .prepare(
             "SELECT 1 FROM cv_documents WHERE mod_id=? OR mod_id LIKE ? OR mod_id LIKE ? LIMIT 1",

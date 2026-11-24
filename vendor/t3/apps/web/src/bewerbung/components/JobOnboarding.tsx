@@ -19,7 +19,8 @@ import {
   DialogPanel,
   DialogFooter,
 } from "~/components/ui/dialog";
-import { ErrorNotice, Field } from "./Controls";
+import { Choice, ErrorNotice, Field } from "./Controls";
+import { useLayoutLibrary, layoutOptions } from "./LayoutLibrary";
 import { normalizeJobLink } from "./job-link";
 import { useApplications } from "../ApplicationsProvider";
 import { ApplicantProfileEditor } from "./ApplicantProfileEditor";
@@ -34,6 +35,26 @@ export function JobOnboarding({
   onSaved: (app: ApplicationDetail) => Promise<void>;
 }) {
   const applications = useApplications();
+  const library = useLayoutLibrary();
+  const [cvChoice, setCvChoice] = useState<string | null | undefined>(undefined);
+  const [coverChoice, setCoverChoice] = useState<string | null | undefined>(undefined);
+  const cvModId = cvChoice === undefined ? (library.data?.defaults.cv ?? null) : cvChoice;
+  const coverModId =
+    coverChoice === undefined ? (library.data?.defaults.cover ?? null) : coverChoice;
+  const layoutsReady =
+    Boolean(library.data) &&
+    !library.loading &&
+    !library.error &&
+    [
+      ["cv", cvModId],
+      ["cover", coverModId],
+    ].every(
+      ([kind, id]) =>
+        !id ||
+        library.data!.layouts.some(
+          (layout) => layout.kind === kind && layout.versionId === id && layout.available,
+        ),
+    );
   const [profileOpen, setProfileOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
@@ -118,7 +139,7 @@ export function JobOnboarding({
   }
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (saving || analyzing || !company.trim() || !role.trim()) return;
+    if (saving || analyzing || !company.trim() || !role.trim() || !layoutsReady) return;
     setSaving(true);
     setError("");
     try {
@@ -142,6 +163,8 @@ export function JobOnboarding({
         company: company.trim(),
         role: role.trim(),
         posting,
+        cvModId,
+        coverModId,
         ...(master
           ? {
               template: master.id,
@@ -200,6 +223,71 @@ export function JobOnboarding({
                     Bewerberprofil bearbeiten
                   </Button>
                 </div>
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                  <Field label="Lebenslauf-Vorlage">
+                    <Choice
+                      label="Lebenslauf-Vorlage für neue Bewerbung"
+                      value={cvModId || ""}
+                      disabled={saving || library.loading}
+                      onChange={(value) => setCvChoice(value || null)}
+                      options={[
+                        { value: "", label: "Bestehende Quellen / kein importiertes Layout" },
+                        ...layoutOptions(library.data, "cv", cvModId),
+                      ]}
+                    />
+                  </Field>
+                  <Field label="Anschreiben-Vorlage">
+                    <Choice
+                      label="Anschreiben-Vorlage für neue Bewerbung"
+                      value={coverModId || ""}
+                      disabled={saving || library.loading}
+                      onChange={(value) => setCoverChoice(value || null)}
+                      options={[
+                        { value: "", label: "Bestehende Quellen / kein importiertes Layout" },
+                        ...layoutOptions(library.data, "cover", coverModId),
+                      ]}
+                    />
+                  </Field>
+                </div>
+                <ErrorNotice
+                  error={
+                    library.error ||
+                    (!library.loading && library.data && !layoutsReady
+                      ? "Eine gewählte Vorlage ist nicht verfügbar. Andere Vorlage oder bestehende Quellen wählen."
+                      : "")
+                  }
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={saving || library.loading}
+                    onClick={library.reload}
+                  >
+                    Vorlagen neu laden
+                  </Button>
+                  <a
+                    className="text-xs underline"
+                    href="/bewerbungen#vorlagenimporte"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Vorlagen verwalten oder importieren
+                  </a>
+                </div>
+                {!library.loading && library.data?.layouts.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Noch keine freigegebenen Layouts. Du kannst mit vorhandenen Quellen fortfahren
+                    und später ein Layout wählen.
+                  </p>
+                )}
+                {applications.settings?.prepareCoverLetter === false && (
+                  <p className="text-xs text-muted-foreground">
+                    Die Anschreiben-Vorlage wird nur vorgemerkt. Die ausgeschaltete Vorbereitung
+                    bleibt ausgeschaltet.
+                  </p>
+                )}
                 <Field label="Stellen-Link">
                   <Input
                     autoFocus
@@ -315,7 +403,7 @@ export function JobOnboarding({
               </Button>
               <Button
                 type="submit"
-                disabled={analyzing || saving || !company.trim() || !role.trim()}
+                disabled={analyzing || saving || !company.trim() || !role.trim() || !layoutsReady}
               >
                 <Link2 />
                 {saving ? "Wird angelegt…" : "Bewerbung anlegen"}

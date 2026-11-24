@@ -213,6 +213,69 @@ test("new imports require profile metadata for approval while preexisting unboun
   }
 });
 
+test("the library exposes only approved immutable stands and labels never replace original filenames or trigger generation", async () => {
+  const f = fixture();
+  try {
+    const job = f.imports.upload("cv.tex", tex, "cv-template");
+    assert.deepEqual(f.imports.catalogue(), []);
+    f.imports.start(job.id);
+    await f.imports.idle();
+    const first = f.imports.get(job.id);
+    assert.deepEqual(f.imports.catalogue(), []);
+    f.imports.approve(job.id, first.versionId, first.updated);
+    const approved = f.imports.get(job.id);
+    f.imports.rename(job.id, "Distinct CV layout", approved.updated);
+    assert.equal(f.imports.get(job.id).name, "cv.tex");
+    assert.deepEqual(f.imports.originalUpload(job.id).bytes, tex);
+    assert.equal(f.imports.catalogue()[0]!.label, "Distinct CV layout");
+    assert.equal(f.imports.catalogue()[0]!.kind, "cv");
+    assert.equal(
+      f.imports.selectLayout("cv", first.versionId!),
+      first.versionId,
+    );
+    assert.throws(
+      () => f.imports.selectLayout("cover", first.versionId!),
+      /Dokumenttyp/,
+    );
+    assert.throws(
+      () => f.imports.rename(job.id, "", f.imports.get(job.id).updated),
+      /Vorlagenname/,
+    );
+    assert.throws(() => f.imports.rename(job.id, "Wrong", "stale"), /geändert/);
+    f.imports.recheck(job.id);
+    await f.imports.idle();
+    assert.deepEqual(
+      f.imports.catalogue().map((row) => row.versionId),
+      [first.versionId],
+    );
+    const second = f.imports.get(job.id);
+    f.imports.approve(job.id, second.versionId, second.updated);
+    assert.equal(f.imports.catalogue().length, 2);
+    const packageFile = path.join(
+      f.root,
+      "imports",
+      job.id,
+      "builds",
+      first.buildId!,
+      "package/main.tex",
+    );
+    fs.appendFileSync(packageFile, "tampered checked package");
+    const old = f.imports
+      .catalogue()
+      .find((row) => row.versionId === first.versionId)!;
+    assert.equal(old.available, false);
+    assert.match(old.error!, /verändert/);
+    assert.equal(
+      f.imports.catalogue().find((row) => row.versionId === second.versionId)!
+        .available,
+      true,
+    );
+    assert.equal(f.calls(), 1);
+  } finally {
+    await f.close();
+  }
+});
+
 test("source inspection distinguishes companions, ambiguous mains and invalid inputs without creating jobs", async () => {
   const f = fixture();
   try {

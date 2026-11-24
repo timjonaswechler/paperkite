@@ -5,7 +5,7 @@ import { WorkspacePageHeader } from "~/components/WorkspacePageHeader";
 import { Button } from "~/components/ui/button";
 import { Workspace } from "./Workspace";
 import { useApplications } from "./ApplicationsProvider";
-import { CvModImportPanel } from "./components/CvModImportPanel";
+import { LayoutLibraryPanel } from "./components/LayoutLibrary";
 
 export function ApplicationsPage(props: {
   applicationId?: string;
@@ -68,7 +68,7 @@ function ApplicationsPageView({
                   Eigene Vorlagen & laufende Imports
                 </summary>
                 <div className="mt-4">
-                  <CvModImportPanel templateType="all" />
+                  <LayoutLibraryPanel />
                 </div>
               </details>
               {app.applications.length > 0 && (

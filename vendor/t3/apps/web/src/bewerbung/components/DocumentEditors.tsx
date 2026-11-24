@@ -5,7 +5,7 @@ import type {
   Build,
   CoverLetter,
   CoverLetterState,
-  CvModJob,
+  ApplicationLayouts,
   ApplicantBindings,
 } from "../shared/api";
 import { api, base, errorMessage, textFile } from "../api";
@@ -16,6 +16,7 @@ import { Checkbox } from "~/components/ui/checkbox";
 import { Badge } from "~/components/ui/badge";
 import { Choice, ErrorNotice, Field } from "./Controls";
 import { CvModImportPanel } from "./CvModImportPanel";
+import { useLayoutLibrary, layoutOptions } from "./LayoutLibrary";
 import { BrowserDocumentFrame } from "~/components/files/BrowserDocumentFrame";
 import { ApplicantProfilePanel } from "./ApplicantProfilePanel";
 
@@ -38,8 +39,52 @@ export function CoverLetterEditor(props: EditorProps) {
 }
 
 function UnpreparedCoverLetter({ app, onRefresh }: EditorProps) {
+  const library = useLayoutLibrary();
+  const [selection, setSelection] = useState<ApplicationLayouts | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- reads the persisted pending layout without creating a letter
+  useEffect(() => {
+    const abort = new AbortController();
+    void api<ApplicationLayouts>(`/applications/${app.id}/layouts`, "GET", undefined, abort.signal)
+      .then((value) => {
+        if (!abort.signal.aborted && value.revision >= app.revision) setSelection(value);
+      })
+      .catch((e) => {
+        if (!abort.signal.aborted) setError(errorMessage(e));
+      });
+    return () => abort.abort();
+  }, [app.id, app.revision]);
+  async function selectLayout(id: string) {
+    if (
+      !selection ||
+      busy ||
+      app.harness.busy ||
+      app.status === "Gesendet" ||
+      id === (selection.coverModId || "")
+    )
+      return;
+    setBusy(true);
+    setError("");
+    try {
+      const next = await api<CoverLetterState>(`/applications/${app.id}/cover-mod`, "PUT", {
+        revision: selection.revision,
+        fingerprint: selection.coverFingerprint,
+        modId: id || null,
+      });
+      setSelection({
+        ...selection,
+        revision: next.revision,
+        coverModId: next.modId,
+        coverFingerprint: next.fingerprint,
+      });
+      await onRefresh();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
   async function prepare() {
     if (busy || app.harness.busy || app.status === "Gesendet") return;
     setBusy(true);
@@ -62,7 +107,35 @@ function UnpreparedCoverLetter({ app, onRefresh }: EditorProps) {
         Du kannst diese Bewerbung ohne Anschreiben bearbeiten. Bei Bedarf legst du hier eine
         neutrale, editierbare Grundlage an. Es wird kein KI-Text erzeugt.
       </p>
-      <ErrorNotice error={error} onClose={() => setError("")} />
+      <Field label="Vorgemerkte Anschreiben-Vorlage">
+        <Choice
+          label="Vorgemerkte Anschreiben-Vorlage"
+          value={selection?.coverModId || ""}
+          disabled={
+            busy || !selection || library.loading || app.harness.busy || app.status === "Gesendet"
+          }
+          onChange={(id) => void selectLayout(id)}
+          options={[
+            { value: "", label: "Bestehende Quellen / kein importiertes Layout" },
+            ...layoutOptions(library.data, "cover", selection?.coverModId),
+          ]}
+        />
+      </Field>
+      <p className="text-xs text-muted-foreground">
+        Die Layoutwahl allein legt kein Anschreiben an.
+      </p>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={busy || library.loading}
+        onClick={() => {
+          library.reload();
+          void onRefresh().catch((e) => setError(errorMessage(e)));
+        }}
+      >
+        Vorlagen neu laden
+      </Button>
+      <ErrorNotice error={error || library.error} onClose={() => setError("")} />
       {app.status === "Gesendet" && (
         <p className="text-sm text-muted-foreground">
           Gesendete Bewerbungen sind schreibgeschützt.
@@ -79,13 +152,13 @@ function UnpreparedCoverLetter({ app, onRefresh }: EditorProps) {
 }
 
 function PreparedCoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: EditorProps) {
+  const library = useLayoutLibrary();
   const [fields, setFields] = useState<CoverLetter | null>(null);
   const [revision, setRevision] = useState(app.revision);
   const [fingerprint, setFingerprint] = useState("");
   const [modId, setModId] = useState<string | null>(null);
   const [modName, setModName] = useState("");
   const [applicantBindings, setApplicantBindings] = useState<ApplicantBindings | undefined>();
-  const [mods, setMods] = useState<CvModJob[]>([]);
   const [conversion, setConversion] = useState(false);
   const [replace, setReplace] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -114,9 +187,6 @@ function PreparedCoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Ed
       .catch((error) => {
         if (!controller.signal.aborted) setError(errorMessage(error));
       });
-    void api<CvModJob[]>("/cv-mods/jobs", "GET", undefined, controller.signal)
-      .then(setMods)
-      .catch(() => {});
     return () => controller.abort();
   }, [app.id]);
   function accept(result: CoverLetterState) {
@@ -132,7 +202,11 @@ function PreparedCoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Ed
   }
   async function bind(id: string) {
     if (busy || app.harness.busy || app.status === "Gesendet") return;
-    if (dirty && !confirm("Ungespeicherte Anschreiben-Änderungen verwerfen?")) return;
+    if (id === (modId || "")) return;
+    if (dirty) {
+      setError("Anschreiben-Änderungen vor dem Layoutwechsel speichern. Es wird nichts verworfen.");
+      return;
+    }
     if (
       !confirm(
         "Anschreiben-Vorlage wechseln? Die gespeicherten Textfelder bleiben erhalten. Individuelle TeX-Quellen bleiben als Rückkehrmöglichkeit erhalten; ihr Inhalt wird nicht automatisch interpretiert.",
@@ -182,9 +256,7 @@ function PreparedCoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Ed
     setBusy(false);
   }
   const editable = fields && (!conversion || replace);
-  const choices = mods
-    .filter((job) => job.documentType === "cover-template" && job.approvedVersionId)
-    .map((job) => ({ value: job.approvedVersionId!, label: job.name }));
+  const choices = layoutOptions(library.data, "cover", modId);
   if (modId && !choices.some((option) => option.value === modId))
     choices.push({ value: modId, label: modName || "Gesicherte Anschreiben-Vorlage" });
   const names: { key: keyof CoverLetter; label: string; rows: number }[] = [
@@ -206,6 +278,10 @@ function PreparedCoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Ed
           </p>
         </div>
         <ErrorNotice error={error} onClose={() => setError("")} />
+        <Button size="sm" variant="ghost" disabled={library.loading} onClick={library.reload}>
+          Vorlagen neu laden
+        </Button>
+        {library.error && <ErrorNotice error={library.error} />}
         <ApplicantProfilePanel
           key={app.id}
           app={app}
@@ -229,7 +305,14 @@ function PreparedCoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Ed
           label="LaTeX-Vorlage für dieses Anschreiben"
           value={modId || ""}
           options={[{ value: "", label: "Bestehende Anschreiben-Vorlage" }, ...choices]}
-          disabled={busy || !fields || app.harness.busy || app.status === "Gesendet"}
+          disabled={
+            busy ||
+            dirty ||
+            library.loading ||
+            !fields ||
+            app.harness.busy ||
+            app.status === "Gesendet"
+          }
           onChange={(id) => void bind(id)}
         />
         {conversion && (
@@ -316,7 +399,7 @@ function PreparedCoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Ed
           <div className="mt-4">
             <CvModImportPanel
               templateType="cover"
-              onJobs={setMods}
+              onJobs={library.reload}
               {...(app.status === "Gesendet" ? {} : { onSelect: (id: string) => void bind(id) })}
             />
           </div>

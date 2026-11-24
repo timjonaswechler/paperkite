@@ -14,7 +14,7 @@ import { ErrorNotice } from "./components/Controls";
 import { DocumentLibrary } from "./components/DocumentLibrary";
 import { TemplatesManager } from "./components/TemplatesManager";
 import { AnalysisModelSettings } from "./components/AnalysisModelSettings";
-import { CvModImportPanel } from "./components/CvModImportPanel";
+import { LayoutLibraryPanel } from "./components/LayoutLibrary";
 import { ApplicantProfileEditor } from "./components/ApplicantProfileEditor";
 import type { Settings } from "./shared/api";
 
@@ -120,10 +120,7 @@ export function ApplicationSettingsPage() {
       </SettingsSection>
       <SettingsSection id="bewerbung-templates" title="Vorlagen">
         <div className="p-3 sm:p-4">
-          <CvModImportPanel
-            templateType="all"
-            onDocumentsChanged={() => setLibraryRefresh((value) => value + 1)}
-          />
+          <LayoutLibraryPanel onDocumentsChanged={() => setLibraryRefresh((value) => value + 1)} />
         </div>
         <SettingsRow
           title="Master importieren"

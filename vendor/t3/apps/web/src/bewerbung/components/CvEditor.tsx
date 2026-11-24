@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Save, Eye, Pencil, FileCode } from "lucide-react";
 import { randomUUID } from "~/lib/utils";
-import type { ApplicationDetail, CvState, CvData, CvEntry, CvModJob } from "../shared/api";
+import type { ApplicationDetail, CvState, CvData, CvEntry } from "../shared/api";
 import { api, errorMessage } from "../api";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
@@ -18,6 +18,7 @@ import {
 import { Choice, ErrorNotice } from "./Controls";
 import { DocumentPreview, useDocumentDraftGuard } from "./DocumentEditors";
 import { CvModImportPanel } from "./CvModImportPanel";
+import { useLayoutLibrary, layoutOptions } from "./LayoutLibrary";
 import { ApplicantProfilePanel } from "./ApplicantProfilePanel";
 import { CvContentEditor } from "./CvContentEditor";
 import { FormModRenderer } from "./FormModRenderer";
@@ -68,9 +69,9 @@ export function CvEditor({
   onRefresh: () => Promise<void>;
   onAdvanced: () => void;
 }) {
+  const library = useLayoutLibrary();
   const [state, setState] = useState<CvState | null>(null),
     [data, setData] = useState<CvData | null>(null),
-    [mods, setMods] = useState<CvModJob[]>([]),
     [formMods, setFormMods] = useState<Omit<FormMod, "files">[]>([]),
     [formValues, setFormValues] = useState<Values>({}),
     [busy, setBusy] = useState(false),
@@ -127,9 +128,6 @@ export function CvEditor({
       });
     void api<Omit<FormMod, "files">[]>("/cv-form-mods", "GET", undefined, abort.signal)
       .then(setFormMods)
-      .catch(() => {});
-    void api<CvModJob[]>("/cv-mods/jobs", "GET", undefined, abort.signal)
-      .then(setMods)
       .catch(() => {});
     return () => abort.abort();
   }, [app.id]);
@@ -221,8 +219,11 @@ export function CvEditor({
     }
   }
   async function bind(id: string) {
-    if (!state || disabled) return;
-    if (dirty && !confirm("Ungespeicherte CV-Änderungen verwerfen und Vorlage wechseln?")) return;
+    if (!state || disabled || app.status === "Gesendet" || id === (state.modId || "")) return;
+    if (dirty) {
+      setError("CV-Änderungen vor dem Layoutwechsel speichern. Es wird nichts verworfen.");
+      return;
+    }
     if (
       id.startsWith("form:") &&
       !formMode &&
@@ -266,20 +267,7 @@ export function CvEditor({
   const profileBound = (key: string) => Boolean(state?.applicantBindings?.fields["person." + key]);
   const personLabel = (key: string) =>
     selectedMod?.fields.find((f) => f.key === "person." + key)?.label || names[key] || key;
-  const modOptions = mods
-    .filter(
-      (m) =>
-        m.approvedVersionId &&
-        m.documentType !== "cover-template" &&
-        !m.approvedVersionId.startsWith("cover:"),
-    )
-    .map((m) => ({
-      value: m.approvedVersionId!,
-      label:
-        (m.approvedVersionId!.startsWith("form:") ? "Formular · " : "") +
-        m.name +
-        (m.approvedVersionId === m.versionId ? "" : " · letzter freigegebener Stand"),
-    }));
+  const modOptions = layoutOptions(library.data, "cv", state?.modId);
   for (const m of formMods)
     if (!modOptions.some((option) => option.value === m.id))
       modOptions.push({ value: m.id, label: `Formular · ${m.name} · ${m.id.slice(5, 13)}` });
@@ -385,16 +373,25 @@ export function CvEditor({
           CV neu laden
         </Button>
       )}
+      {library.error && <ErrorNotice error={library.error} />}
+      {dirty && (
+        <p className="text-xs text-muted-foreground">
+          Änderungen vor einem Layoutwechsel speichern; es wird nichts verworfen.
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0 max-w-lg flex-1">
           <Choice
             label="LaTeX-Vorlage für diesen Lebenslauf"
             value={state?.modId || ""}
-            disabled={disabled || !state}
+            disabled={disabled || !state || dirty || app.status === "Gesendet" || library.loading}
             onChange={(id) => void bind(id)}
             options={[{ value: "", label: "Bestehende LaTeX-Vorlage" }, ...modOptions]}
           />
         </div>
+        <Button size="sm" variant="ghost" disabled={library.loading} onClick={library.reload}>
+          Vorlagen neu laden
+        </Button>
         <Button size="sm" variant="ghost" onClick={onAdvanced}>
           <FileCode />
           Erweiterte Quellen
@@ -604,7 +601,7 @@ export function CvEditor({
       <details className="rounded-lg border p-3">
         <summary className="cursor-pointer text-sm">LaTeX-Vorlage hochladen</summary>
         <div className="mt-4">
-          <CvModImportPanel onJobs={setMods} onSelect={(id) => void bind(id)} />
+          <CvModImportPanel onJobs={library.reload} onSelect={(id) => void bind(id)} />
         </div>
       </details>
       <Dialog open={newSection} onOpenChange={setNewSection}>

@@ -337,7 +337,7 @@ export function CvModImportPanel({
             data-cv-mod-job={job.id}
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="min-w-0 break-all text-sm font-medium">{job.name}</h3>
+              <h3 className="min-w-0 break-all text-sm font-medium">{job.label || job.name}</h3>
               <Badge variant="outline">
                 {job.status === "review" && job.approvedVersionId === job.versionId
                   ? "Freigegeben · verwendbar"

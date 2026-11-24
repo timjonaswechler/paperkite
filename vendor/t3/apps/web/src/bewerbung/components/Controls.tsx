@@ -39,7 +39,7 @@ export function Choice({
   label: string;
   value: string;
   onChange: (value: string) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; disabled?: boolean }[];
   disabled?: boolean;
 }) {
   return (
@@ -56,7 +56,7 @@ export function Choice({
       </SelectTrigger>
       <SelectPopup>
         {options.map((option) => (
-          <SelectItem value={option.value} key={option.value}>
+          <SelectItem value={option.value} key={option.value} disabled={option.disabled}>
             {option.label}
           </SelectItem>
         ))}
