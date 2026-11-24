@@ -1,0 +1,4 @@
+[submodule "vendor/t3"]
+	path = vendor/t3
+	url = https://github.com/pingdotgg/t3code.git
+	branch = main

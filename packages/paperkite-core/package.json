@@ -1,0 +1,23 @@
+{
+  "name": "@paperkite/core",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./RuntimePolicy": {
+      "types": "./src/RuntimePolicy.ts",
+      "import": "./src/RuntimePolicy.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "effect-tsgo tsrs --noEmit",
+    "test": "vp test run --config ../../vite.config.ts --dir ."
+  },
+  "dependencies": {
+    "@paperkite/contracts": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

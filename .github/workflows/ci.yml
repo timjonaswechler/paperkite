@@ -1,0 +1,102 @@
+name: Paperkite CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, "architecture/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paperkite-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  product:
+    name: Composition, build and quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      VP_REMOTE_CACHE: "off"
+      T3CODE_DEV_SEED: "0"
+      T3CODE_WEB_SOURCEMAP: "0"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          submodules: true
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+      - run: pnpm upstream:check
+      - run: pnpm test
+      - run: pnpm setup
+      - run: pnpm build
+      - run: pnpm check
+      - name: Install native quality-check dependencies
+        working-directory: .build/t3
+        run: pnpm install --frozen-lockfile
+      - name: Native server and shared typechecks
+        working-directory: .build/t3
+        run: >-
+          pnpm exec vp run --filter t3 --filter @t3tools/contracts
+          --filter @t3tools/client-runtime --filter @t3tools/shared typecheck
+      - name: Relevant native generated contracts
+        working-directory: .build/t3
+        run: |
+          pnpm exec vp run --filter @t3tools/source-control-github generate --check
+          pnpm exec vp run --filter t3 generate --check
+          pnpm exec vp run --filter @t3tools/issue-tracker-linear generate --check
+      - name: Native translation catalogs
+        working-directory: .build/t3
+        run: pnpm exec vp run i18n:check
+      - name: Native unused-code checks
+        working-directory: .build/t3
+        run: pnpm exec vp run knip:check
+      - name: Vendor remains unchanged
+        run: pnpm upstream:check
+
+  native-tests:
+    name: Native ${{ matrix.package }} tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ["@t3tools/web", "t3"]
+    env:
+      VP_REMOTE_CACHE: "off"
+      T3CODE_DEV_SEED: "0"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          submodules: true
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+      - run: pnpm setup
+      - name: Install Chromium for native web tests
+        if: matrix.package == '@t3tools/web'
+        working-directory: .build/t3/apps/web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Native suite on composed sources
+        working-directory: .build/t3
+        run: pnpm exec vp run --filter '${{ matrix.package }}' test
+      - run: pnpm upstream:check
+
+  check:
+    name: Check
+    if: always()
+    needs: [product, native-tests]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require all product checks
+        env:
+          PRODUCT: ${{ needs.product.result }}
+          TESTS: ${{ needs.native-tests.result }}
+        run: test "$PRODUCT" = success && test "$TESTS" = success

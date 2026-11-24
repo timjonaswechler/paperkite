@@ -1,0 +1,78 @@
+{
+  "productLock": "integration/t3/product-lock.yaml",
+  "additions": [
+    { "source": "apps/web/src", "target": "apps/web/src" },
+    { "source": "apps/server/src/paperkite", "target": "apps/server/src/paperkite" },
+    { "source": "packages", "target": "packages" },
+    { "source": "integration/t3/server", "target": "apps/server/src/paperkite/integration" },
+    {
+      "source": "integration/t3/upstream.json",
+      "target": "apps/server/src/paperkite/integration/upstream.json"
+    },
+    { "source": "tooling", "target": "paperkite/tooling" },
+    { "source": "docs", "target": "paperkite/docs" },
+    { "source": "README.md", "target": "paperkite/README.md" },
+    { "source": "AGENTS.md", "target": "paperkite/AGENTS.md" },
+    {
+      "source": "integration/t3/composition.json",
+      "target": "paperkite/integration/t3/composition.json"
+    },
+    {
+      "source": "integration/t3/upstream.json",
+      "target": "paperkite/integration/t3/upstream.json"
+    },
+    { "source": ".github/workflows", "target": "paperkite/workflows" },
+    { "source": "package.json", "target": "paperkite/package.json" }
+  ],
+  "overrides": [
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/Sidebar.tsx",
+      "target": "apps/web/src/components/Sidebar.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "c9b4ac5a1893df470dcafaba81420ab3cc729620da504f53b8b6842bb0e42a9b",
+      "reason": "Native sidebar assumes loaded configuration enables settlement; honor the product capability for actions, bulk selection and drag/drop."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/policy/ManagedPolicy.ts",
+      "target": "apps/server/src/policy/ManagedPolicy.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "fb9c8b7b77db65a960ca11e4d2157875d0ce359185ae70c28e54da04ce5cd1d8",
+      "reason": "Constrain the own runtime in memory without changing machine policy; proof profile permits only the free replay driver."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/server.ts",
+      "target": "apps/server/src/server.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "78a18c5f08c89511672274f47531feaf85dc2361be05fcf07b7a2ab64cca18c2",
+      "reason": "Own API and replay integration; profile-controlled settlement worker construction."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/Orchestrator.ts",
+      "target": "apps/server/src/orchestration-v2/Orchestrator.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "e4feea49d9a8624ce869ed9e37cf3ef4e3856397ff08a236ab101d6c1565c2cd",
+      "reason": "Enforce profile restrictions at the shared command boundary before receipts or state mutation."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/environment/ServerEnvironment.ts",
+      "target": "apps/server/src/environment/ServerEnvironment.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "6100562926de0c2936b97773f9d985c480a451ce889fd9207c36466f3610560b",
+      "reason": "Advertise the capability actually enforced by the product profile."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/package.json",
+      "target": "apps/server/package.json",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "4ca31d9a13b04c2d4e27582dd8c884bb5b92de25531c8cb1f3122b8091c9571e",
+      "reason": "Declare owned workspace contracts and services in the server dependency graph."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/package.json",
+      "target": "apps/web/package.json",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "f117c3f5b01904bb3c69b1476b6f49f5edaf873ba5dfb6c0b78391034f21e48c",
+      "reason": "Declare the owned runtime status contract consumed by the web client."
+    }
+  ]
+}
