@@ -399,7 +399,7 @@ export function ApplicantProfileEditor({
           {busy ? "Profil wird gespeichert…" : "Profil speichern"}
         </Button>
         <Button type="button" variant="ghost" disabled={busy} onClick={() => void reload()}>
-          Gespeicherten Stand neu laden
+          Profil neu laden
         </Button>
       </div>
       {onClose && (
