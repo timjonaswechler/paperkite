@@ -4,6 +4,7 @@ import type { CvModJob } from "../shared/api";
 import { api, base, errorMessage, requireBusiness } from "../api";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
+import { randomUUID } from "~/lib/utils";
 import { Choice, ErrorNotice, Field } from "./Controls";
 import { uploadLibraryDocument } from "./DocumentLibrary";
 import { ModProvenanceView } from "./ModProvenanceView";
@@ -32,11 +33,12 @@ const cases: Record<string, string> = {
   "cover-long": "Langer Brief und Seitenumbrüche",
   "cover-empty": "Leere Eingaben",
 };
+type Inspection = { files: string[]; entrypoints: string[]; warnings: string[] };
 const pending = (job: CvModJob) => ["generating", "needs-input", "checking"].includes(job.status);
 function fileBase64(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error("ZIP konnte nicht gelesen werden"));
+    reader.onerror = () => reject(new Error("Datei konnte nicht gelesen werden"));
     reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
     reader.readAsDataURL(file);
   });
@@ -58,8 +60,62 @@ export function CvModImportPanel({
     [jobs, setJobs] = useState<CvModJob[]>([]),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
-    [reload, setReload] = useState(0);
+    [reload, setReload] = useState(0),
+    [inspection, setInspection] = useState<Inspection | null>(null),
+    [entrypoint, setEntrypoint] = useState(""),
+    [inspecting, setInspecting] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const locked = useRef(false);
+  const selection = useRef(0);
+  const attempt = useRef<string | null>(null);
+  async function chooseFile(next: File | null) {
+    const current = ++selection.current;
+    setFile(next);
+    setInspection(null);
+    setEntrypoint("");
+    setError("");
+    setInspecting(false);
+    attempt.current = null;
+    if (!next || kind === "document") return;
+    setInspecting(true);
+    try {
+      requireBusiness(
+        /\.(zip|tex)$/i.test(next.name) &&
+          next.size > 0 &&
+          next.size <= (/\.tex$/i.test(next.name) ? 4 : 8) * 1024 * 1024,
+        "LaTeX-ZIP bis 8 MiB oder einzelne .tex-Datei bis 4 MiB wählen. Eine PDF ist eine Anlage, keine editierbare Vorlage.",
+      );
+      const result = await api<Inspection>("/cv-mods/inspect", "POST", {
+        name: next.name,
+        zipBase64: await fileBase64(next),
+      });
+      if (current !== selection.current) return;
+      setInspection(result);
+      setEntrypoint(result.entrypoints.length === 1 ? result.entrypoints[0]! : "");
+    } catch (e) {
+      if (current === selection.current) setError(errorMessage(e));
+    } finally {
+      if (current === selection.current) setInspecting(false);
+    }
+  }
+  async function mutate(job: CvModJob, action: "approve" | "source", value: string) {
+    if (locked.current) return;
+    locked.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await api(`/cv-mods/jobs/${job.id}/${action}`, "POST", {
+        updated: job.updated,
+        ...(action === "approve" ? { versionId: value } : { entrypoint: value }),
+      });
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      locked.current = false;
+      setBusy(false);
+      setReload((v) => v + 1);
+    }
+  }
   const publish = useEffectEvent((next: CvModJob[]) => onJobs?.(next));
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- polls durable external import jobs only while work is active and cancels on unmount
   useEffect(() => {
@@ -109,6 +165,8 @@ export function CvModImportPanel({
     }
   }
   async function run(id: string, action: "start" | "check") {
+    if (locked.current) return;
+    locked.current = true;
     setBusy(true);
     setError("");
     try {
@@ -117,11 +175,19 @@ export function CvModImportPanel({
     } catch (e) {
       setError(errorMessage(e));
     } finally {
+      locked.current = false;
       setBusy(false);
     }
   }
   async function upload() {
-    if (!file || busy) return;
+    if (
+      !file ||
+      locked.current ||
+      inspecting ||
+      (kind !== "document" && (!inspection || !entrypoint))
+    )
+      return;
+    locked.current = true;
     setBusy(true);
     setError("");
     setNotice("");
@@ -131,22 +197,27 @@ export function CvModImportPanel({
         onDocumentsChanged?.();
         setNotice("Datei in der Dokumentenbibliothek gespeichert.");
       } else {
-        requireBusiness(
-          /\.zip$/i.test(file.name) && file.size > 0 && file.size <= 8 * 1024 * 1024,
-          `${kind === "cover-template" ? "Anschreiben" : "Lebenslauf"}-Vorlage als LaTeX-ZIP bis 8 MiB hochladen. Eine PDF allein genügt nicht.`,
-        );
+        attempt.current ??= randomUUID();
         const job = await api<CvModJob>("/cv-mods/jobs", "POST", {
           documentType: kind,
           name: file.name,
           zipBase64: await fileBase64(file),
+          requestId: attempt.current,
+          entrypoint,
         });
-        setJobs((previous) => [job, ...previous]);
-        await api(`/cv-mods/jobs/${job.id}/start`, "POST", {});
+        setJobs((previous) => [job, ...previous.filter((item) => item.id !== job.id)]);
+        if (job.status === "uploaded") await api(`/cv-mods/jobs/${job.id}/start`, "POST", {});
+        setNotice(
+          "Import gespeichert. Fortschritt und Rückfragen findest du unten im zugehörigen KI-Thread.",
+        );
       }
       setFile(null);
+      setInspection(null);
+      attempt.current = null;
     } catch (e) {
       setError(errorMessage(e));
     } finally {
+      locked.current = false;
       setBusy(false);
       setReload((v) => v + 1);
     }
@@ -160,16 +231,20 @@ export function CvModImportPanel({
             label="Dokumenttyp beim Hochladen"
             value={kind}
             onChange={(v) => {
+              selection.current++;
               setKind(v);
               setFile(null);
+              setInspection(null);
+              setInspecting(false);
+              attempt.current = null;
             }}
             disabled={busy}
             options={[
               ...(templateType !== "cover"
-                ? [{ value: "cv-template", label: "Lebenslauf-Vorlage (LaTeX-ZIP)" }]
+                ? [{ value: "cv-template", label: "Lebenslauf-Vorlage (ZIP / TeX)" }]
                 : []),
               ...(templateType !== "cv"
-                ? [{ value: "cover-template", label: "Anschreiben-Vorlage (LaTeX-ZIP)" }]
+                ? [{ value: "cover-template", label: "Anschreiben-Vorlage (ZIP / TeX)" }]
                 : []),
               { value: "document", label: "Dokument / Anlage" },
             ]}
@@ -188,25 +263,64 @@ export function CvModImportPanel({
         className="hidden"
         type="file"
         aria-label="Datei für Vorlagenimport auswählen"
-        accept={kind !== "document" ? ".zip,application/zip" : ".pdf,.jpg,.jpeg,.png"}
+        accept={kind !== "document" ? ".zip,.tex,application/zip" : ".pdf,.jpg,.jpeg,.png"}
         onChange={(e) => {
-          setFile(e.target.files?.[0] || null);
+          void chooseFile(e.target.files?.[0] || null);
           e.target.value = "";
         }}
       />
+      {inspecting && (
+        <p role="status" className="text-xs text-muted-foreground">
+          Quelldateien werden geprüft – ohne KI-Start…
+        </p>
+      )}
+      {inspection && (
+        <div className="space-y-2 text-xs">
+          <Field label="LaTeX-Hauptdatei">
+            <Choice
+              label="LaTeX-Hauptdatei"
+              value={entrypoint}
+              disabled={busy}
+              onChange={(value) => {
+                setEntrypoint(value);
+                attempt.current = null;
+              }}
+              options={[
+                { value: "", label: "Hauptdatei auswählen" },
+                ...inspection.entrypoints.map((value) => ({ value, label: value })),
+              ]}
+            />
+          </Field>
+          <p className="text-muted-foreground">
+            {inspection.files.length} Quelldateien erkannt. ZIP mit Bildern, Fonts und
+            Begleitdateien bis 8 MiB; einzelne TeX bis 4 MiB. Paket- und Fontverfügbarkeit wird beim
+            Bauen geprüft.
+          </p>
+          {inspection.warnings.map((warning) => (
+            <p key={warning} className="break-words">
+              {warning}
+            </p>
+          ))}
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-lg text-xs text-muted-foreground">
           {kind !== "document"
             ? kind === "cover-template"
-              ? "KI bindet die vorhandenen Anschreiben-Felder an deine LaTeX-Vorlage an. Der Start kann Kosten verursachen und Quellen an den Anbieter übertragen."
-              : "KI erstellt Formular und Datenanbindung aus deiner LaTeX-Vorlage mit den vorhandenen nativen Provider- und Berechtigungseinstellungen. Der Start kann Kosten verursachen."
+              ? "KI bindet Anschreiben-Felder, Bewerberprofil und Unterschriftsbedarf an deine Originalvorlage an. Danach Prüf-PDFs durchsehen und den konkreten Stand freigeben."
+              : "KI erstellt Formular und Datenanbindung für deine Originalvorlage mit den vorhandenen nativen Einstellungen. Danach Prüf-PDFs durchsehen und den konkreten Stand freigeben."
             : "Die Datei wird als Anlage gespeichert; es startet keine KI."}
         </p>
-        <Button disabled={!file || busy} onClick={() => void upload()}>
+        <Button
+          disabled={
+            !file || busy || inspecting || (kind !== "document" && (!inspection || !entrypoint))
+          }
+          onClick={() => void upload()}
+        >
           {busy
             ? "Wird verarbeitet…"
             : kind !== "document"
-              ? "Hochladen & KI starten"
+              ? "Hochladen & Mod erstellen"
               : "Datei hochladen"}
         </Button>
       </div>
@@ -224,10 +338,16 @@ export function CvModImportPanel({
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="min-w-0 break-all text-sm font-medium">{job.name}</h3>
-              <Badge variant="outline">{statuses[job.status]}</Badge>
+              <Badge variant="outline">
+                {job.status === "review" && job.approvedVersionId === job.versionId
+                  ? "Freigegeben · verwendbar"
+                  : statuses[job.status]}
+              </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              {job.files.length} Quelldateien · {job.entrypoints.join(", ")}
+              {job.files.length} Quelldateien · Hauptdatei:{" "}
+              {job.selectedEntrypoint ||
+                (job.entrypoints.length === 1 ? job.entrypoints[0] : "noch auswählen")}
             </p>
             <p className="text-xs text-muted-foreground">
               {job.documentType === "cover-template"
@@ -237,6 +357,25 @@ export function CvModImportPanel({
                   : "Ältere Datenanbindung v1"}{" "}
               · Prüf-PDFs und Layout vor Verwendung durchsehen.
             </p>
+            {job.warnings?.map((warning) => (
+              <p key={warning} className="break-words text-xs text-muted-foreground">
+                {warning}
+              </p>
+            ))}
+            {job.status === "uploaded" && job.entrypoints.length > 1 && (
+              <Field label="Hauptdatei vor KI-Start auswählen">
+                <Choice
+                  label={`Hauptdatei für ${job.name}`}
+                  value={job.selectedEntrypoint || ""}
+                  disabled={busy}
+                  onChange={(value) => void mutate(job, "source", value)}
+                  options={[
+                    { value: "", label: "Hauptdatei auswählen" },
+                    ...job.entrypoints.map((value) => ({ value, label: value })),
+                  ]}
+                />
+              </Field>
+            )}
             {job.error && <ErrorNotice error={job.error} />}
             <div className="flex flex-wrap gap-2">
               {job.threadUrl && (
@@ -250,7 +389,11 @@ export function CvModImportPanel({
                 </Button>
               )}
               {job.status === "uploaded" && (
-                <Button size="sm" disabled={busy} onClick={() => void run(job.id, "start")}>
+                <Button
+                  size="sm"
+                  disabled={busy || (!job.selectedEntrypoint && job.entrypoints.length !== 1)}
+                  onClick={() => void run(job.id, "start")}
+                >
                   KI starten
                 </Button>
               )}
@@ -271,13 +414,27 @@ export function CvModImportPanel({
                   Entfernen
                 </Button>
               )}
-              {onSelect && job.status === "review" && job.versionId && (
-                <Button size="sm" onClick={() => onSelect(job.versionId!)}>
-                  {job.documentType === "cover-template"
-                    ? "Für dieses Anschreiben verwenden"
-                    : "Für diese Bewerbung verwenden"}
-                </Button>
-              )}
+              {job.status === "review" &&
+                job.versionId &&
+                job.approvedVersionId !== job.versionId && (
+                  <Button
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void mutate(job, "approve", job.versionId!)}
+                  >
+                    Layout geprüft – Vorlage freigeben
+                  </Button>
+                )}
+              {onSelect &&
+                job.status === "review" &&
+                job.versionId &&
+                job.approvedVersionId === job.versionId && (
+                  <Button size="sm" onClick={() => onSelect(job.versionId!)}>
+                    {job.documentType === "cover-template"
+                      ? "Für dieses Anschreiben verwenden"
+                      : "Für diese Bewerbung verwenden"}
+                  </Button>
+                )}
             </div>
             <ModProvenanceView job={job} />
             {job.checks.length > 0 && (

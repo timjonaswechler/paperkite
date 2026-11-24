@@ -24,6 +24,7 @@ export type CoverMod = {
 };
 export class CoverDocuments {
   resolveMod?: (id: string) => CoverMod;
+  assertModUsable?: (id: string) => void;
   constructor(private store: Store) {
     store.db.exec(
       "CREATE TABLE IF NOT EXISTS cover_documents(app TEXT PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,fields TEXT NOT NULL,source_fingerprint TEXT NOT NULL,mod_id TEXT)",
@@ -230,6 +231,7 @@ export class CoverDocuments {
       "Ungültige Anschreiben-Vorlage",
     );
     if (input.modId !== null) {
+      this.assertModUsable?.(input.modId);
       const mod = this.mod(input.modId);
       return this.commit(id, s.fields, mod.id, s.source, {});
     }

@@ -5,6 +5,7 @@ import { WorkspacePageHeader } from "~/components/WorkspacePageHeader";
 import { Button } from "~/components/ui/button";
 import { Workspace } from "./Workspace";
 import { useApplications } from "./ApplicationsProvider";
+import { CvModImportPanel } from "./components/CvModImportPanel";
 
 export function ApplicationsPage(props: {
   applicationId?: string;
@@ -59,6 +60,17 @@ function ApplicationsPageView({
                 <SquarePen />
                 Neue Bewerbung
               </Button>
+              <details
+                className="w-full max-w-4xl rounded-xl border p-4 text-left"
+                id="vorlagenimporte"
+              >
+                <summary className="cursor-pointer text-sm font-medium">
+                  Eigene Vorlagen & laufende Imports
+                </summary>
+                <div className="mt-4">
+                  <CvModImportPanel templateType="all" />
+                </div>
+              </details>
               {app.applications.length > 0 && (
                 <div className="grid w-full max-w-4xl gap-3 text-left sm:grid-cols-2 lg:grid-cols-3">
                   {app.applications.map((application) => (

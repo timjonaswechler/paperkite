@@ -7,6 +7,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { zipSync } from "fflate";
 import { CvModImports } from "../server/cv-mod-prototype/imports.ts";
+import { Store } from "../server/store.ts";
 import { dockerModBuilder } from "../server/cv-mod-prototype/native.ts";
 import { formBuildFiles } from "../server/cv-form-model.ts";
 import { coverBuildFiles } from "../server/cover-mod.ts";
@@ -168,6 +169,34 @@ test("independent CV/letter originals and bound mods rasterize identically; chan
         for (const [name, bytes] of Object.entries(f.original))
           assert.deepEqual(imports.sourceFile(job.id, name), bytes);
         assert.equal(generations, 1);
+        const store = new Store(path.join(root, label + "-business"));
+        try {
+          store.cv.forms.resolveImported = (id) => imports.reviewedForm(id);
+          store.cover.resolveMod = (id) => imports.reviewedCover(id);
+          store.cv.assertModUsable = (id) => imports.assertUsable(id);
+          store.cover.assertModUsable = (id) => imports.assertUsable(id);
+          const app = store.create({
+            company: "Synthetic offline review",
+            role: label,
+          });
+          const bind = () =>
+            cover
+              ? store.cover.bind(app.id, {
+                  revision: store.app(app.id).revision,
+                  modId: checked.versionId,
+                })
+              : store.cv.bind(
+                  app.id,
+                  store.app(app.id).revision,
+                  checked.versionId,
+                );
+          assert.throws(bind, /freigegeben/);
+          imports.approve(job.id, checked.versionId, checked.updated);
+          assert.equal(bind().modId, checked.versionId);
+          assert.equal(generations, 1);
+        } finally {
+          store.close();
+        }
       } finally {
         await imports.close();
       }
@@ -187,7 +216,9 @@ test("independent CV/letter originals and bound mods rasterize identically; chan
     execFileSync(
       "docker",
       [...common, "--entrypoint", "pdftoppm", pdfImage, "-v"],
-      { stdio: "pipe" },
+      {
+        stdio: "pipe",
+      },
     );
   } finally {
     if (process.env.PAPERKITE_LAYOUT_EVIDENCE) {

@@ -33,7 +33,11 @@ export async function startT3Application(
   process.umask(0o077);
   const config = JSON.parse(
     fs.readFileSync("native-t3/config.json", "utf8"),
-  ) as { version: string; directory: string; sha256: string };
+  ) as {
+    version: string;
+    directory: string;
+    sha256: string;
+  };
   check(config.version === "0.1.10", "Ungeprüfte T3-Laufzeitversion", 500);
   const data = path.resolve(process.env.DATA_DIR || "data");
   const port = Number(process.env.PUBLIC_PORT || 3120),
@@ -110,6 +114,8 @@ export async function startT3Application(
           .prepare("SELECT 1 FROM cover_documents WHERE mod_id LIKE ? LIMIT 1")
           .get("cover:" + id + ".%"),
       );
+    cvStore.cv.assertModUsable = (id) => imports.assertUsable(id);
+    cvStore.cover.assertModUsable = (id) => imports.assertUsable(id);
     cvStore.cv.resolveMod = (id) => imports.reviewed(id);
     cvStore.cover.resolveMod = (id) => imports.reviewedCover(id);
     cvStore.cv.forms.resolveImported = (id) => imports.reviewedForm(id);

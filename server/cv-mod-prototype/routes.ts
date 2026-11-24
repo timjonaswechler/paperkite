@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { Router } from "express";
+import type { Router, Request } from "express";
 import type { NetworkT3Access } from "../t3-access.ts";
 import { check } from "../files.ts";
 import { CvModImports } from "./imports.ts";
@@ -44,7 +44,7 @@ export function cvModRoutes(
     );
   }
   api.get(prefix + "/jobs", (_req, res) => res.json(imports.list()));
-  api.post(prefix + "/jobs", (req, res) => {
+  function uploadBytes(req: Request) {
     check(
       typeof req.body.zipBase64 === "string" &&
         req.body.zipBase64.length <= 12 * 1024 * 1024 &&
@@ -58,6 +58,13 @@ export function cvModRoutes(
       bytes.toString("base64") === req.body.zipBase64,
       "Nicht kanonische Base64-Daten",
     );
+    return bytes;
+  }
+  api.post(prefix + "/inspect", (req, res) => {
+    res.json(imports.inspect(req.body.name, uploadBytes(req)));
+  });
+  api.post(prefix + "/jobs", (req, res) => {
+    const bytes = uploadBytes(req);
     res
       .status(201)
       .json(
@@ -67,6 +74,7 @@ export function cvModRoutes(
           req.body.documentType,
           req.body.targetFormat ??
             (options.prototypeUi ? "bewerbung-cv-mod-prototype-v1" : undefined),
+          { requestId: req.body.requestId, entrypoint: req.body.entrypoint },
         ),
       );
   });
@@ -117,6 +125,24 @@ export function cvModRoutes(
         ),
       );
   });
+  api.post(prefix + "/jobs/:id/source", (req, res) =>
+    res.json(
+      imports.selectSource(
+        String(req.params.id),
+        req.body.entrypoint,
+        req.body.updated,
+      ),
+    ),
+  );
+  api.post(prefix + "/jobs/:id/approve", (req, res) =>
+    res.json(
+      imports.approve(
+        String(req.params.id),
+        req.body.versionId,
+        req.body.updated,
+      ),
+    ),
+  );
   api.post(prefix + "/jobs/:id/start", (req, res) =>
     res.status(202).json(imports.start(String(req.params.id))),
   );
@@ -128,7 +154,9 @@ export function cvModRoutes(
       .type("application/pdf")
       .sendFile(
         imports.artifact(String(req.params.id), String(req.params.case)),
-        { dotfiles: "allow" },
+        {
+          dotfiles: "allow",
+        },
       ),
   );
 }

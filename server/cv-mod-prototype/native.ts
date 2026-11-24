@@ -100,7 +100,7 @@ export function nativeModThreads(options: {
         signal,
       );
       const message =
-        "Lies ADAPTER-CONTRACT.md, BUILD-ENVIRONMENT.json und die Vorlagenquellen unter source/. Erstelle unter mod/ genau das beauftragte Vorlagenformat und die passende LaTeX-Datenanbindung. Verwende die bestehende Vorlage als Layoutbasis, nicht einen Universal-CV. Bei offenen Fragen den NEEDS-INPUT.md-Ablauf aus dem Vertrag verwenden. Keine produktiven Änderungen und keine realen CV-Inhalte als Beispieldaten.";
+        "Lies ADAPTER-CONTRACT.md, BUILD-ENVIRONMENT.json, IMPORT-SOURCE.json und die Vorlagenquellen unter source/. Die in IMPORT-SOURCE.json ausgewählte Hauptdatei ist die verbindliche Layoutreferenz. Kläre fehlende Begleitdateien, Fonts und mehrdeutige Befüllung im selben Thread. Vom Nutzer nachgereichte Dateien dürfen in den abgeleiteten Mod übernommen werden; source/ und das Original niemals verändern. Erstelle unter mod/ genau das beauftragte Vorlagenformat und die passende LaTeX-Datenanbindung. Verwende die bestehende Vorlage als Layoutbasis, nicht einen Universal-CV. Bei offenen Fragen den NEEDS-INPUT.md-Ablauf aus dem Vertrag verwenden. Keine produktiven Änderungen und keine realen CV-Inhalte als Beispieldaten.";
       const launched = JSON.parse(
         await cli(
           [
@@ -149,7 +149,9 @@ export function nativeModThreads(options: {
     remove: async (workspace) => {
       const db = new DatabaseSync(
         path.join(options.home, "userdata", "statev2.sqlite"),
-        { readOnly: true },
+        {
+          readOnly: true,
+        },
       );
       let projects: { project_id: string; deleted_at: string | null }[];
       try {

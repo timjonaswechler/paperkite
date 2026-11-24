@@ -269,14 +269,16 @@ export function CvEditor({
   const modOptions = mods
     .filter(
       (m) =>
-        m.versionId && m.documentType !== "cover-template" && !m.versionId.startsWith("cover:"),
+        m.approvedVersionId &&
+        m.documentType !== "cover-template" &&
+        !m.approvedVersionId.startsWith("cover:"),
     )
     .map((m) => ({
-      value: m.versionId!,
+      value: m.approvedVersionId!,
       label:
-        (m.versionId!.startsWith("form:") ? "Formular · " : "") +
+        (m.approvedVersionId!.startsWith("form:") ? "Formular · " : "") +
         m.name +
-        (m.status === "review" ? "" : " · letzte geprüfte Version"),
+        (m.approvedVersionId === m.versionId ? "" : " · letzter freigegebener Stand"),
     }));
   for (const m of formMods)
     if (!modOptions.some((option) => option.value === m.id))

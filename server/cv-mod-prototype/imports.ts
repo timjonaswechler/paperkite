@@ -10,6 +10,7 @@ import {
   readChangeNotes,
 } from "./provenance.ts";
 import { originalLayoutContract } from "./original-contract.ts";
+import { inspectTemplate } from "./inspection.ts";
 import type { ModProvenance } from "../../shared/api.ts";
 import {
   adapterContract,
@@ -63,6 +64,12 @@ export type ModJob = {
   sourceParsing?: "assets-v2";
   sourceFingerprint: string;
   entrypoints: string[];
+  selectedEntrypoint?: string;
+  warnings?: string[];
+  uploadRequestId?: string;
+  reviewWorkflow?: 1;
+  approvedVersionId?: string;
+  approvedAt?: string;
   files: string[];
   threadId?: string;
   threadUrl?: string;
@@ -167,13 +174,13 @@ export class CvModImports {
     fs.mkdirSync(root, { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(path.join(root, "imports.sqlite"));
     this.db.exec(
-      "PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS versions(id TEXT PRIMARY KEY,import_id TEXT NOT NULL,build_id TEXT NOT NULL,digest TEXT NOT NULL,manifest TEXT NOT NULL,name TEXT NOT NULL); CREATE TABLE IF NOT EXISTS version_provenance(version TEXT PRIMARY KEY,value TEXT NOT NULL)",
+      "PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS versions(id TEXT PRIMARY KEY,import_id TEXT NOT NULL,build_id TEXT NOT NULL,digest TEXT NOT NULL,manifest TEXT NOT NULL,name TEXT NOT NULL); CREATE TABLE IF NOT EXISTS version_provenance(version TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS version_approvals(version TEXT PRIMARY KEY,created TEXT NOT NULL)",
     );
     for (const job of this.list())
       if (["generating", "needs-input", "checking"].includes(job.status)) {
         job.status = "interrupted";
         job.error =
-          "Prototyp wurde neu gestartet. Vorhandenen Thread prüfen; keine automatische neue Modellrunde.";
+          "Server wurde neu gestartet. Vorhandenen Thread prüfen; keine automatische neue Modellrunde.";
         this.save(job);
       }
   }
@@ -315,7 +322,13 @@ export class CvModImports {
       .map((r) => JSON.parse(String(r.value)));
   }
   private save(job: ModJob) {
-    job.updated = new Date().toISOString();
+    const previous = this.db
+      .prepare("SELECT value FROM jobs WHERE id=?")
+      .get(job.id);
+    const last = previous
+      ? Date.parse(JSON.parse(String(previous.value)).updated)
+      : 0;
+    job.updated = new Date(Math.max(Date.now(), last + 1)).toISOString();
     this.db
       .prepare(
         "INSERT INTO jobs VALUES(?,?) ON CONFLICT(id) DO UPDATE SET value=excluded.value",
@@ -327,6 +340,7 @@ export class CvModImports {
     bytes: Buffer,
     kind: unknown,
     targetFormat: unknown = undefined,
+    options: { requestId?: unknown; entrypoint?: unknown } = {},
   ) {
     check(!this.closed, "Prototyp wird beendet", 503);
     check(
@@ -355,7 +369,44 @@ export class CvModImports {
         (targetFormat === "bewerbung-cover-mod-v1"),
       "Zielformat passt nicht zum Vorlagentyp",
     );
-    check(this.list().length < 20, "Prototyp auf 20 Importe begrenzt");
+    check(
+      options.requestId === undefined ||
+        (typeof options.requestId === "string" &&
+          /^[a-f0-9-]{36}$/.test(options.requestId)),
+      "Ungültige Upload-Kennung",
+    );
+    const previous =
+      options.requestId &&
+      this.list().find((job) => job.uploadRequestId === options.requestId);
+    if (previous) {
+      check(
+        previous.name === name &&
+          previous.sourceHash === digest(bytes) &&
+          previous.documentType === kind &&
+          previous.targetFormat === targetFormat &&
+          (options.entrypoint === undefined ||
+            previous.selectedEntrypoint === options.entrypoint),
+        "Upload-Kennung gehört zu anderen Eingaben",
+        409,
+      );
+      return previous;
+    }
+    check(
+      this.list().length < 20,
+      "Maximal 20 Vorlagenimporte; ungenutzte Importe zuerst entfernen",
+    );
+    const inspection = inspectTemplate(name, bytes);
+    const selectedEntrypoint =
+      options.entrypoint ??
+      (inspection.entrypoints.length === 1
+        ? inspection.entrypoints[0]
+        : undefined);
+    check(
+      selectedEntrypoint === undefined ||
+        (typeof selectedEntrypoint === "string" &&
+          inspection.entrypoints.includes(selectedEntrypoint)),
+      "Hauptdatei gehört nicht zum Upload",
+    );
     const archive = readTemplateSource(name, bytes, true),
       id = randomUUID(),
       dir = this.directory(id);
@@ -388,8 +439,16 @@ export class CvModImports {
         updated: now,
         sourceHash: digest(bytes),
         sourceParsing: "assets-v2",
+        reviewWorkflow: 1,
         sourceFingerprint: fingerprint(archive.files),
         entrypoints: archive.entrypoints,
+        ...(typeof selectedEntrypoint === "string"
+          ? { selectedEntrypoint }
+          : {}),
+        warnings: inspection.warnings,
+        ...(typeof options.requestId === "string"
+          ? { uploadRequestId: options.requestId }
+          : {}),
         files: Object.keys(archive.files).sort(),
         checks: [],
       };
@@ -399,6 +458,78 @@ export class CvModImports {
       fs.rmSync(dir, { recursive: true, force: true });
       throw e;
     }
+  }
+  inspect(name: unknown, bytes: Buffer) {
+    check(typeof name === "string" && name.length <= 160, "Dateiname erwartet");
+    return inspectTemplate(name, bytes);
+  }
+  selectSource(id: string, entrypoint: unknown, updated: unknown) {
+    const job = this.get(id);
+    check(
+      job.updated === updated,
+      "Vorlagenimport inzwischen geändert. Neu laden.",
+      409,
+    );
+    check(
+      job.status === "uploaded" && !this.deleting.has(id),
+      "Hauptdatei nur vor dem KI-Start ändern",
+      409,
+    );
+    check(
+      typeof entrypoint === "string" && job.entrypoints.includes(entrypoint),
+      "Hauptdatei gehört nicht zum Upload",
+    );
+    job.selectedEntrypoint = entrypoint;
+    this.save(job);
+    return job;
+  }
+  approve(id: string, version: unknown, updated: unknown) {
+    const job = this.get(id);
+    check(
+      job.updated === updated,
+      "Vorlagenimport inzwischen geändert. Neu laden.",
+      409,
+    );
+    check(
+      job.status === "review" &&
+        job.versionId === version &&
+        !this.active.has(id),
+      "Nur den aktuellen abgeschlossenen Prüfstand freigeben",
+      409,
+    );
+    const checked = this.version(job.versionId!);
+    check(
+      !job.reviewWorkflow || checked.config.applicant,
+      "Profilbindung und Unterschriftsbedarf im vorhandenen Thread ergänzen und erneut prüfen",
+      409,
+    );
+    const now = new Date().toISOString();
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.db
+        .prepare("INSERT OR IGNORE INTO version_approvals VALUES(?,?)")
+        .run(checked.id, now);
+      job.approvedVersionId = checked.id;
+      job.approvedAt = now;
+      this.save(job);
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+    return job;
+  }
+  assertUsable(id: string) {
+    const row = this.db.prepare("SELECT id FROM versions WHERE id=?").get(id);
+    if (!row && !/^(?:form:|cover:)?[a-f0-9-]{36}(?:\.|$)/.test(id)) return;
+    const version = this.version(id);
+    check(
+      this.db
+        .prepare("SELECT 1 FROM version_approvals WHERE version=?")
+        .get(version.id),
+      "Vorlage noch nicht zur Verwendung freigegeben. Prüf-PDFs durchsehen und freigeben.",
+      409,
+    );
   }
   start(id: string) {
     check(!this.closed, "Prototyp wird beendet", 503);
@@ -412,6 +543,28 @@ export class CvModImports {
     );
     check(this.active.size === 0, "Es läuft bereits ein Mod-Auftrag", 429);
     this.originalSources(id, true);
+    const entrypoint =
+      job.selectedEntrypoint ??
+      (job.entrypoints.length === 1 ? job.entrypoints[0] : undefined);
+    check(
+      entrypoint && job.entrypoints.includes(entrypoint),
+      "Vor dem KI-Start eine Hauptdatei auswählen",
+      409,
+    );
+    job.selectedEntrypoint = entrypoint;
+    fs.writeFileSync(
+      path.join(this.directory(id), "workspace/IMPORT-SOURCE.json"),
+      JSON.stringify(
+        {
+          entrypoint,
+          warnings: job.warnings || [],
+          documentType: job.documentType,
+        },
+        null,
+        2,
+      ),
+      { mode: 0o600 },
+    );
     job.status = "generating";
     delete job.error;
     this.save(job);
@@ -758,6 +911,11 @@ export class CvModImports {
         409,
       );
       fs.rmSync(this.directory(id), { recursive: true, force: true });
+      this.db
+        .prepare(
+          "DELETE FROM version_approvals WHERE version IN (SELECT id FROM versions WHERE import_id=?)",
+        )
+        .run(id);
       this.db
         .prepare(
           "DELETE FROM version_provenance WHERE version IN (SELECT id FROM versions WHERE import_id=?)",

@@ -183,8 +183,8 @@ function PreparedCoverLetterEditor({ app, autoBuild, onRefresh, onAdvanced }: Ed
   }
   const editable = fields && (!conversion || replace);
   const choices = mods
-    .filter((job) => job.documentType === "cover-template" && job.versionId)
-    .map((job) => ({ value: job.versionId!, label: job.name }));
+    .filter((job) => job.documentType === "cover-template" && job.approvedVersionId)
+    .map((job) => ({ value: job.approvedVersionId!, label: job.name }));
   if (modId && !choices.some((option) => option.value === modId))
     choices.push({ value: modId, label: modName || "Gesicherte Anschreiben-Vorlage" });
   const names: { key: keyof CoverLetter; label: string; rows: number }[] = [

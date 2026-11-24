@@ -272,6 +272,10 @@ export type CvModJob = {
   updated: string;
   files: string[];
   entrypoints: string[];
+  selectedEntrypoint?: string;
+  warnings?: string[];
+  approvedVersionId?: string;
+  approvedAt?: string;
   threadId?: string;
   threadUrl?: string;
   error?: string;

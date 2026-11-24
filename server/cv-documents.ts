@@ -226,6 +226,7 @@ export function validateCv(value: unknown): asserts value is CvData {
 export class CvDocuments {
   readonly forms: CvFormMods;
   resolveMod?: (id: string) => ReviewedCvMod;
+  assertModUsable?: (id: string) => void;
   constructor(private store: Store) {
     this.forms = new CvFormMods(store.db);
     store.db.exec(
@@ -650,6 +651,7 @@ export class CvDocuments {
     check(modId === null || typeof modId === "string", "Ungültige Mod-ID");
     let version: string | null = null;
     if (modId !== null) {
+      this.assertModUsable?.(modId);
       if (isFormMod(modId)) {
         const mod = this.forms.mod(modId);
         validateFormValues(mod.spec, this.formValues(id));
