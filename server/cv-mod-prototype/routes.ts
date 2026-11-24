@@ -77,6 +77,46 @@ export function cvModRoutes(
   api.get(prefix + "/jobs/:id", (req, res) =>
     res.json(imports.get(String(req.params.id))),
   );
+  api.get(prefix + "/jobs/:id/original", (req, res) => {
+    const original = imports.originalUpload(String(req.params.id));
+    res
+      .set("Cache-Control", "private, no-store")
+      .attachment(path.basename(original.name))
+      .send(original.bytes);
+  });
+  api.get(prefix + "/jobs/:id/source", (req, res) => {
+    check(typeof req.query.path === "string", "Dateipfad erwartet");
+    res
+      .set("Cache-Control", "private, no-store")
+      .attachment(path.basename(req.query.path))
+      .send(imports.sourceFile(String(req.params.id), req.query.path));
+  });
+  api.get(prefix + "/jobs/:id/provenance", (req, res) => {
+    check(
+      req.query.version === undefined || typeof req.query.version === "string",
+      "Version erwartet",
+    );
+    res
+      .set("Cache-Control", "private, no-store")
+      .json(imports.provenance(String(req.params.id), req.query.version));
+  });
+  api.get(prefix + "/jobs/:id/diff", (req, res) => {
+    check(
+      typeof req.query.path === "string" &&
+        (req.query.version === undefined ||
+          typeof req.query.version === "string"),
+      "Dateipfad und Version erwartet",
+    );
+    res
+      .set("Cache-Control", "private, no-store")
+      .json(
+        imports.difference(
+          String(req.params.id),
+          req.query.path,
+          req.query.version,
+        ),
+      );
+  });
   api.post(prefix + "/jobs/:id/start", (req, res) =>
     res.status(202).json(imports.start(String(req.params.id))),
   );

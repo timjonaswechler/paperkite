@@ -258,6 +258,21 @@ export type CvState = {
   modWarning?: string;
   applicantBindings?: ApplicantBindings;
 };
+export type ModFileChange = {
+  path: string;
+  status: "added" | "changed" | "removed" | "unchanged";
+  originalSha256: string | null;
+  modSha256: string | null;
+};
+export type ModProvenance = {
+  versionId: string | null;
+  sourceHash: string;
+  sourceFingerprint: string;
+  modDigest: string;
+  workingSourceIntact: boolean;
+  notes: string | null;
+  files: ModFileChange[];
+};
 export type CvModJob = {
   id: string;
   name: string;

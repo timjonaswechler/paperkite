@@ -20,7 +20,25 @@ export function safeRelative(name: unknown): asserts name is string {
     "Unsicherer Dateipfad im Vorlagenpaket",
   );
 }
-export function readTemplateZip(bytes: Buffer) {
+export function readTemplateSource(
+  name: string,
+  bytes: Buffer,
+  sourceAssets = false,
+) {
+  if (/\.zip$/i.test(name)) return readTemplateZip(bytes, sourceAssets);
+  check(/\.tex$/i.test(name), "LaTeX-ZIP oder einzelne .tex-Datei erwartet");
+  safeRelative(name);
+  check(
+    !name.includes("/") && bytes.length > 0 && bytes.length <= shaFileLimit,
+    "Einzelne TeX-Datei bis 4 MiB erwartet",
+  );
+  check(
+    /\\documentclass\b/.test(bytes.toString("latin1")),
+    "TeX-Datei enthält keine LaTeX-Hauptdatei",
+  );
+  return { files: { [name]: Buffer.from(bytes) }, entrypoints: [name] };
+}
+export function readTemplateZip(bytes: Buffer, sourceAssets = false) {
   check(
     bytes.length > 0 && bytes.length <= MAX_PACKED,
     "ZIP benötigt 1 Byte bis 8 MiB",
@@ -108,9 +126,13 @@ export function readTemplateZip(bytes: Buffer) {
       )
     )
       continue;
-    if (/\.(?:aux|log|out|synctex\.gz|pdf|sh|md)$/i.test(raw)) continue;
+    if (/\.(?:aux|log|out|synctex\.gz|sh)$/i.test(raw)) continue;
+    if (!sourceAssets && /\.(?:pdf|md)$/i.test(raw)) continue;
     check(
-      /\.(?:tex|lua|sty|cls|cfg|def|bib|bst|png|jpe?g|ttf|otf)$/i.test(raw),
+      (sourceAssets
+        ? /\.(?:tex|lua|sty|cls|cfg|def|bib|bst|png|jpe?g|ttf|otf|pdf|json|md|txt)$/i
+        : /\.(?:tex|lua|sty|cls|cfg|def|bib|bst|png|jpe?g|ttf|otf)$/i
+      ).test(raw),
       "Nicht unterstützter Quelldateityp: " + raw,
     );
     check(data.length <= shaFileLimit, "Einzeldatei größer als 4 MiB");

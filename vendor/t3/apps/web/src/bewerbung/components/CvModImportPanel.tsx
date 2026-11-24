@@ -6,6 +6,7 @@ import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Choice, ErrorNotice, Field } from "./Controls";
 import { uploadLibraryDocument } from "./DocumentLibrary";
+import { ModProvenanceView } from "./ModProvenanceView";
 
 const statuses: Record<CvModJob["status"], string> = {
   uploaded: "Bereit zum KI-Start",
@@ -278,6 +279,7 @@ export function CvModImportPanel({
                 </Button>
               )}
             </div>
+            <ModProvenanceView job={job} />
             {job.checks.length > 0 && (
               <details>
                 <summary className="cursor-pointer text-xs text-muted-foreground">

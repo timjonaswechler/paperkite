@@ -688,6 +688,68 @@ test("prototype HTTP API rejects restricted credentials, wrong origin and non-CV
       ).headers.get("content-type"),
       "application/pdf",
     );
+    const originalDownload = await fetch(
+      url + "/jobs/" + job.id + "/original",
+      { headers },
+    );
+    assert.deepEqual(
+      Buffer.from(await originalDownload.arrayBuffer()),
+      input(),
+    );
+    assert.equal(
+      originalDownload.headers.get("cache-control"),
+      "private, no-store",
+    );
+    assert.match(
+      originalDownload.headers.get("content-disposition")!,
+      /attachment/,
+    );
+    assert.equal(
+      (await fetch(url + "/jobs/" + job.id + "/original")).status,
+      403,
+    );
+    assert.equal(
+      (
+        await fetch(url + "/jobs/" + job.id + "/original", {
+          headers: { ...headers, authorization: "Bearer synthetic-restricted" },
+        })
+      ).status,
+      403,
+    );
+    const sourceDownload = await fetch(
+      url + "/jobs/" + job.id + "/source?path=main.tex",
+      { headers },
+    );
+    assert.match(await sourceDownload.text(), /Original/);
+    assert.equal(
+      (
+        await fetch(url + "/jobs/" + job.id + "/source?path=..%2Fescape.tex", {
+          headers,
+        })
+      ).status,
+      400,
+    );
+    const provenance = (await (
+      await fetch(url + "/jobs/" + job.id + "/provenance", { headers })
+    ).json()) as {
+      versionId: string;
+      files: { path: string; status: string }[];
+    };
+    assert(provenance.versionId);
+    assert(
+      provenance.files.some(
+        (file) => file.path === "main.tex" && file.status === "removed",
+      ),
+    );
+    const changed = (await (
+      await fetch(url + "/jobs/" + job.id + "/diff?path=main.tex", { headers })
+    ).json()) as { diff: string };
+    assert.match(changed.diff, /-.*Original/);
+    assert.equal(
+      starts,
+      1,
+      "Auditing originals must not start another model round",
+    );
   } finally {
     await new Promise<void>((r) => server.close(() => r()));
     await imports.close();

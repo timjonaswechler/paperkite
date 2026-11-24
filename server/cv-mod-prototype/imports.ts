@@ -3,7 +3,14 @@ import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { check } from "../files.ts";
-import { readTemplateZip, safeRelative, shaFileLimit } from "./archive.ts";
+import { readTemplateSource, safeRelative, shaFileLimit } from "./archive.ts";
+import {
+  sourceChanges,
+  fileDifference,
+  readChangeNotes,
+} from "./provenance.ts";
+import { originalLayoutContract } from "./original-contract.ts";
+import type { ModProvenance } from "../../shared/api.ts";
 import {
   adapterContract,
   buildCases,
@@ -53,6 +60,7 @@ export type ModJob = {
   created: string;
   updated: string;
   sourceHash: string;
+  sourceParsing?: "assets-v2";
   sourceFingerprint: string;
   entrypoints: string[];
   files: string[];
@@ -111,7 +119,7 @@ export function collect(root: string) {
           "Mod-Dateien zu groß",
         );
         check(
-          /\.(tex|lua|sty|cls|cfg|def|json|png|jpe?g|ttf|otf|bib|bst)$/i.test(
+          /\.(tex|lua|sty|cls|cfg|def|json|png|jpe?g|ttf|otf|bib|bst|pdf|md|txt)$/i.test(
             name,
           ),
           "Nicht unterstützter Mod-Dateityp",
@@ -159,7 +167,7 @@ export class CvModImports {
     fs.mkdirSync(root, { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(path.join(root, "imports.sqlite"));
     this.db.exec(
-      "PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS versions(id TEXT PRIMARY KEY,import_id TEXT NOT NULL,build_id TEXT NOT NULL,digest TEXT NOT NULL,manifest TEXT NOT NULL,name TEXT NOT NULL)",
+      "PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS versions(id TEXT PRIMARY KEY,import_id TEXT NOT NULL,build_id TEXT NOT NULL,digest TEXT NOT NULL,manifest TEXT NOT NULL,name TEXT NOT NULL); CREATE TABLE IF NOT EXISTS version_provenance(version TEXT PRIMARY KEY,value TEXT NOT NULL)",
     );
     for (const job of this.list())
       if (["generating", "needs-input", "checking"].includes(job.status)) {
@@ -178,6 +186,127 @@ export class CvModImports {
     const row = this.db.prepare("SELECT value FROM jobs WHERE id=?").get(id);
     check(row, "Vorlagenimport nicht gefunden", 404);
     return JSON.parse(String(row.value));
+  }
+  originalUpload(id: string) {
+    const job = this.get(id),
+      file = path.join(
+        this.directory(id),
+        /\.tex$/i.test(job.name) ? "original.tex" : "original.zip",
+      );
+    const stat = fs.lstatSync(file);
+    check(
+      stat.isFile() && !stat.isSymbolicLink() && stat.size <= 8 * 1024 * 1024,
+      "Originaldatei ist beschädigt",
+      409,
+    );
+    const bytes = fs.readFileSync(file);
+    check(
+      digest(bytes) === job.sourceHash,
+      "Originaldatei wurde verändert; keine Übernahme",
+      409,
+    );
+    return { name: job.name, bytes };
+  }
+  private originalSources(id: string, working = false) {
+    const job = this.get(id),
+      uploaded = this.originalUpload(id);
+    const directory = path.join(this.directory(id), "original");
+    if (!fs.existsSync(directory)) {
+      const files = readTemplateSource(
+        job.name,
+        uploaded.bytes,
+        job.sourceParsing === "assets-v2",
+      ).files;
+      check(
+        fingerprint(files) === job.sourceFingerprint,
+        "Originalquellen stimmen nicht mit dem Upload überein",
+        409,
+      );
+      const temporary = directory + "." + randomUUID();
+      try {
+        put(temporary, files);
+        fs.renameSync(temporary, directory);
+      } finally {
+        fs.rmSync(temporary, { recursive: true, force: true });
+      }
+    }
+    const files = collect(directory);
+    check(
+      fingerprint(files) === job.sourceFingerprint,
+      "Geschützte Originalquellen wurden verändert",
+      409,
+    );
+    if (working)
+      check(
+        fingerprint(
+          collect(path.join(this.directory(id), "workspace/source")),
+        ) === job.sourceFingerprint,
+        "Originalquellen in der Arbeitskopie wurden verändert; keine Übernahme",
+        409,
+      );
+    return files;
+  }
+  provenance(id: string, versionId?: string): ModProvenance {
+    const job = this.get(id),
+      original = this.originalSources(id);
+    const selected = versionId || job.versionId;
+    let files: Record<string, Buffer>,
+      notes: string | null = null;
+    if (selected) {
+      check(
+        this.db
+          .prepare("SELECT 1 FROM versions WHERE id=? AND import_id=?")
+          .get(selected, id),
+        "Version gehört nicht zu diesem Import",
+        404,
+      );
+      files = this.version(selected).files;
+      const row = this.db
+        .prepare("SELECT value FROM version_provenance WHERE version=?")
+        .get(selected);
+      if (row) notes = (JSON.parse(String(row.value)) as ModProvenance).notes;
+    } else {
+      files = collect(path.join(this.directory(id), "workspace/mod"));
+      notes = readChangeNotes(path.join(this.directory(id), "workspace"));
+    }
+    let workingSourceIntact = false;
+    try {
+      workingSourceIntact =
+        fingerprint(
+          collect(path.join(this.directory(id), "workspace/source")),
+        ) === job.sourceFingerprint;
+    } catch {
+      /* report damaged working copies without substituting them for originals */
+    }
+    return {
+      versionId: selected || null,
+      sourceHash: job.sourceHash,
+      sourceFingerprint: job.sourceFingerprint,
+      modDigest: fingerprint(files),
+      workingSourceIntact,
+      notes,
+      files: sourceChanges(original, files),
+    };
+  }
+  sourceFile(id: string, name: string) {
+    safeRelative(name);
+    const files = this.originalSources(id);
+    check(Object.hasOwn(files, name), "Originaldatei nicht gefunden", 404);
+    return files[name]!;
+  }
+  difference(id: string, name: string, versionId?: string) {
+    safeRelative(name);
+    const report = this.provenance(id, versionId);
+    check(
+      report.files.some((file) => file.path === name),
+      "Datei nicht gefunden",
+      404,
+    );
+    const original = this.originalSources(id);
+    const files = report.versionId
+      ? this.version(report.versionId).files
+      : collect(path.join(this.directory(id), "workspace/mod"));
+    return { path: name, ...fileDifference(name, original[name], files[name]) };
   }
   list(): ModJob[] {
     return this.db
@@ -208,8 +337,8 @@ export class CvModImports {
       typeof name === "string" &&
         name.length > 0 &&
         name.length <= 160 &&
-        name.toLowerCase().endsWith(".zip"),
-      "Vorlage als LaTeX-ZIP hochladen",
+        /\.(zip|tex)$/i.test(name),
+      "Vorlage als LaTeX-ZIP oder einzelne .tex-Datei hochladen",
     );
     targetFormat ??=
       kind === "cover-template"
@@ -227,22 +356,27 @@ export class CvModImports {
       "Zielformat passt nicht zum Vorlagentyp",
     );
     check(this.list().length < 20, "Prototyp auf 20 Importe begrenzt");
-    const archive = readTemplateZip(bytes),
+    const archive = readTemplateSource(name, bytes, true),
       id = randomUUID(),
       dir = this.directory(id);
     try {
+      put(path.join(dir, "original"), archive.files);
       put(path.join(dir, "workspace", "source"), archive.files);
       fs.mkdirSync(path.join(dir, "workspace", "mod"), { mode: 0o700 });
       fs.writeFileSync(
         path.join(dir, "workspace", "ADAPTER-CONTRACT.md"),
-        targetFormat === "bewerbung-cover-mod-v1"
+        (targetFormat === "bewerbung-cover-mod-v1"
           ? coverAdapterContract
           : targetFormat === "bewerbung-cv-form-v2"
             ? formAdapterContract
-            : adapterContract,
+            : adapterContract) + originalLayoutContract,
         { mode: 0o600 },
       );
-      fs.writeFileSync(path.join(dir, "original.zip"), bytes, { mode: 0o600 });
+      fs.writeFileSync(
+        path.join(dir, /\.tex$/i.test(name) ? "original.tex" : "original.zip"),
+        bytes,
+        { mode: 0o600 },
+      );
       const now = new Date().toISOString();
       const job: ModJob = {
         id,
@@ -253,6 +387,7 @@ export class CvModImports {
         created: now,
         updated: now,
         sourceHash: digest(bytes),
+        sourceParsing: "assets-v2",
         sourceFingerprint: fingerprint(archive.files),
         entrypoints: archive.entrypoints,
         files: Object.keys(archive.files).sort(),
@@ -276,25 +411,30 @@ export class CvModImports {
       409,
     );
     check(this.active.size === 0, "Es läuft bereits ein Mod-Auftrag", 429);
+    this.originalSources(id, true);
     job.status = "generating";
     delete job.error;
     this.save(job);
     this.spawn(id, async (signal) => {
-      await this.threads.generate(
-        path.join(this.directory(id), "workspace"),
-        (threadId, threadUrl) => {
-          const j = this.get(id);
-          j.threadId = threadId;
-          j.threadUrl = threadUrl;
-          this.save(j);
-        },
-        () => {
-          const j = this.get(id);
-          j.status = "needs-input";
-          this.save(j);
-        },
-        signal,
-      );
+      try {
+        await this.threads.generate(
+          path.join(this.directory(id), "workspace"),
+          (threadId, threadUrl) => {
+            const j = this.get(id);
+            j.threadId = threadId;
+            j.threadUrl = threadUrl;
+            this.save(j);
+          },
+          () => {
+            const j = this.get(id);
+            j.status = "needs-input";
+            this.save(j);
+          },
+          signal,
+        );
+      } finally {
+        this.originalSources(id, true);
+      }
       await this.verify(id, signal);
     });
     return this.get(id);
@@ -336,11 +476,7 @@ export class CvModImports {
     job.checks = [];
     this.save(job);
     const workspace = path.join(this.directory(id), "workspace");
-    check(
-      fingerprint(collect(path.join(workspace, "source"))) ===
-        job.sourceFingerprint,
-      "Originalquellen wurden verändert; keine Übernahme",
-    );
+    const original = this.originalSources(id, true);
     const questions = path.join(workspace, "NEEDS-INPUT.md");
     if (fs.existsSync(questions)) {
       const stat = fs.lstatSync(questions);
@@ -364,6 +500,7 @@ export class CvModImports {
         "cv-build.json",
         "cover-build.json",
         "cover-mod.json",
+        "MOD-CHANGES.md",
       ].some((n) => Object.hasOwn(files, n)),
       "Reservierter Mod-Buildpfad",
     );
@@ -545,6 +682,8 @@ export class CvModImports {
       ),
       "Adapterprüfung fehlgeschlagen; vorhandenen Thread überarbeiten lassen und erneut prüfen",
     );
+    this.originalSources(id, true);
+    const notes = readChangeNotes(workspace);
     job.versionId =
       (config.format === "bewerbung-cover-mod-v1"
         ? "cover:"
@@ -554,18 +693,37 @@ export class CvModImports {
       job.id +
       "." +
       buildId;
-    this.db
-      .prepare("INSERT INTO versions VALUES(?,?,?,?,?,?)")
-      .run(
-        job.versionId,
-        job.id,
-        buildId,
-        hash,
-        JSON.stringify(config),
-        job.name,
-      );
-    job.status = "review";
-    this.save(job);
+    const provenance: ModProvenance = {
+      versionId: job.versionId,
+      sourceHash: job.sourceHash,
+      sourceFingerprint: job.sourceFingerprint,
+      modDigest: hash,
+      workingSourceIntact: true,
+      notes,
+      files: sourceChanges(original, files),
+    };
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.db
+        .prepare("INSERT INTO versions VALUES(?,?,?,?,?,?)")
+        .run(
+          job.versionId,
+          job.id,
+          buildId,
+          hash,
+          JSON.stringify(config),
+          job.name,
+        );
+      this.db
+        .prepare("INSERT INTO version_provenance VALUES(?,?)")
+        .run(job.versionId, JSON.stringify(provenance));
+      job.status = "review";
+      this.save(job);
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
   }
   async remove(id: string, updated: unknown) {
     check(!this.closed, "Vorlagenimport wird beendet", 503);
@@ -600,6 +758,11 @@ export class CvModImports {
         409,
       );
       fs.rmSync(this.directory(id), { recursive: true, force: true });
+      this.db
+        .prepare(
+          "DELETE FROM version_provenance WHERE version IN (SELECT id FROM versions WHERE import_id=?)",
+        )
+        .run(id);
       this.db.prepare("DELETE FROM versions WHERE import_id=?").run(id);
       this.db.prepare("DELETE FROM jobs WHERE id=?").run(id);
     });
@@ -630,6 +793,7 @@ export class CvModImports {
       "Vorlagenimport wird gelöscht",
       409,
     );
+    this.originalSources(String(row.import_id));
     const base = path.join(
       this.directory(String(row.import_id)),
       "builds",

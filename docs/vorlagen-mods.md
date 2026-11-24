@@ -86,7 +86,7 @@ Individuelles TeX wird beim Binden und bei Textänderungen nicht überschrieben 
 
 ## Zielumfang eines Mods
 
-Die erste integrierte Fassung enthält Original-ZIP, Quellenhashes, Manifest, Adapterdateien und feste Prüfstände. V2 ergänzt den vollständigen deklarativen Formularvertrag und dessen Datenanbindung. Separate Lizenz-/Laufzeitmetadaten und teilbare Exporte sind weiterhin nicht Teil dieses begrenzten Formats. Das weitergehende Ziel ist ein versioniertes Vorlagenpaket mit:
+Die integrierte Fassung enthält den unveränderten Originalupload, getrennte geschützte Quellen, Manifest, Adapterdateien und feste Prüfstände. Der Speicherkern unterstützt ZIP und einzelne `.tex`-Dateien; die Auswahl einzelner `.tex`-Uploads in der Oberfläche gehört zum Importablauf aus #11. V2 ergänzt den vollständigen deklarativen Formularvertrag und dessen Datenanbindung. Separate Lizenz-/Laufzeitmetadaten und teilbare Exporte sind weiterhin nicht Teil dieses begrenzten Formats. Das weitergehende Ziel ist ein versioniertes Vorlagenpaket mit:
 
 - LaTeX-Layout und benötigten Dateien/Assets; Herkunft und Lizenz werden festgehalten.
 - Einem Manifest für Einstiegspunkt, Engine, benötigte Laufzeit, CV-Schemaversion und Adapter-Schnittstellenversion.
@@ -94,7 +94,17 @@ Die erste integrierte Fassung enthält Original-ZIP, Quellenhashes, Manifest, Ad
 - Deklarative Angaben zu unterstützten Abschnitten/Feldern, optionalen Erweiterungen, Textabsätzen/Stichpunktlisten/gemischten Inhalten und deren Darstellung im Editor sowie im PDF. Die eigene Vorlage ist nicht das globale Pflichtschema.
 - Synthetischen Beispieldaten, einem Prüfbericht und einer Vorschau der geprüften Mod-Version.
 
-Das hochgeladene Original bleibt als nachvollziehbarer Ausgangsstand erhalten. Eine nötige Integrationskopie gehört zur neuen Mod-Version. Normale Bearbeitung von CV-Inhalten verändert weder diese Vorlage noch den Adapter.
+### Original und abgeleiteter Stand prüfen
+
+Das hochgeladene Original bleibt als nachvollziehbarer Ausgangsstand erhalten. Rohupload und normalisierte Quelldateien liegen getrennt außerhalb des Agentenworkspaces; `workspace/source/` ist nur eine unabhängige Arbeitskopie. Hashprüfungen kontrollieren Upload, geschützte Quellen und Arbeitskopie vor/nach Agentenarbeit sowie nach den asynchronen Builds. Auch ein während der Prüfung beschädigtes Original verhindert die Veröffentlichung. Die normalen nativen Werkzeugrechte bleiben unverändert; die Ablage ist keine zusätzliche Agenten-Toolsandbox.
+
+**Original und Mod-Änderungen** beim Import zeigt den konkret geprüften Versionsstand, Datei-Hashes und hinzugefügte/geänderte/entfernte/unveränderte Dateien. Textdateien lassen sich als tatsächlicher Diff ansehen, Binärdateien werden anhand ihrer Hashes unterschieden. Originalupload und einzelne Originaldateien bleiben separat herunterladbar. Der Agent soll Änderungen in `MOD-CHANGES.md` im Workspace-Hauptverzeichnis begründen; die App speichert diese Beschreibung mit dem Prüfstand, nicht im wiederverwendbaren Mod. Fehlende Begründungen werden sichtbar angezeigt. Ältere Versionen behalten ihre Beschreibung und Dateien auch nach einer neuen oder fehlgeschlagenen Prüfung. Ein beschädigter Arbeitsstand ersetzt niemals das geschützte Original. Bei Altimporten wird eine fehlende Schutzkopie ausschließlich aus dem hashgeprüften Archiv rekonstruiert, nicht aus möglicherweise veränderten Arbeitsquellen. Die historische Quellenauswahl bleibt dabei erhalten. Neue Uploads bewahren zusätzlich PDF-Bildassets, JSON-Daten sowie README-/Lizenztexte auf; bekannte Build-/Archivordner und ausführbare Shellskripte bleiben aus der Arbeitskopie ausgeschlossen, im Rohupload aber unverändert enthalten.
+
+Ein erfolgreicher Datei-/Datencheck ist **keine automatische Layoutgarantie**. Die Entwicklung verwendet unabhängig formulierte synthetische CV-/Brief-Originale mit Schrift, Bild und Begleitdateien. [`compare-layout-pdfs.py`](../scripts/compare-layout-pdfs.py) vergleicht Original und Mod bei identischen Referenzinhalten mit gepinntem PDF-Image, 150 DPI und null Pixeltoleranz über alle Seiten; PDF-Metadaten/Objektreihenfolge sind unerheblich. Eine absichtlich verschobene Layoutkante muss fehlschlagen. Dieser Entwicklungsevaluator schreibt keine Standardvorlagen oder Laufzeit-/Iterationsgrenzen für spätere Nutzerimporte vor. Bei echten Uploads bleiben das jeweilige Original, die Datenprüfungen und die Sichtprüfung maßgeblich.
+
+Ein leeres Anschreiben erfordert nicht grundsätzlich ein Beispiel. Sind Befüllung und Einfügestellen aus dessen Makros nicht zuverlässig erkennbar, fordert der Agent im bestehenden Thread gezielt ein ausgefülltes Nutzerbeispiel an, statt Briefinhalte oder eine Ersatzgestaltung zu erfinden.
+
+Eine nötige Integrationskopie gehört zur neuen Mod-Version. Normale Bearbeitung von CV-Inhalten verändert weder diese Vorlage noch den Adapter.
 
 ## Importablauf und Zielumfang
 
