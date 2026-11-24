@@ -1,6 +1,7 @@
 {
   "name": "@paperkite/contracts",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "exports": {
     "./runtime": {

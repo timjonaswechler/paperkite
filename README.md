@@ -16,4 +16,4 @@ T3 liegt unverändert als Git-Submodul unter `vendor/t3/`; der genaue Stand steh
 - [Aktueller Updateablauf](docs/operations/upstream.md)
 - [Geerbte Entwicklungsregeln](AGENTS.md)
 
-Die [MIT-Lizenz](vendor/t3/LICENSE), [Drittlizenzen](vendor/t3/third-party-licenses/) und [Markenbedingungen](vendor/t3/TRADEMARK.md) bleiben beim Original. Diese Quelle ist keine offizielle T3-Distribution.
+Die eigenen Paperkite-Quellen stehen unter der [MIT-Lizenz](LICENSE). T3s eigene [MIT-Lizenz](vendor/t3/LICENSE), [Drittlizenzen](vendor/t3/third-party-licenses/) und [Markenbedingungen](vendor/t3/TRADEMARK.md) bleiben beim Original. Diese Quelle ist keine offizielle T3-Distribution.

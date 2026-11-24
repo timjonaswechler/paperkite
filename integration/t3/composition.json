@@ -12,6 +12,7 @@
     { "source": "tooling", "target": "paperkite/tooling" },
     { "source": "docs", "target": "paperkite/docs" },
     { "source": "README.md", "target": "paperkite/README.md" },
+    { "source": "LICENSE", "target": "paperkite/LICENSE" },
     { "source": "AGENTS.md", "target": "paperkite/AGENTS.md" },
     {
       "source": "integration/t3/composition.json",

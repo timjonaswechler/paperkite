@@ -1,6 +1,7 @@
 {
   "name": "@paperkite/core",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "exports": {
     "./RuntimePolicy": {
