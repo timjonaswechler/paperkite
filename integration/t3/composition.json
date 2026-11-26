@@ -1,10 +1,16 @@
 {
   "productLock": "integration/t3/product-lock.yaml",
   "additions": [
+    {
+      "source": "integration/t3/overrides/apps/server/src/workspace/KnownWorkspaces.test.ts",
+      "target": "apps/server/src/workspace/KnownWorkspaces.test.ts"
+    },
     { "source": "apps/web/src", "target": "apps/web/src" },
+    { "source": "apps/web/tsr.config.json", "target": "apps/web/tsr.config.json" },
     { "source": "apps/server/src/paperkite", "target": "apps/server/src/paperkite" },
     { "source": "packages", "target": "packages" },
     { "source": "integration/t3/server", "target": "apps/server/src/paperkite/integration" },
+    { "source": "integration/t3/scripts", "target": "scripts/paperkite" },
     {
       "source": "integration/t3/upstream.json",
       "target": "apps/server/src/paperkite/integration/upstream.json"
@@ -27,6 +33,1672 @@
   ],
   "overrides": [
     {
+      "source": "integration/t3/overrides/apps/web/src/components/projectScriptEditor.tsx",
+      "target": "apps/web/src/components/projectScriptEditor.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "71c5cc4d268b478f4f544c4bd1cc926be150318efe6df3f13007b77aa83f2170",
+      "reason": "Remove worktree-creation and worktree-settlement script controls while preserving ordinary script editing and roundtripping existing stored legacy hook values."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/projectScriptEditor.browser.test.tsx",
+      "target": "apps/web/src/components/projectScriptEditor.browser.test.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "60500e36d12a040929a9b53d7f22962f5ba8f904f5d956271b8521e6d2e6f40b",
+      "reason": "Exercise the real script editor without worktree controls and protect existing legacy metadata from silent cleanup while retaining save lifecycle coverage."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/index.css",
+      "target": "apps/web/src/index.css",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "6772aff7ff5b121e59c811bee1ccd20dd03028f9f8e9ee5b0774c0ea0967de64",
+      "reason": "Keep every application source in Tailwind discovery while explicitly excluding generated output and installed dependencies; profiling and an isolated scanner reproduction identified those recursive inputs as the build memory blowup."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/cli/thread.ts",
+      "target": "apps/server/src/cli/thread.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "e575707a29f663719beb94cd9da2ed2f0023e7958c18d6c925bd19883eb82bd0",
+      "reason": "Remove active Git checkout discovery, branch/worktree launch flags and metadata text output while retaining ordinary registered-folder thread commands."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/cli/thread.test.ts",
+      "target": "apps/server/src/cli/thread.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "030b7b6d6b78747a5b16d5bfaed25c51c84b86537557283c01fbd6a610b7ae5c",
+      "reason": "Enforce registered-folder-only resolution, pre-auth legacy-flag rejection and text/JSON compatibility while retaining unaffected CLI behavior."
+    },
+    {
+      "source": "integration/t3/overrides/scripts/build-desktop-artifact.ts",
+      "target": "scripts/build-desktop-artifact.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "152811e37051ecda727824fb50dc8cde07251d504fdb9f0afbf7728cea50ff33",
+      "reason": "Keep inherited tooling typechecked after removing the finder dependency, with explicit typed rejection of unsupported native desktop packaging instead of restoring a Git library or silently succeeding. No desktop distribution is enabled."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/workspace/WorkspaceSearchIndex.test.ts",
+      "target": "apps/server/src/workspace/WorkspaceSearchIndex.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "e9699befea38eb0287116de697b1a3323f71df88ccda3e7c2a52ba6e8efc4d14",
+      "reason": "Test real cold/warm folder and content search, passive exclusion filters, bounded regex execution and cancellation without a Git-backed native finder."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/workspace/WorkspaceSearchIndex.ts",
+      "target": "apps/server/src/workspace/WorkspaceSearchIndex.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "c0d5dae6c337e7967f91505152f3acfa58e83f2dce15dd6a201ba58609e93bf0",
+      "reason": "Replace the libgit2-backed finder and Git grep fallback with asynchronous folder snapshots and bounded content workers using passive file-filter metadata only."
+    },
+    {
+      "source": "integration/t3/overrides/pnpm-workspace.yaml",
+      "target": "pnpm-workspace.yaml",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "07c5f7f4c3b8dfb8fb4a40f7430ad01ad835f28589ccfd3ffed1116d0906dde5",
+      "reason": "Retire only the removed Git-backed finder dependency's override and patch registration; retain all other upstream versions, patches and dependency security policy."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/workspace/IgnorePatterns.ts",
+      "target": "apps/server/src/workspace/IgnorePatterns.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "c472e1a922c5452fa33a3441ea617d5f38a86fdcf3af31ac3a1c9ced3825d2e7",
+      "reason": "Extend bounded passive file-filter matching to POSIX classes without introducing a Git engine or backtracking regex."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/workspace/IgnorePatterns.test.ts",
+      "target": "apps/server/src/workspace/IgnorePatterns.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "b1db49c53258d401d4f28c1d886127760ebf1b978f1e7b79a6ecc2160e6ffd81",
+      "reason": "Cover POSIX-class ignore compatibility while preserving the existing bounded matcher regression suite."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/CheckpointRollbackService.test.ts",
+      "target": "apps/server/src/orchestration-v2/CheckpointRollbackService.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "6d353fda72f7f1d8365a055dc7f835dd0b058282e473afc4227007d3b2367344",
+      "reason": "Replace restoration waits with fail-fast rejection before allocation/provider access while retaining conversation-history rollback coverage."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/ThreadLaunchService.test.ts",
+      "target": "apps/server/src/orchestration-v2/ThreadLaunchService.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "897e34eea7861d28fb674ca851bc45b76c1c7d469be04b9f3822f4b69d003c08",
+      "reason": "Reject Git workspace requests before side effects while preserving ordinary folder/Scratch setup, cancellation, retry, concurrency and replay behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/project/ProjectMutation.ts",
+      "target": "apps/server/src/project/ProjectMutation.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "13268779c8cc75f4f811d1eaf21c1adb28d48ee00020a38c384537eaf4d1c312",
+      "reason": "Use fully erased type imports so ordinary project mutations do not load clone and Git implementations under verbatimModuleSyntax."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/ws.test.ts",
+      "target": "apps/server/src/ws.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "b4a3699cf9ccb2f19b0639fb6a4c024644d4b31b9b711ef73aabea14cb864113",
+      "reason": "Exercise retained WebSocket behavior against the product RPC group without removed Git/forge handlers."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/CheckpointService.test.ts",
+      "target": "apps/server/src/orchestration-v2/CheckpointService.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "0e70b0c6c42a65d71716c8fd8b692a0f3364e8d29c65aafef6b5cb23b15dded3",
+      "reason": "Verify snapshot-free checkpoint identity/lineage without filesystem or Git services and explicit restore/cleanup boundaries."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/CheckpointCaptureService.test.ts",
+      "target": "apps/server/src/orchestration-v2/CheckpointCaptureService.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "9b564a362baf241882458fba5c4a6ec86b8e02a9668daed6d9ae2fc3d8bd3b46",
+      "reason": "Replace retired Git capture cases while retaining cancellation, ordering, idempotence and delegated-completion protection."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/mcp/OrchestratorMcpService.ts",
+      "target": "apps/server/src/mcp/OrchestratorMcpService.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "f81b80cf5bba17ee64b8d313b50ef7a8a26333721a09f99f114f5ca13c93a757",
+      "reason": "Use project roots for model scans, schedules and batch thread creation. Delegate shared tasks without Git or worktree preparation dependencies."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/mcp/OrchestratorMcpService.test.ts",
+      "target": "apps/server/src/mcp/OrchestratorMcpService.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "b6053292ed635f2482a88d2bd53b467308a431d29e2a1aad1443fa9b7ca3e269",
+      "reason": "Verify root scheduling and completion delivery without Git fixtures."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/mcp/toolkits/project/tools.ts",
+      "target": "apps/server/src/mcp/toolkits/project/tools.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "ccfc7e421032d62e2849b67a495c49776b46e7bec5bf0424d7caf0ac031afca1",
+      "reason": "Remove clone registration, worktree launch choices, Git settings inputs, and Git dependencies from project tools."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/mcp/toolkits/project/handlers.ts",
+      "target": "apps/server/src/mcp/toolkits/project/handlers.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "2d9d3c3849ddb2bf1295c56c95ed2a605c8f9201bbaca60ac3223962f8458480",
+      "reason": "Create ordinary project folders, delete through ProjectService, and launch only into the project root or scratch."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/mcp/toolkits/project/handlers.test.ts",
+      "target": "apps/server/src/mcp/toolkits/project/handlers.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "35cfc4f42e1543c833c81a1e0b12c8247c52e8d865904f3fa276c7a8d4ea31eb",
+      "reason": "Verify legacy Git launch inputs fail before creating a thread and legacy defaults still produce a root launch."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/mcp/toolkits/orchestrator/tools.ts",
+      "target": "apps/server/src/mcp/toolkits/orchestrator/tools.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "268bd452f1a6be9b0342a9ebab465193985a98527dea97a92ca0c06fc47a0531",
+      "reason": "Advertise shared delegation and project-root batch creation."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/mcp/toolkits/toolSearch/tools.ts",
+      "target": "apps/server/src/mcp/toolkits/toolSearch/tools.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "f11e05ddd90f0d86b5fad43a007aba5f9eb0b3551851b6f190babb3f51334ad7",
+      "reason": "Remove unavailable Git tool discovery guidance."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/mcp/toolkits/environment/tools.ts",
+      "target": "apps/server/src/mcp/toolkits/environment/tools.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "47f8b39a2e2a346b8279ca9aa82dc62ce3b1ff63c917b1618d7239fb0450a658",
+      "reason": "Remove Git preferences from environment MCP input and result schemas."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/mcp/toolkits/environment/handlers.ts",
+      "target": "apps/server/src/mcp/toolkits/environment/handlers.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "681b19d5d97ff1ca9c18827c791de307f202f6d5fa0ea07468a0f3df6971e551",
+      "reason": "Return only supported environment preferences."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/mcp/toolkits/environment/handlers.test.ts",
+      "target": "apps/server/src/mcp/toolkits/environment/handlers.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "6be639b2d469b23694770197dc00252f58ca0be8360895ad4df9c67ccbe3ea4c",
+      "reason": "Keep the environment preferences concurrency authorization test on a supported field."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/mcp/toolkits/core.test.ts",
+      "target": "apps/server/src/mcp/toolkits/core.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "b4977ed0c5aabfa07e22f79af0527235c7fafc246a5359ee644c45543c0e99e2",
+      "reason": "Verify Git preferences and credentials stay out of environment tool results."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/peer/RemoteDelegation.ts",
+      "target": "apps/server/src/peer/RemoteDelegation.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "9f584393586548c006ebc71974763350275f53bb4c331c9b29297e069727470e",
+      "reason": "Replace repository matching with explicit project selection and remove the resolver dependency."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/project/http.ts",
+      "target": "apps/server/src/project/http.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "d377ae7d55830393c61cc655ca75330eb67c73f6d9f91e1f727a3cacdca0c310",
+      "reason": "Run project mutations without clone tracking and reject attempts to enable Git project settings."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/peer/RemoteDelegation.test.ts",
+      "target": "apps/server/src/peer/RemoteDelegation.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "1498d8777b13f6f163a00330a590d6de6ec64a0cc26fad00a2c693bfb0ec8350",
+      "reason": "Exercise explicit peer project selection without repository or clone fixtures."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/CommandPalette.logic.ts",
+      "target": "apps/web/src/components/CommandPalette.logic.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "113551f8ed470f86a09d5851e62c16cf1613cdddbaad8066ba6a3b684911f68c",
+      "reason": "Keep folder browsing and thread ranking independent of clone forms and branch subtitles."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/CommandPaletteAddProject.tsx",
+      "target": "apps/web/src/components/CommandPaletteAddProject.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "4f56b46d823c1616d3dacece07ab747fe00f3235707e3813cfb2fef8c9fa362c",
+      "reason": "Keep the folder submit control and remove repository clone and publish forms."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/RightPanelTabs.test.tsx",
+      "target": "apps/web/src/components/RightPanelTabs.test.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "05bfed4bfcea8586902e57e0e6be3d0c2f96d35a8646f4eedeb9e73bdbdea195",
+      "reason": "Keep native data compatibility checks against the disconnected PR presentation module."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/ThreadStatusIndicators.test.ts",
+      "target": "apps/web/src/components/ThreadStatusIndicators.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "06319b2ae64226feb2bb0916c4820103c401491ca869472371031366bf8a3818",
+      "reason": "Run retained native status data compatibility tests against their disconnected module."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/DraftHeroHeadline.tsx",
+      "target": "apps/web/src/components/chat/DraftHeroHeadline.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "3e511ba14c0eae08412f5c46ddee626beb54061ee9f32104c4c752dce879da68",
+      "reason": "Treat saved Triage drafts as ordinary folder or scratch chat prompts without mounting the retired feature."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/MarkdownExternalLink.tsx",
+      "target": "apps/web/src/components/chat/MarkdownExternalLink.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "edca286bf760e538bc2d0f524ec60915075d6600c04d17c6dcd82e4bbcfcae76",
+      "reason": "Use ordinary link favicons without forge presentation imports."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/ThreadDetailsPrRow.tsx",
+      "target": "apps/web/src/components/chat/ThreadDetailsPrRow.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "388a4608b0935741ec264775a79e92ee93e0a13269975d569360afa29867c9d3",
+      "reason": "Keep the disconnected native compatibility consumer typechecked without attaching it to product thread status."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/ThreadRelationshipsControl.tsx",
+      "target": "apps/web/src/components/chat/ThreadRelationshipsControl.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "f153d2bac2736ee3c7c95d1c158e3ca346e5b56732a4c2a7527e079606237fdb",
+      "reason": "Preserve merging conversations with a standard icon and omit the PR component dependency."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/TimelineToolActivityIcon.tsx",
+      "target": "apps/web/src/components/chat/TimelineToolActivityIcon.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "597d64f1f587d9d9501a85ae97368d133eb9e97e02d042040ee1e843e1497016",
+      "reason": "Use a generic link icon for historical tool events without importing PR components."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/composerShortcuts.ts",
+      "target": "apps/web/src/components/chat/composerShortcuts.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "437533629c652fe55c8c37a637147184dedad1c2b4c3bb9c5bea0ab743ad60ef",
+      "reason": "Remove Git workspace and branch command handlers while retaining model, effort and mode shortcuts."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/useChatShortcuts.browser.test.tsx",
+      "target": "apps/web/src/components/chat/useChatShortcuts.browser.test.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "7012006c0a9356ed4fc402b73453abc0f0342df275ff3a89d1f50a9bc8922cbd",
+      "reason": "Remove the retired branch toolbar from retained native shortcut fixtures."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/useDraftEnvironmentRouting.ts",
+      "target": "apps/web/src/components/chat/useDraftEnvironmentRouting.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "01fe79d346c638ca983385fd99866fbbaefd673f0129c94d0adc9d8cc2760a3e",
+      "reason": "Preserve ordinary draft retargeting without provisioning Triage or carrying branch selections."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/desktop/DesktopWebLinkCoordinator.tsx",
+      "target": "apps/web/src/components/desktop/DesktopWebLinkCoordinator.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "6e635d6368f68c875c911c94b60e2a2b109f49305fa91981b629334c19f403f1",
+      "reason": "Open normal browser/file links directly and omit commit/PR recognition and discovery waits."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/pullRequest/PullRequestGuideTab.browser.test.tsx",
+      "target": "apps/web/src/components/pullRequest/PullRequestGuideTab.browser.test.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "4c5f1ef5dcba26dbf63932b6aaa13618036ddccc69cfe259c2764c332d83642d",
+      "reason": "Adapt the native compatibility fixture to the composer shortcut interface without a branch toolbar."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/KeybindingsSettings.logic.ts",
+      "target": "apps/web/src/components/settings/KeybindingsSettings.logic.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "47773b6f0e2cdfea436b866639800c666f16422602ef1833d9d6980493402ce9",
+      "reason": "Exclude retired Git and PR commands from configurable keybindings."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/ProviderSettingsForm.tsx",
+      "target": "apps/web/src/components/settings/ProviderSettingsForm.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "771a2a398d732cce01e5882338a47d72be0f3e489f445eaa6105932f9eb38fe1",
+      "reason": "Remove forge credential copy from the generic model-provider form."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/SecretsSettings.logic.ts",
+      "target": "apps/web/src/components/settings/SecretsSettings.logic.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "5f51d3de846f3e7a1f2d9ad26e8506b7420a125553fffd597a018d9875e55d76",
+      "reason": "Remove source-control secret usage discovery while retaining every model-provider configuration."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/StorageSettings.tsx",
+      "target": "apps/web/src/components/settings/StorageSettings.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "91a8da71629dc9eb550e07675ce2aed28247ba39dcecb8462ab56e8313d41ff8",
+      "reason": "Remove worktree controls and suppress stale worktree report entries while preserving logs and artifact cleanup."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/TextGeneratorsSettings.tsx",
+      "target": "apps/web/src/components/settings/TextGeneratorsSettings.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "3b395b592ab5d0c5a4314b77944bae7fbc9515e7d02787447e012dc6316f4b2b",
+      "reason": "Remove source-control writer selection from the generator setup wizard."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/ThemeSearchSection.tsx",
+      "target": "apps/web/src/components/settings/ThemeSearchSection.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "2f72d49cc205e026cfda770b12103ee8d686ce1508f691c55fbf2fd2e0ac0c47",
+      "reason": "Present theme source links with the ordinary external-link icon."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/WorktreesSettings.tsx",
+      "target": "apps/web/src/components/settings/WorktreesSettings.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "97bd1aee198f357136465317fbf8e0401133d5e13d7ebf58d26e35e5a5686ff6",
+      "reason": "Keep dormant native compatibility sources typechecked after deleting worktree settings exports from the active storage module."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/scheduledTasksSettings.logic.test.ts",
+      "target": "apps/web/src/components/settings/scheduledTasksSettings.logic.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "5881e1fe9fa4bced9427c4a9586b49e84c63b540e0f290532999023c1aac8446",
+      "reason": "Verify hydration of a stored worktree task without adding Git fields and preserve ordinary destination unbinding."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/scheduledTasksSettings.logic.ts",
+      "target": "apps/web/src/components/settings/scheduledTasksSettings.logic.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "22575df7a0a785dcea4ec1811a03b2e649de23846e915faf2226ec49992cc2ad",
+      "reason": "Keep folder scheduling and omit retired Git fields from the task form."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/threadActionMenu.logic.test.ts",
+      "target": "apps/web/src/components/threadActionMenu.logic.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "72f068eba40c00c24f0297e3a1583b9a5c7cc0c4d7baa4108979df10dba4d823",
+      "reason": "Keep native thread-action assertions on the product menu without worktree promotion."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/threadActionMenu.logic.ts",
+      "target": "apps/web/src/components/threadActionMenu.logic.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "2046f21b61efd7a2a64b7cf27dc149f1debf46f2cc60fa845804a67d80af2428",
+      "reason": "Remove branch copying, branch launches and worktree promotion from thread and draft context menus."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/connection/storage.ts",
+      "target": "apps/web/src/connection/storage.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "ea55214cc08a7664f3979f50a3371bfbebc5d1c352511457f1fcb7bd165277fb",
+      "reason": "Omit the retired pull-request routing permission provider from live web connection storage and retain native storage compatibility."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/hooks/useAddProjectTargets.ts",
+      "target": "apps/web/src/hooks/useAddProjectTargets.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "3648f125b6145f9377e588296dde90d543b6f893f928f6b5bc00ffa9a3f15d66",
+      "reason": "Consume local folder helpers independently of native clone and repository operations."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/hooks/useLogicalProjectEnvironments.ts",
+      "target": "apps/web/src/hooks/useLogicalProjectEnvironments.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "ca1e773f5854edb958b311ddd0d3dddfb1631a54c7d44c471df1b6cb86e59c75",
+      "reason": "Consume local scratch-folder helpers independently of native clone and repository operations."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/hooks/useScratchProject.ts",
+      "target": "apps/web/src/hooks/useScratchProject.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "7dd0dabf7f8fc93c534e8e5f224f6eab1469f45e325b92cf4445b394a6c9b944",
+      "reason": "Consume local scratch-folder helpers independently of native clone and repository operations."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/hooks/useThreadActionMenu.ts",
+      "target": "apps/web/src/hooks/useThreadActionMenu.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "01fc8b92d64b91030d69fd943d08e35746d165a434ecb6ad18b73ba0f6a04f70",
+      "reason": "Remove branch copying, branch launches and worktree promotion handlers while retaining ordinary thread actions."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/keybindings.test.ts",
+      "target": "apps/web/src/keybindings.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "c156720e334be456dd47e09a442c5539e5f51cdb3a5f2ee24ea38fa50e181a94",
+      "reason": "Verify a saved branch shortcut cannot shadow a supported chord and retain generic shortcut coverage."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/keybindings.ts",
+      "target": "apps/web/src/keybindings.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "13528fef07a4c41bff1cbe1446a46dd5ef954cd03a896ec485c377b8771bea61",
+      "reason": "Ignore legacy Git and PR keybinding rules before they can claim a supported shortcut."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/rightPanelStore.test.ts",
+      "target": "apps/web/src/rightPanelStore.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "963df755f21c9bc544e4ca6875ecdc094ce997ff16891d52fe22f9c47d9451f0",
+      "reason": "Verify saved PR tabs are dropped and a surviving ordinary file tab takes focus."
+    },
+    {
+      "source": "integration/t3/overrides/packages/client-runtime/src/operations/index.ts",
+      "target": "packages/client-runtime/src/operations/index.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "d555c7e7b5294152399f96e38662fdfa71d107355a9272165ff54877d7507d42",
+      "reason": "Keep chat title and dispatch imports from loading the native clone and publish helpers. Keep the dedicated projects subpath for native compatibility."
+    },
+    {
+      "source": "integration/t3/overrides/packages/client-runtime/src/operations/projects.ts",
+      "target": "packages/client-runtime/src/operations/projects.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "e900682ead8bc87be78222a0db70fbb4a772149e1ed096e53ef42dfb6459898c",
+      "reason": "Re-export folder helpers for native compatibility while keeping Git clone helpers out of their import graph."
+    },
+    {
+      "source": "integration/t3/overrides/packages/client-runtime/src/state/projects.ts",
+      "target": "packages/client-runtime/src/state/projects.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "768810ca66489fef60765479f9c502546582f1dee3ea27305a7196710a47a0fe",
+      "reason": "Expose ordinary project folder and scratch path helpers without pulling in the native clone and publish helpers."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/textGeneration/TextGeneration.ts",
+      "target": "apps/server/src/textGeneration/TextGeneration.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "a369ac001a2fad63b0c3e781e64dac1480ab3b17b6593884727ef690e388d5ad",
+      "reason": "Generate ordinary thread titles without source-control link enrichment or source-control registry construction."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/CheckpointCaptureService.ts",
+      "target": "apps/server/src/orchestration-v2/CheckpointCaptureService.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "514b59823c7b8bc05db290440bc1888b93a6d076f7c4b4bf7c21ad5f66956a3c",
+      "reason": "Emit deterministic conversation checkpoints without repository capture."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/CheckpointRollbackService.ts",
+      "target": "apps/server/src/orchestration-v2/CheckpointRollbackService.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "736c62687faa886754f0ab9ed7ec322b690f86ea4a426c7ecc07afecb543481e",
+      "reason": "Retain conversation rewind and reject file rollback before mutation."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/ProviderEventIngestor.ts",
+      "target": "apps/server/src/orchestration-v2/ProviderEventIngestor.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "f45b2b260e03e8235afe627de33099acd87ecbc8bbe1aaa09621dba849c67f39",
+      "reason": "Remove provider-event branch synchronization."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/ProviderTurnStartService.ts",
+      "target": "apps/server/src/orchestration-v2/ProviderTurnStartService.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "085a8b6c7f9d06b2d7b2dc62ec7f35cd39143cd5601828fe54328cf913a80fea",
+      "reason": "Remove worktree recreation and pre-turn repository capture."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/RunExecutionService.ts",
+      "target": "apps/server/src/orchestration-v2/RunExecutionService.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "2000bf0e5c24ffce25819d66d898c1753c74ca5e5aef82486daa52c600196904",
+      "reason": "Execute native chats without snapshot baselines or PR refresh."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/ThreadManagementService.ts",
+      "target": "apps/server/src/orchestration-v2/ThreadManagementService.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "67e4af0fa43a3c89f7c53b1c8b37f0980d8afc777528c39235faf8ec61cffdef",
+      "reason": "Remove send-time worktree restore and reject file rollback before transcript hydration."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/project/AgentSessionImporter.ts",
+      "target": "apps/server/src/project/AgentSessionImporter.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "45e1ced5fd03daf57eed6433c7b97ebafc8f369da9b28cc572452dca82ddcfca",
+      "reason": "Import ordinary sessions in their project folder, without worktree or repository preparation."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/project/AgentSessionScanner.ts",
+      "target": "apps/server/src/project/AgentSessionScanner.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "e7bd261fc69f61cd6c6408b43e1f5cfbd45a350d9ab86d35ec96131a8855f5e7",
+      "reason": "Group sessions by directory without Git metadata probes."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/project/ProjectEnrichmentService.ts",
+      "target": "apps/server/src/project/ProjectEnrichmentService.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "ff5bd1626c3560f0883d7a3eec556c3c7254da693f220e1815c7a17d78883724",
+      "reason": "Preserve favicon enrichment while omitting repository identity lookup."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/project/ProjectService.ts",
+      "target": "apps/server/src/project/ProjectService.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "0fd4efe0700fbdac6f12e2859b47509817c9e9ee2a8e8e3667374860a3000acc",
+      "reason": "Remove Git folder synchronization and worktree-container checks while preserving stored folder records."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/project/RepositoryIdentityResolver.ts",
+      "target": "apps/server/src/project/RepositoryIdentityResolver.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "1cf2a369e3212bdcdcd036a033f55a0d74f8af6147393752b6c227f00978cf71",
+      "reason": "Keep passive repository metadata absent without loading repository or Git implementations; preserve ordinary project enrichment."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/project/RepositoryIdentityResolver.test.ts",
+      "target": "apps/server/src/project/RepositoryIdentityResolver.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "c2b32ef2b60ed6b58a8de5bdb7ab6fc0d53e10d7580a3bce5b36a7d508128483",
+      "reason": "Exercise the passive metadata boundary independently of Git."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/serverRuntimeStartup.ts",
+      "target": "apps/server/src/serverRuntimeStartup.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "b6d4a504220385246fd761f6bc94c0f16a824a8be096459dbe3bbaa1ce0d99c9",
+      "reason": "Remove automatic Git fetch/pull phases while preserving native auth, recovery, bootstrap and activation."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/serverRuntimeStartup.test.ts",
+      "target": "apps/server/src/serverRuntimeStartup.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "77ccf062e325458ffbf7da4effb9e9dc09864f471dd00fa823a6e44ef073256d",
+      "reason": "Verify startup does not acquire Git or project auto-pull services even with old auto-pull settings."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/vcs/GitVcsDriverCore.test.ts",
+      "target": "apps/server/src/vcs/GitVcsDriverCore.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "c3e67f508d7a117b449cecbb4263b7efd7065a0732a56f8f6d75d3b1581ac6f2",
+      "reason": "Keep native driver refresh behavior tests independent of the removed startup auto-pull helper."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/workspace/KnownWorkspaces.ts",
+      "target": "apps/server/src/workspace/KnownWorkspaces.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "26de0d5acab19f031674de05d94e995ed214af13f90bb32b5774c63ef7161512",
+      "reason": "Authorize registered and explicitly configured realpath roots without repository/worktree discovery."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/workspace/WorkspaceFolders.ts",
+      "target": "apps/server/src/workspace/WorkspaceFolders.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "63cb636e45c33d7e316ada50d7d4086a6ceb97b9466a8466afa3c03abf27b771",
+      "reason": "List stored and explicitly declared code-workspace folders without Git/submodule probes or task-worktree services."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/workspace/WorkspaceFolders.test.ts",
+      "target": "apps/server/src/workspace/WorkspaceFolders.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "5f579aec8b004e2b96ef0a3d87bbe81a1b90f4d76571099c847ae8084b30f7cc",
+      "reason": "Preserve ordinary folder and canonical-path behavior while requiring no repository probes."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/cli/project.ts",
+      "target": "apps/server/src/cli/project.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "c7e6744103573d058a37cf047615c27f96b30db11f96f78a5124049285dac0c4",
+      "reason": "Register explicit tracked folders only and preserve existing stored folder records on unarchive without repository discovery."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/cli/project.test.ts",
+      "target": "apps/server/src/cli/project.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "a9af67f09c89d1db298475106f7ddb9f7c40ac52899c3bfb707d124a9902209b",
+      "reason": "Check folder-only CLI registration and non-destructive unarchive without Git discovery."
+    },
+    {
+      "source": "integration/t3/overrides/packages/client-runtime/src/threadPullRequests.test.ts",
+      "target": "packages/client-runtime/src/threadPullRequests.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "195f68e803b4fe1332e3b31b2f8aeb44546a60f7dc461b6fbbe5ed1164f41863",
+      "reason": "Keep generic stored-reference and Hermes-compatible chain/sorting tests; unregistered forge URLs no longer rewrite opaque host/repository keys or apply Azure aliases."
+    },
+    {
+      "source": "integration/t3/overrides/packages/client-runtime/src/issueLinks.test.ts",
+      "target": "packages/client-runtime/src/issueLinks.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "4d3386768bf283c5c6b5d418508717ffa3c52db2da2f96dd46fcf724663fa7dc",
+      "reason": "Replace retired tracker-resolution expectations with ordinary-link behavior even when legacy project/account bindings are present, without modifying those inputs."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/routes/_chat.issues.tsx",
+      "target": "apps/web/src/routes/_chat.issues.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "6d82adb37468d0adc8e4a36bc18069c9003d2ce7c7b95996e15e74aada0c48ce",
+      "reason": "Redirect retired issue bookmarks without loading the issue page; retain native query types so unreachable upstream consumers still typecheck."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/issue/IssueTrackerRegistry.ts",
+      "target": "apps/server/src/issue/IssueTrackerRegistry.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "16b2157f78b3df9ad521c474d23546a8bfccff37626e267bca397bce9ebe9ce2",
+      "reason": "Remove Linear runtime import and live tracker assembly while preserving explicitly supplied test fixtures."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/pullRequest/pullRequestTarget.ts",
+      "target": "apps/server/src/pullRequest/pullRequestTarget.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "6eb39268e37f63fa687490b5d579aac8da1ac2de5b9462b792b000ab36c869f0",
+      "reason": "Remove GitCafe package helper imports from retained typechecked compatibility sources."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/workflows/WorkflowAgentThreads.ts",
+      "target": "apps/server/src/workflows/WorkflowAgentThreads.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "7729935fbbafd3447f976e91e2e93c1b7969cb7985f7e7b3669bc09914829cf4",
+      "reason": "Exclude native issue-service acquisition and reject issue-linked workflow launches before thread creation."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/workflows/WorkflowEngine.ts",
+      "target": "apps/server/src/workflows/WorkflowEngine.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "bf5bb84891d533a683de97f7317345638b2e46418bdef066f7e56144eb06a883",
+      "reason": "Skip unavailable issue polling before reading or advancing issue cursors."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/files/BrowserDocumentFrame.tsx",
+      "target": "apps/web/src/components/files/BrowserDocumentFrame.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "ed66acaa82025b5370c491c5339baba328d60572898a84df772e230e0d895058",
+      "reason": "Remove issue-link interception while preserving ordinary document links."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/workflows/WorkflowPane.tsx",
+      "target": "apps/web/src/components/workflows/WorkflowPane.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "77d2f53f5c6e1cfc02fefd8d1b1206d4b10716b2cd4792d5db5d009c4379022f",
+      "reason": "Separate workflow navigation from the removed issue page hook."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/rightPanelStore.ts",
+      "target": "apps/web/src/rightPanelStore.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "90789d2e595db6e3a779cf703b6dabb92b6ba3c9117ff994e729254af6924459",
+      "reason": "Prevent opening or restoring removed issue panels without altering ordinary document/file panels."
+    },
+    {
+      "source": "integration/t3/overrides/packages/client-runtime/package.json",
+      "target": "packages/client-runtime/package.json",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "49e076aca7ba6f60c30df3b4f99c15a9bd06a7c13a9003680bc9911c7d777eea",
+      "reason": "Remove the Linear product dependency while preserving Cursor and all other chat/model providers."
+    },
+    {
+      "source": "integration/t3/overrides/packages/client-runtime/src/issueLinks.ts",
+      "target": "packages/client-runtime/src/issueLinks.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "cdd43fe5919e1448e0f15794e5224b41733cb53bd92b2f493dcf4c6dc787c61b",
+      "reason": "Treat former tracker URLs as ordinary links without Linear parsing or account/binding integration."
+    },
+    {
+      "source": "integration/t3/overrides/packages/client-runtime/src/pullRequestLinkInput.ts",
+      "target": "packages/client-runtime/src/pullRequestLinkInput.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "fce042c4de42d53624ac37725d5e1663c856769e53703154559ebf5cd9a9a081",
+      "reason": "Remove GitCafe URL canonicalization after retiring all forge definitions."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/sourceControl/sourceControlHostSecrets.test.ts",
+      "target": "apps/server/src/sourceControl/sourceControlHostSecrets.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "64c84079a71d400a1f77b305c5dfb9b2e2db32264148b9fecc4851a3ebee60fb",
+      "reason": "Use synthetic catalog configuration for generic secret resolution/invalidation coverage; unregistered hosts never collect or resolve credential references."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/serverSettings.ts",
+      "target": "apps/server/src/serverSettings.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "9d759ea8e90a825fb865d3b3cf40b50e9316dac134b9360a07cb149224602d07",
+      "reason": "Remove all retired source-host legacy credential imports/migrations; omit unregistered host configurations from public settings and reject their writes before persistence or model-provider mutation, preserving model credentials and local auth."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/serverSettings.test.ts",
+      "target": "apps/server/src/serverSettings.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "ffa0f6830f0af1609302e48e34835d46ced18d9c8389e84ab4860956059ca821",
+      "reason": "Exercise generic secret lifecycle with explicitly synthetic metadata rather than product hosts; preserve model credentials, policy, rollback and watcher coverage, and assert that retired legacy source credentials do not consult or mutate the secret backend."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/settingsSearch.test.ts",
+      "target": "apps/web/src/components/settings/settingsSearch.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "3edd4b92cd912d0cfff7562ccf19f952cde4307ca08ad1061c3edcf7f644e8d9",
+      "reason": "Test the agreed Git, forge, issue and environment exclusions while preserving retained search, ranking, translation, permission and legacy-navigation behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/sourceControl/SourceControlProviderRegistry.test.ts",
+      "target": "apps/server/src/sourceControl/SourceControlProviderRegistry.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "0c97050577c433da52bd01b00d9120ec0ba6c78a958ced81d48068562be0fdca",
+      "reason": "Supply explicit synthetic providers/metadata to retain generic discovery, cache invalidation, remote refinement, link dispatch and unsafe-URL rejection independently of the empty product registry."
+    },
+    {
+      "source": "integration/t3/overrides/packages/source-control-definitions/package.json",
+      "target": "packages/source-control-definitions/package.json",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "9e23a35c61931eb04344962e480443cdec1fffc3585d70ec70678068f60c5930",
+      "reason": "Remove all forge dependency edges from the metadata package while retaining generic source-control-core primitives."
+    },
+    {
+      "source": "integration/t3/overrides/packages/source-control-definitions/src/registry.ts",
+      "target": "packages/source-control-definitions/src/registry.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "e1664190a8d38bedabeb76217af58889acfc55020309dabcb5023df20861a794",
+      "reason": "Register no forge link, account, credential or issue definitions; preserve generic metadata primitives with a neutral unknown fallback and no issue bindings."
+    },
+    {
+      "source": "integration/t3/overrides/packages/client-runtime/src/sourceControlClients.test.ts",
+      "target": "packages/client-runtime/src/sourceControlClients.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "efa1e8f5f00d7c3526291ae6cf2897bd2be2c313e817b352c875cdb2c3d9362b",
+      "reason": "Assert ordinary URLs for every retired forge and Linear, with no account target, issue binding, media or URL enrichment; preserve neutral remote normalization."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/sourceControl/sourceControlDefinitions.ts",
+      "target": "apps/server/src/sourceControl/sourceControlDefinitions.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "33e736d9538b926be878506a023f2fbd37bf177041289a8bab208424cb5088de",
+      "reason": "Separate shared metadata from runtime driver imports and use only the registered GitHub-free product definitions without pulling adapters into ordinary file/link readers."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/sourceControl/sourceControlDefinitions.test.ts",
+      "target": "apps/server/src/sourceControl/sourceControlDefinitions.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "94eaafc11b795e4e626cd25f1ad84d086d1680fc0a8ed11108c0f0f331abf91b",
+      "reason": "Assert empty product drivers and metadata, a neutral fallback, local-path filtering and the absence of provider-specific CLI interpretation."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/sourceControl/builtInDrivers.ts",
+      "target": "apps/server/src/sourceControl/builtInDrivers.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "6a7b4c0cb98e30e6c5ba261404896e6f9c3756cb0217cbbf491ec5f73ad6efbc",
+      "reason": "Provide an empty driver tag without constructing native source-control host, authentication, media, API or rate-limit services."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/workspace/WorkspaceEntries.ts",
+      "target": "apps/server/src/workspace/WorkspaceEntries.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "69d8a2a3fec809b3a289b53ab20183036776e8e301710cc8965cdaebf18e20d7",
+      "reason": "Remove worktree expansion and Git processes from file browsing/copy candidates; use the approved read-only file policy to preserve exclusions, tracked browse exceptions and workspace boundaries."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/workspace/WorkspaceEntries.test.ts",
+      "target": "apps/server/src/workspace/WorkspaceEntries.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "a68b4fac44dbe6c6004d6289a5cfcc18459cc81f7bec46e546dcdbe8ee56c0e2",
+      "reason": "Verify folder browsing, passive exclusion metadata, safe symlinks, indexed search freshness and cold content search with no Git executable or Git-backed finder."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/cloud/CloudLink.test.ts",
+      "target": "apps/server/src/cloud/CloudLink.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "86d0cebd3f65b44d10a122e83542cecb589584255012d82bd57a325222258bc6",
+      "reason": "Prove product-disabled credential minting leaves replay markers and issuance untouched, alongside the existing native enabled-mode proof/approval fixture."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/cloud/http.ts",
+      "target": "apps/server/src/cloud/http.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "910c54f5535c673bf01832bbc35bef3167770f2a10af6648d318fe7daf2c0e69",
+      "reason": "Carry the explicit pairing-unavailable failure through the native Connect HTTP error adapter without translating it into a generic internal error."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/cloud/CloudLink.ts",
+      "target": "apps/server/src/cloud/CloudLink.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "8c93e55a789d0eed58a9790ffae3b3ca2d38690aee92d02ba2db732a7b9655a1",
+      "reason": "Reject product-disabled Connect credential minting before replay-marker mutation while preserving native Cloud account/configuration behavior and declaring the typed availability failure."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/auth/PairingGrantStore.ts",
+      "target": "apps/server/src/auth/PairingGrantStore.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "b7a34d01e772e3f2cf49fe3cc6e0b67aafbf13a1114232263427e8837e8cd70e",
+      "reason": "Support an exact subject requirement for one-time grant consumption, preserving the separate native desktop bootstrap and existing MCP approval restrictions."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/persistence/AuthPairingLinks.ts",
+      "target": "apps/server/src/persistence/AuthPairingLinks.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "a313744bbaa15a43b18b73e16472c27c9a485865ed2673acfb175e4482b48621",
+      "reason": "Apply an optional exact grant-subject predicate atomically in the existing consume operation so disabled device links are refused without consuming or rewriting them."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/CommandPalette.composition.browser.test.tsx",
+      "target": "apps/web/src/components/CommandPalette.composition.browser.test.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "9069b28ce352bce9520509e6f9c23cf8ef322a9ef2ed5423e7f369037e5e0dd6",
+      "reason": "Keep native Git-enabled palette composition tests explicit about their capability fixture and add the product's folder-only source-menu expectation."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/BackgroundActivitySettings.tsx",
+      "target": "apps/web/src/components/settings/BackgroundActivitySettings.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "61a7e5b19bec17efbb83b33b05fcfcb446a0c000876bcbe861f5801b665f7c04",
+      "reason": "Retain the shared power and provider-health policy without offering a Git fetch interval control."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/project/ManagedProjectFolders.ts",
+      "target": "apps/server/src/project/ManagedProjectFolders.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "ac92c6e86812d2a9670bebc328f0b1c4cd42e5c97992f6e9531f64af8882adb2",
+      "reason": "Keep scratch folders usable without Git repository probes in the no-snapshot profile and reject Git-backed named project creation before allocating or changing folders."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/scheduledTasks/ScheduledTaskService.ts",
+      "target": "apps/server/src/scheduledTasks/ScheduledTaskService.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "0d012fde5cee6cde02cc5e6a5cac10a81173707940355650912114f41e7db34d",
+      "reason": "Reject Git workspace schedules before saving, enabling or reserving a run, independently of RPC and MCP transport guards; retain project-folder schedules."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/storageCleanup.test.ts",
+      "target": "apps/server/src/storageCleanup.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "618429d40fb04323f1cb191e4972ea9c75bb3c727689fb84d79fb4808d7eeed8",
+      "reason": "Use the existing isolated Git cleanup fixture to prove that a no-Git profile preserves deleted threads' refs and worktrees while the maintenance command remains available for non-Git artifacts."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/LabsSettingsPanel.tsx",
+      "target": "apps/web/src/components/settings/LabsSettingsPanel.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "c30312837de059b2353ed3bbb998b66cabcd0e230f789687384ed0e2402e8449",
+      "reason": "Remove linked-environment and fast-Git-worktree opt-ins from product Labs without changing unrelated experimental settings."
+    },
+    {
+      "source": "integration/t3/overrides/packages/client-runtime/src/connection/layer.ts",
+      "target": "packages/client-runtime/src/connection/layer.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "07a4ed7be3bfc6d771e168dab1a835f7cf04e3896772c0dfe98fab72fa0236ac",
+      "reason": "Do not construct or start relay discovery workers in single-primary mode; retain the native primary connection lifecycle."
+    },
+    {
+      "source": "integration/t3/overrides/packages/client-runtime/src/connection/registry.test.ts",
+      "target": "packages/client-runtime/src/connection/registry.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "f3d4d17d2f12a5c8220b1702d7ffc2b7361deed9969e6de336411c97e20d4598",
+      "reason": "Verify that single-primary mode neither loads nor mutates saved remote connections, rejects registration, and still accepts the primary platform registration."
+    },
+    {
+      "source": "integration/t3/overrides/packages/client-runtime/src/connection/onboarding.ts",
+      "target": "packages/client-runtime/src/connection/onboarding.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "91fccb83db4d55139e873210cb94d30ddaa21d91c879d69a31eb59f4cf8fbba2",
+      "reason": "Refuse additional connection provisioning before probes, credential exchange or SSH startup in the configured single-primary mode."
+    },
+    {
+      "source": "integration/t3/overrides/packages/client-runtime/src/connection/registry.ts",
+      "target": "packages/client-runtime/src/connection/registry.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "07a1187ff0527833d26a52aaa9a9186cfcff95263242648c7fbcaca5e9898aa7",
+      "reason": "Add an opt-in single-primary mode that ignores persisted extra connections without deleting them and rejects new registrations before credentials or persistence are touched."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/binCli.ts",
+      "target": "apps/server/src/binCli.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "5aa3a4a3feb890c6463051196f9ef803f94db5b58680b997e70c767d033c209c",
+      "reason": "Allow the owned CLI boundary to supply the same immutable product profile as the server so local administrative commands cannot bypass disabled pairing."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/peer/PeerClientPairing.ts",
+      "target": "apps/server/src/peer/PeerClientPairing.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "88fe4fe16bb5696880233c8dfd90fbbc217aef299434aac94c4b46925f95f88b",
+      "reason": "Refuse peer client/link pairing issuance when Paperkite disables pairing or additional environments, regardless of persisted settings."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/peer/PeerLinks.ts",
+      "target": "apps/server/src/peer/PeerLinks.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "97711b92f7218db90384961981cc0e5f230a4b406b30440335b1f060563fdd77",
+      "reason": "Select an unavailable peer-link service without acquiring peer storage, secrets or HTTP clients when additional environments are disabled."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/auth/EnvironmentAuth.ts",
+      "target": "apps/server/src/auth/EnvironmentAuth.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "15742575588c5a06d93011f0808b67e343c927f70127d08d4ef4857541c62196",
+      "reason": "Reject device and peer pairing credential issuance in Paperkite before grant storage, while retaining the separate internal local startup bootstrap and native session authorization."
+    },
+    {
+      "source": "integration/t3/overrides/packages/contracts/src/environmentHttp.ts",
+      "target": "packages/contracts/src/environmentHttp.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "b7671135dbca01d93299367049c4f76a6361d73a807f70fa9828efcb32ba39fe",
+      "reason": "Declare explicit feature-unavailable responses for disabled pairing instead of reporting an internal auth failure."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/runtimeLayer.ts",
+      "target": "apps/server/src/orchestration-v2/runtimeLayer.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "7e2cbe81bfa1c8e0f740da9d4afcde27af32ef435a629c20515711e1e6028a07",
+      "reason": "Remove Git manager/workflow, worktree synchronization and snapshot/diff service construction while retaining ordinary orchestration, model context and setup scripts."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/storageCleanup.ts",
+      "target": "apps/server/src/storageCleanup.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "2b3b99734c3477ba744d89593eec790ec5a7cff0835cf671d7c7880ef7d4c274",
+      "reason": "Keep artifact and log maintenance but never inspect, restore or delete Git refs or worktrees when the product disables Git."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/SettingsSidebarNav.tsx",
+      "target": "apps/web/src/components/settings/SettingsSidebarNav.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "4ca59c109779edf3168a80a85cc13d964c4d2ffa32371af2722f476df66068b8",
+      "reason": "Keep settings navigation aligned with the excluded worktree route and narrowed product settings paths."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/ThreadLaunchService.ts",
+      "target": "apps/server/src/orchestration-v2/ThreadLaunchService.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "ac30eec137bd20fad69d18642ee03912fe973cd8307f9411ef6180b76bdac2ae",
+      "reason": "Allow project-folder chat launches without probing or recording Git branches; reject explicit and resumed worktree preparation before side effects."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/TimelineUserMessageRow.tsx",
+      "target": "apps/web/src/components/chat/TimelineUserMessageRow.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "44e7fd74e869d2d9e62715de2c33c735596661f3167a2d380b818403f1de22c6",
+      "reason": "Omit file rewind controls when no checkpoint rewind action is supplied."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/timelineRowContext.ts",
+      "target": "apps/web/src/components/chat/timelineRowContext.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "15ceb08cc42fefa72709f370ce2783cf69fb05952e1b1af4029b1f5204ab0180",
+      "reason": "Allow native message timelines without a checkpoint rewind action."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/WorktreeBaseBranchPicker.browser.test.tsx",
+      "target": "apps/web/src/components/WorktreeBaseBranchPicker.browser.test.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "2c894bc30a08a92c475c3bb9dd61bab335ed8984b02a4389a209e1a44f2f2761",
+      "reason": "Keep the excluded native branch picker's test fixture aligned with the isolated branch query module."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/useThreadLifecycle.browser.test.tsx",
+      "target": "apps/web/src/components/chat/useThreadLifecycle.browser.test.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "4c1d3c321880142ee2cc135e7b8c035b27b93a43d050aef8e974b3a8596b8467",
+      "reason": "Retain child navigation and per-thread background stop tests; branch restore success cases are superseded by disabled Git admission tests."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/useChatShortcuts.ts",
+      "target": "apps/web/src/components/chat/useChatShortcuts.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "db8a5cbbff2ad5bfb0dbe08d116d7153c377bf2887edff48364f2ce4bb260834",
+      "reason": "Keep composer and chat shortcuts without requiring an excluded branch toolbar."
+    },
+    {
+      "source": "integration/t3/overrides/packages/contracts/src/environment.ts",
+      "target": "packages/contracts/src/environment.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "a447dd3ed3d13d1071217c49c2254cd65756f17a73eac4f9247f61ce62e24ba6",
+      "reason": "Report the disabled local Git capability without removing native local environment identity. Advertise GitHub availability and transport its explicit unavailable error without changing local authentication."
+    },
+    {
+      "source": "integration/t3/overrides/packages/contracts/src/git.ts",
+      "target": "packages/contracts/src/git.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "062c8fa18c9594b2dc9509f9d83936fc568a421ab77a414460b5b152a53d2660",
+      "reason": "Give disabled Git operations an explicit typed unavailable error at transport and GitManager service boundaries without changing command-result semantics."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/CheckpointService.ts",
+      "target": "apps/server/src/orchestration-v2/CheckpointService.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "c3324afdb2eb03b75201ceb820e49621601a58a3fba7b6dd581c273817e135e8",
+      "reason": "Preserve native run ordering and conversation lineage without probing or capturing Git snapshots when Git is disabled."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/state/queries.ts",
+      "target": "apps/web/src/state/queries.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "8a07bf8926a7880d11378d37250422f8d798db0a3abfb218a047928c20486e5e",
+      "reason": "Separate branch pagination from reusable project and thread queries so remaining features do not load VCS state."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/state/assets.ts",
+      "target": "apps/web/src/state/assets.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "c719bad7d0b0d2a59d42eb7f519402269b73ca0187f0676da1e87a27765238f1",
+      "reason": "Stop attaching clone subscriptions to ordinary attachment and favicon state."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/WorktreeBaseBranchPicker.tsx",
+      "target": "apps/web/src/components/WorktreeBaseBranchPicker.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "fea5d12590cd2db9373eae828fa0310e665afa57b428ffb18ac1b986277a4d16",
+      "reason": "Use the separated branch query module in the excluded worktree picker."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/BranchToolbar.logic.ts",
+      "target": "apps/web/src/components/BranchToolbar.logic.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "189f132122af0c41bdf7e55acbd48734629cde2e7b3d89a6960c3db9e7f17454",
+      "reason": "Separate reusable composer layout and environment labels from Git toolbar helpers."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/hooks/useThreadActions.ts",
+      "target": "apps/web/src/hooks/useThreadActions.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "e0cd0123747ad6220ecc3393085b2ad200e92d3f9dff2562df18c95759496b0b",
+      "reason": "Remove worktree deletion and VCS refresh side effects from ordinary thread deletion."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/routes/__root.tsx",
+      "target": "apps/web/src/routes/__root.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "6fbcb984a12b72a190f37712bca48a6bbedcca31fba7dd1fd7f6df8c2dbe6c00",
+      "reason": "Omit clone tracking and cross-machine project dialogs from the product root."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/routes/_chat.settings.source-control.tsx",
+      "target": "apps/web/src/routes/_chat.settings.source-control.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "f17edafa125e9d366f2bf7435b1a4d54629221977469c7942d7825af3770bf2a",
+      "reason": "Redirect retired account-settings bookmarks without loading any credential fields, retaining native route metadata only."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/routes/_chat.settings.worktrees.tsx",
+      "target": "apps/web/src/routes/_chat.settings.worktrees.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "27b01c0537e05784036a7fe03b740146f0d6d0418ba6db01b188d84ec71ac423",
+      "reason": "Prevent direct navigation from loading excluded worktree settings."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/ProjectSettingsPanel.tsx",
+      "target": "apps/web/src/components/settings/ProjectSettingsPanel.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "993358642a32bdde57b0f0dad53b8f2f5afb2fdaa5b934dc0165fc4915e15eab",
+      "reason": "Keep ordinary project settings without repository management."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/ScheduledTasksSettings.tsx",
+      "target": "apps/web/src/components/settings/ScheduledTasksSettings.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "57175009995716df20f6a455e15644b1462e27923b843d40649f870ebdab78b7",
+      "reason": "Limit new scheduled task launches to the project folder rather than Git worktrees."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/SettingInheritance.tsx",
+      "target": "apps/web/src/components/settings/SettingInheritance.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "e4012289e5fb9fe8c981fc9e6a22a42a906a43177fd82ba3cc156eb5de90e129",
+      "reason": "Stop generic setting inheritance labels from importing Git toolbar logic."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/useTimelineRewind.ts",
+      "target": "apps/web/src/components/chat/useTimelineRewind.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "e70698cb24d969193f19e484766da9346a0d186be91015d577fc1a41e8f40fde",
+      "reason": "Keep conversation forks without offering checkpoint-based file rewind controls."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/TimelineWorkGroupRows.tsx",
+      "target": "apps/web/src/components/chat/TimelineWorkGroupRows.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "b7b42fcec04da44c38dd82cfe97ad2b933c1e58674a7a6a527f2dc99751e47c3",
+      "reason": "Keep native work grouping without mounting worktree setup controls."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/threadDetailsItems.ts",
+      "target": "apps/web/src/components/chat/threadDetailsItems.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "ce2625e2346be52a13054a646399a8054288ca6c1f728b2f596e0976403fa419",
+      "reason": "Remove unavailable Git and environment/worktree sections from thread detail preferences."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/MessagesTimeline.tsx",
+      "target": "apps/web/src/components/chat/MessagesTimeline.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "1ffcf1b1e2854f6e7dc23369c2c7858b2b4f0072f1b94989b85596549dbdee6f",
+      "reason": "Keep native messages without worktree setup cards."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/useThreadLifecycle.tsx",
+      "target": "apps/web/src/components/chat/useThreadLifecycle.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "06ef72836ff1239f5aadc775e1d439b37a9e2d417d14e0dd618c55e95312a2c9",
+      "reason": "Remove automatic branch switching and VCS refresh actions from the chat lifecycle."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/ThreadStatusIndicators.linkedPr.browser.test.tsx",
+      "target": "apps/web/src/components/ThreadStatusIndicators.linkedPr.browser.test.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "37aee05125ec43ce2c7c840d2eaf8e88aaa918e6f2a726aea6e34f6b58f8d105",
+      "reason": "Replace native PR UI success expectations with absence assertions across restored snapshots and permission changes; retain unrelated native security and UI tests."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/ChatMarkdown.permissions.browser.test.tsx",
+      "target": "apps/web/src/components/ChatMarkdown.permissions.browser.test.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "b730ca022613283d6e84683d0f1b96de51c7d506b7ceeaf5c98990cd56b3754c",
+      "reason": "Replace native PR UI success expectations with absence assertions across restored snapshots and permission changes; retain unrelated native security and UI tests."
+    },
+    {
+      "source": "integration/t3/overrides/packages/client-runtime/src/state/pullRequests.test.ts",
+      "target": "packages/client-runtime/src/state/pullRequests.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "214d1c8d899cf4126dcfa81104e49982478f549528a78aa7e68c81c8d6b5ee94",
+      "reason": "Retain native PR atom tests with an optional loader fixture and verify explicit rejection when the product connection omits that loader."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/ThreadDetailsPanel.browser.test.tsx",
+      "target": "apps/web/src/components/chat/ThreadDetailsPanel.browser.test.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "6f6e8ba3fc90db9cdc341b09d43249bbc3aad7d0f4c3bca98d830551fa83c960",
+      "reason": "Verify that thread details omit linked PRs, Git initialization and workspace/machine pickers for plain folders, no-project threads and stored worktree defaults."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/GitActionsControl.logic.test.ts",
+      "target": "apps/web/src/components/GitActionsControl.logic.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "859391a907fcb5a13b0d7ed50b70251ab81416a95d815f25f742d1d3a732626b",
+      "reason": "Replace PR-completion/action success expectations with ordinary-text and unavailable-action assertions while retaining non-PR tests."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/pullRequest/PullRequestListFilters.tsx",
+      "target": "apps/web/src/components/pullRequest/PullRequestListFilters.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "96025e48c59e1f98cd050f3fa29b10479a1d5e51cc81fc67ca00331eef825aa5",
+      "reason": "Extract the native generic issue UI into one query-independent shared implementation; optional native PR components reuse it without reintroducing their queries into Issues."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/pullRequest/PullRequestMarkdownEditor.tsx",
+      "target": "apps/web/src/components/pullRequest/PullRequestMarkdownEditor.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "a9187a3c5ef0fd83240db80a08fc9563ef5a8cc623f8bae810182b8e823be20e",
+      "reason": "Extract the native generic issue UI into one query-independent shared implementation; optional native PR components reuse it without reintroducing their queries into Issues."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/pullRequest/PullRequestReactions.tsx",
+      "target": "apps/web/src/components/pullRequest/PullRequestReactions.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "819ebce5a274ffec2e5b2bcae9ece01edf74d8c03435ab98f78f09443ae0ac3e",
+      "reason": "Extract the native generic issue UI into one query-independent shared implementation; optional native PR components reuse it without reintroducing their queries into Issues."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/pullRequest/PullRequestSummaryTab.tsx",
+      "target": "apps/web/src/components/pullRequest/PullRequestSummaryTab.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "aad09bf3f8b96ca077c7c8002c333cfdbd0a54470e38b0cc51d8fbd084ef777a",
+      "reason": "Extract the native generic issue UI into one query-independent shared implementation; optional native PR components reuse it without reintroducing their queries into Issues."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/composer-logic.test.ts",
+      "target": "apps/web/src/composer-logic.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "1293b4f3d8adf0d2e97b02dd1ae55d597b731f83032875f7bfe08f88fae1cd3d",
+      "reason": "Replace PR-completion/action success expectations with ordinary-text and unavailable-action assertions while retaining non-PR tests."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/pullRequest/guide/PullRequestGuideRunCoordinator.tsx",
+      "target": "apps/web/src/components/pullRequest/guide/PullRequestGuideRunCoordinator.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "f73bcd675f6f76effdaf9c0c88b441d5cf120f8d723288fd995ebe383cb4e0df",
+      "reason": "Keep native PR-only validation/notifier tests independent of the removed product route; no source or tests are excluded from typechecking."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/pullRequest/pullRequestsRouteSearch.test.ts",
+      "target": "apps/web/src/components/pullRequest/pullRequestsRouteSearch.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "76e71f5c9de1bd71e5575aa03c613945981dd099dedae7f77305f1cd20bcb343",
+      "reason": "Keep native PR-only validation/notifier tests independent of the removed product route; no source or tests are excluded from typechecking."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/RightPanelTabs.browser.test.tsx",
+      "target": "apps/web/src/components/RightPanelTabs.browser.test.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "48991873a74ec470540a71a4007eda94800b8dc5733162580cd7df129224dcbd",
+      "reason": "Update native test fixtures for the deliberately removed PR props/actions; retain their existing assertions and add unavailable-feature coverage."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/ThreadDetailsPrRows.tsx",
+      "target": "apps/web/src/components/chat/ThreadDetailsPrRows.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "7b2bf06317b27fd93df477795824e1dbd2f7f962d443b30760a79dc6c798949e",
+      "reason": "Decouple retired PR entry points and query hooks from retained native UI modules without excluding their sources from typechecking."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/composerMentionDrag.test.ts",
+      "target": "apps/web/src/components/chat/composerMentionDrag.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "9b8cf1f5cda5a7261b3e84be57cb058b526259a9eb6a4cbe1518505f0e3155e4",
+      "reason": "Update native test fixtures for the deliberately removed PR props/actions; retain their existing assertions and add unavailable-feature coverage."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/useComposerSend.ts",
+      "target": "apps/web/src/components/chat/useComposerSend.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "66fe08aea61a1323a377d732b0580f100dc9ebe6154c59fa521dc872e87c3572",
+      "reason": "Remove automatic checkout-PR linking after starting an otherwise normal native chat."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/usePullRequestDraftThread.ts",
+      "target": "apps/web/src/components/chat/usePullRequestDraftThread.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "2440b50cff24440bc07671b689b15969b1abf5ad1b2f6619b6cbdf46b046b4c5",
+      "reason": "Decouple retired PR entry points and query hooks from retained native UI modules without excluding their sources from typechecking."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/pullRequest/PullRequestsPage.tsx",
+      "target": "apps/web/src/components/pullRequest/PullRequestsPage.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "2285aa8a563349ee19feb6174f22431b7071839480e63b18dcf1de5057c2eea1",
+      "reason": "Decouple retired PR entry points and query hooks from retained native UI modules without excluding their sources from typechecking."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/pullRequest/ThreadPullRequestsPanel.tsx",
+      "target": "apps/web/src/components/pullRequest/ThreadPullRequestsPanel.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "91aff3788fa5c465c13337536a420b282913a79760a6d473add73916f4cba9eb",
+      "reason": "Decouple retired PR entry points and query hooks from retained native UI modules without excluding their sources from typechecking."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/pullRequest/useThreadLinkedPullRequest.ts",
+      "target": "apps/web/src/components/pullRequest/useThreadLinkedPullRequest.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "94d8f932fda978f3d427603049ba31897c8a07576f6eac7241c4306c5439c961",
+      "reason": "Decouple retired PR entry points and query hooks from retained native UI modules without excluding their sources from typechecking."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/IntegrationsSettings.tsx",
+      "target": "apps/web/src/components/settings/IntegrationsSettings.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "1a7791f4675abed35f4e51b9079652c7c1423bd8117b4282545516b10f0a4357",
+      "reason": "Decouple retired PR entry points and query hooks from retained native UI modules without excluding their sources from typechecking."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/PullRequestRoutingSettings.tsx",
+      "target": "apps/web/src/components/settings/PullRequestRoutingSettings.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "f6be7b60fd0eeaa1e0ddd2322bbf1bf1033c30a86caffaabcab3e20130375965",
+      "reason": "Decouple retired PR entry points and query hooks from retained native UI modules without excluding their sources from typechecking."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/routes/_chat.pull-requests.tsx",
+      "target": "apps/web/src/routes/_chat.pull-requests.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "14ae1385afbfee1423e56f8c9567e8c04e7cedf91e57020cb32cda1eff31278b",
+      "reason": "Remove the retired PR route registration as well as excluding its file from route generation."
+    },
+    {
+      "source": "integration/t3/overrides/packages/client-runtime/src/state/pullRequests.ts",
+      "target": "packages/client-runtime/src/state/pullRequests.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "b6aece38004539af00f86e018ac35baadbe2862fe6fc63472356dc1082bb0066",
+      "reason": "Make the PR diff-loader port optional so removing it from the shared connection runtime does not invalidate unrelated client types; missing loaders explicitly reject PR diff reads."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/appInit.tsx",
+      "target": "apps/web/src/appInit.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "6df6d5656ba96e320847de9acdd00328a5030ee625bfa88212926d5af6dec433",
+      "reason": "Do not start PR refresh subscriptions when booting the web client."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/AppSidebarLayout.tsx",
+      "target": "apps/web/src/components/AppSidebarLayout.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "2073a3efcaca01f467626164354b30bcd8ee4810ce14473de8bc1609f63355d9",
+      "reason": "Remove the global PR panel and its direct implementation imports from the native app shell."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/BranchToolbarBranchSelector.tsx",
+      "target": "apps/web/src/components/BranchToolbarBranchSelector.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "299ff430c055575af254b26d2207a6b556fe4135e2a4d6c7fd44ce4d05ddb358",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/BranchToolbarBranchSelector.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/ChatMarkdown.tsx",
+      "target": "apps/web/src/components/ChatMarkdown.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "1e05071edd6b8364187001f6dacd1091e720aee07ba6e475da4afac9b12bf098",
+      "reason": "Stop PR previews and context interception without removing normal Markdown, links or document rendering."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/ChatView.tsx",
+      "target": "apps/web/src/components/ChatView.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "daddcee4e93c47386fd0b00fd1845216d24d79fec104d393ac2d089340049439",
+      "reason": "Remove PR and Git composer/panel dependencies, worktree preparation and checkpoint rewind controls while retaining native chat, scripts, attachments and side chats."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/CommandPalette.tsx",
+      "target": "apps/web/src/components/CommandPalette.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "56470fe07c2f57cff201a5231d579427772990a7a1276805de2c80b461f09f21",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/CommandPalette.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/CommandPaletteThreadItems.tsx",
+      "target": "apps/web/src/components/CommandPaletteThreadItems.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "be4efabb86596b9ebafe1f6f41b24e55602b708b32a5dc3077e421236d3afb5e",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/CommandPaletteThreadItems.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/GitActionsControl.logic.ts",
+      "target": "apps/web/src/components/GitActionsControl.logic.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "1fbc881f0571dd686f4109b6a18be06e3d9081f487a0aef733ccf99e59062b12",
+      "reason": "Remove PR-creation and open-PR actions without removing the separately scoped remaining Git controls."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/ReopenClosedViewShortcut.tsx",
+      "target": "apps/web/src/components/ReopenClosedViewShortcut.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "16b4a39ee7fbf4d989f6bf7865c2bec55c91381663dcbcde059db3cc86859758",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/ReopenClosedViewShortcut.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/RightPanelTabs.tsx",
+      "target": "apps/web/src/components/RightPanelTabs.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "e91cbeef51f77526d04708975574c1b066eb2f22edfb8aea0870f5455323cc77",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/RightPanelTabs.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/ThreadChipHoverCard.tsx",
+      "target": "apps/web/src/components/ThreadChipHoverCard.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "19942a7528c1965ce51f04efa6cb83854ecbd1a4cbb9129776a62645e89753c1",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/ThreadChipHoverCard.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/ThreadStatusIndicators.tsx",
+      "target": "apps/web/src/components/ThreadStatusIndicators.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "0774bbc57d39d91694b53b9b009496842c3ba88cd637ac37c1bb4eef242bf696",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/ThreadStatusIndicators.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/ChatComposer.tsx",
+      "target": "apps/web/src/components/chat/ChatComposer.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "f6816fafbebb9718a6335e7fc4b84a2f0619742da49cce56ea538e2c00948e1f",
+      "reason": "Remove PR lookup inputs, menu insertion, context actions and drop insertion from the native composer."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/ChatOverlayHosts.tsx",
+      "target": "apps/web/src/components/chat/ChatOverlayHosts.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "695959e71f34dd93a8df5960a9724640e58800595e924ca1d2089330477cec08",
+      "reason": "Remove the PR checkout dialog and its overlay host from native chat overlays."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/ComposerCommandMenu.tsx",
+      "target": "apps/web/src/components/chat/ComposerCommandMenu.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "22c85f4aa167bad0bfd793b6f2ad4a8f7741dfef9fcf830bb699df2c455ba0b6",
+      "reason": "Remove PR menu items and PR-specific preview rendering from composer suggestions."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/RightPanelSurfaceContent.tsx",
+      "target": "apps/web/src/components/chat/RightPanelSurfaceContent.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "bfaa68861bfe7446459812661abdf2b02b513ebb669bf9436b0ca8ce3b4727f4",
+      "reason": "Remove PR detail/list renderer imports from otherwise available native panel surfaces."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/ThreadDetailsPanel.tsx",
+      "target": "apps/web/src/components/chat/ThreadDetailsPanel.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "1d01adde3822ef48138fe47af290860bbe0481b2fa515314c2fef7cef283296e",
+      "reason": "Remove PR/Git controls and environment/worktree pickers from thread details while retaining ordinary project scripts, editors, relationships and usage."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/UserMessageContextChips.tsx",
+      "target": "apps/web/src/components/chat/UserMessageContextChips.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "8193cd1c8e2fd2937db445db9ced8b2e7ba45ba7e05a34a1fb6808ba7204a609",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/chat/UserMessageContextChips.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/composerMentionDrag.ts",
+      "target": "apps/web/src/components/chat/composerMentionDrag.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "8bb7dfc8260da75953a9c31c89b382e921ff87ba3a5b3e6287d6f12d82e22ec1",
+      "reason": "Remove PR drag MIME decoding and insertion while preserving normal mention drops."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/useComposerMenuItems.ts",
+      "target": "apps/web/src/components/chat/useComposerMenuItems.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "fd63f29abf247e9f7fc38582f391f3dce64dc44589d93f0f4862ede62ba193eb",
+      "reason": "Remove PR search hooks and ranking imports; retain file, skill, command and thread suggestions."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/chat/useRightPanelActions.ts",
+      "target": "apps/web/src/components/chat/useRightPanelActions.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "04edffa4f18436bd961028f564639df7cc4c38916cf573d3c3209c7fa8af902d",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/chat/useRightPanelActions.ts while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/composerContextActions.ts",
+      "target": "apps/web/src/components/composerContextActions.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "7aeedee1e7b3c8643faf704c3fe2f9ecc1366ce034af9a154cfd8c789445192a",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/composerContextActions.ts while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/composerContextPresentation.tsx",
+      "target": "apps/web/src/components/composerContextPresentation.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "7f031cb2f2643ef4b0ea0211a706be240616190f210e7223a8a1f53f07a7c22c",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/composerContextPresentation.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/contextChipParts.tsx",
+      "target": "apps/web/src/components/contextChipParts.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "583392099741098d1d1249860a1729f1250fc09d39270da915dd093e093f37e2",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/contextChipParts.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/diffs/DiffCommentAnnotation.tsx",
+      "target": "apps/web/src/components/diffs/DiffCommentAnnotation.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "d64ac9129623adbabde5860ab99af7b54dd29bd93c3ef25b8e74aa1df1ac7139",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/diffs/DiffCommentAnnotation.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/issue/IssueDetailPanel.tsx",
+      "target": "apps/web/src/components/issue/IssueDetailPanel.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "28ba3b06955abc74b79206a68775fe67dbc8650f75b147cd714e5ec338265f06",
+      "reason": "Keep issue details independent of PR query-bearing summary, reaction and Markdown-editor modules."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/issue/IssueListFilterPickers.tsx",
+      "target": "apps/web/src/components/issue/IssueListFilterPickers.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "f7b0c69e64c1b673dcf7fc4703d66cc2f55953a7b5f6798b2b6b0f951a497831",
+      "reason": "Separate issue filter primitives from PR listing state dependencies."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/issue/IssuesPage.tsx",
+      "target": "apps/web/src/components/issue/IssuesPage.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "52c14acf5bc59ea9ab35493039adc358f97e4f5bc6d8fe373db0b781e813c545",
+      "reason": "Remove PR detail overlays from Issues and use query-independent native issue controls."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/issue/issuesSearch.logic.ts",
+      "target": "apps/web/src/components/issue/issuesSearch.logic.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "613b88fb62cc1fd89b6e40a65e84c1c1788b4b8d6bf8a3f2f6d4b24f6c2fff91",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/issue/issuesSearch.logic.ts while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/promptLinks/NewThreadLinkView.tsx",
+      "target": "apps/web/src/components/promptLinks/NewThreadLinkView.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "c55258bf9bb0a0547ec99f2a17511931193c9617acd6b36a55787bc58b889a82",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/promptLinks/NewThreadLinkView.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/pullRequest/PullRequestCompactFilterMenu.tsx",
+      "target": "apps/web/src/components/pullRequest/PullRequestCompactFilterMenu.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "cf9e49de9c3046e3743da24eaa322363ab044a3f5bf2bf9d7117a84f7df00e74",
+      "reason": "Make shared compact issue filter menus independent of PR listing state."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/ConnectionsSettings.tsx",
+      "target": "apps/web/src/components/settings/ConnectionsSettings.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "71d539dd2f7a17495b3e486b0f1f8c18fc513526b65a2b1d90b91761d6383d65",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/settings/ConnectionsSettings.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/ProjectDefaultsSettings.tsx",
+      "target": "apps/web/src/components/settings/ProjectDefaultsSettings.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "6b43cb141460e65dfbf0fd1503e26df33b9595af02158d848fa3066ba1d579e8",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/settings/ProjectDefaultsSettings.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/SettingsPanels.tsx",
+      "target": "apps/web/src/components/settings/SettingsPanels.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "514a3604338471ea599f1109d897e8c591778c489b2d4042a65849f7cc9f12fa",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/settings/SettingsPanels.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/settings/settingsSearch.ts",
+      "target": "apps/web/src/components/settings/settingsSearch.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "a39909251cfaf5e1262d333cbb12bc9a19b2c83d65f7d987dcf065a97b963fa8",
+      "reason": "Exclude Git, PR, issue, account, pairing and extra-environment entries from search/navigation; retain only non-navigable native typing metadata where required."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/sidebar/SidebarChrome.tsx",
+      "target": "apps/web/src/components/sidebar/SidebarChrome.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "65c46e99ce759c27ee6b8adf4328d414d645f4ad0d06f79a9230d1da368baf70",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/sidebar/SidebarChrome.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/sidebar/SidebarThreadRow.tsx",
+      "target": "apps/web/src/components/sidebar/SidebarThreadRow.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "3b7a409ee554c6df5f44f4551e401bf2fc367eae09d9c254ec3069e690f0108f",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/sidebar/SidebarThreadRow.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/components/workflows/WorkflowReferences.tsx",
+      "target": "apps/web/src/components/workflows/WorkflowReferences.tsx",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "43dd5cd9a572aef3725171be221c1d1ef55617d819e5ac727ab1a9103eb14813",
+      "reason": "Remove PR entry points and direct PR runtime imports from components/workflows/WorkflowReferences.tsx while preserving its remaining native behavior."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/composer-logic.ts",
+      "target": "apps/web/src/composer-logic.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "4b171f3077a3b5d644c344e6fefe5330b8fdbe6894d7b8596ffbdf37c126b5c8",
+      "reason": "Treat hash-number text as ordinary composer text instead of a PR completion trigger."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/connection/runtime.ts",
+      "target": "apps/web/src/connection/runtime.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "f4e2a5d2fd100dca34084f36f25585d715022fb7f9c5b66943adb6dc188c4b64",
+      "reason": "Do not construct the PR diff loader in the native client runtime."
+    },
+    {
+      "source": "integration/t3/overrides/apps/web/src/lib/openPullRequestLink.ts",
+      "target": "apps/web/src/lib/openPullRequestLink.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "eaafd6cade9a94abba39891daa7c44b826f0fd65050661293f7cf5c7e6c2748a",
+      "reason": "Stop PR links from opening or revealing internal PR panels; retain normal external links and workspace commit handling."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/ws.ts",
+      "target": "apps/server/src/ws.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "34836303c6e22d088fcd59adf44d91712fa9fbd546ec3cf71f5446e8850ce920",
+      "reason": "Use the product RPC group without Git/PR/forge/clone/worktree operations and remove their handlers, acquisitions and private layers while retaining folder/files/chat/model/local-auth operations."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/mcp/McpHttpServer.ts",
+      "target": "apps/server/src/mcp/McpHttpServer.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "ff19b3370597beeb025ab268725fd75848990261d15686bb8c0f8f00ce4db09d",
+      "reason": "Do not register or import PR and worktree toolkits in the product MCP server; retain only an optional lightweight native port for forge availability."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/mcp/McpHttpServer.test.ts",
+      "target": "apps/server/src/mcp/McpHttpServer.test.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "9004cba2664572474b5d1c86128ed1878b7d446c0a8e617b66eff64b0eb09861",
+      "reason": "Keep upstream PR-tool behavior tests by assembling their optional toolkit in the test, not in the product server."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/workflows/WorkflowForge.ts",
+      "target": "apps/server/src/workflows/WorkflowForge.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "4a2057ca04ee89d57d017e9ca31b9724cf1b2e1510a2ce5087823fa512e552d2",
+      "reason": "Keep typed unavailable forge ports without importing private PR/issue implementations; capture the product issue ceiling so an unavailable service tag cannot enable workflow operations or polling."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/RunFinalizationService.ts",
+      "target": "apps/server/src/orchestration-v2/RunFinalizationService.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "f27b205683a902ae04c33cb864b5424def2fc42279ded5e786e8879449c482aa",
+      "reason": "Preserve native run finalization and ordinary file refreshes; omit VCS and repository enrichment in the no-Git profile and PR refreshes without the optional PR port."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/orchestration-v2/ThreadSettlementService.ts",
+      "target": "apps/server/src/orchestration-v2/ThreadSettlementService.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "a7f3093db1325ac5495446ceb804ef77544b6882db19d822ea71efdbd5b58c1d",
+      "reason": "Keep non-PR settlement independent of PR services/reactors; absent PR ports create no PR subscriptions or lookups."
+    },
+    {
+      "source": "integration/t3/overrides/packages/contracts/src/pullRequest.ts",
+      "target": "packages/contracts/src/pullRequest.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "d68a926f133d3c6b015cdbb5cbbf80db1b7e8aa77b2cab5b1bab1cf0fcc67b0e",
+      "reason": "Represent product-disabled PR operations explicitly in the existing HTTP/RPC unavailable error, without claiming missing credentials or an unsupported provider."
+    },
+    {
+      "source": "integration/t3/overrides/packages/contracts/src/rpc.ts",
+      "target": "packages/contracts/src/rpc.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "03d3285f1f337b44925e7208e8b19403eb29a9d393cbe3dbd6c53b1c19f8235c",
+      "reason": "Define a product-only RPC group omitting Git/PR/forge/task-folder/Triage methods while preserving ordinary folder creation/scanning and native scope authorization; retain the wider SDK group only for pinned compatibility."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/auth/RpcAuthorization.ts",
+      "target": "apps/server/src/auth/RpcAuthorization.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "67661895f5dbe8e77cfa507ed73a0654e5b63993fbe080b97691d2b66661e576",
+      "reason": "Retain native scope authorization and reject disabled PR calls before handlers or success callbacks execute."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/mcp/McpToolAccess.ts",
+      "target": "apps/server/src/mcp/McpToolAccess.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "ba11beefc842fa0e4f0720ee3cca45a878c787a78528d998a4a470e6963bfeb9",
+      "reason": "Reject PR tool calls before local handlers and linked-environment forwarding, independently of discovery."
+    },
+    {
+      "source": "integration/t3/overrides/apps/server/src/pullRequest/http.ts",
+      "target": "apps/server/src/pullRequest/http.ts",
+      "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
+      "upstreamSha256": "1d9401e1a8ca856563abd22481202632d4c750b917804d3ccbde9382518414ef",
+      "reason": "Reject direct PR diff HTTP requests after authentication and before PR service work."
+    },
+    {
       "source": "integration/t3/overrides/apps/web/src/components/Sidebar.tsx",
       "target": "apps/web/src/components/Sidebar.tsx",
       "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
@@ -45,7 +1717,7 @@
       "target": "apps/server/src/server.ts",
       "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
       "upstreamSha256": "78a18c5f08c89511672274f47531feaf85dc2361be05fcf07b7a2ab64cca18c2",
-      "reason": "Own API and replay integration; profile-controlled settlement worker construction."
+      "reason": "Compose the product server without Git/VCS/clone/worktree/repository/PR/issue services or workers; retain ordinary scripts, model context, chat, local auth, folder APIs and the explicitly empty provider registry."
     },
     {
       "source": "integration/t3/overrides/apps/server/src/orchestration-v2/Orchestrator.ts",
@@ -59,14 +1731,14 @@
       "target": "apps/server/src/environment/ServerEnvironment.ts",
       "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
       "upstreamSha256": "6100562926de0c2936b97773f9d985c480a451ce889fd9207c36466f3610560b",
-      "reason": "Advertise the capability actually enforced by the product profile."
+      "reason": "Advertise settlement and PR operation availability enforced by the product profile, including PR checks, linking, watches and stack actions. Report the GitHub product ceiling independently of generic issue support."
     },
     {
       "source": "integration/t3/overrides/apps/server/package.json",
       "target": "apps/server/package.json",
       "upstreamCommit": "43a0e74fb97672caed8b92fc38fc832bda4a5628",
       "upstreamSha256": "4ca31d9a13b04c2d4e27582dd8c884bb5b92de25531c8cb1f3122b8091c9571e",
-      "reason": "Declare owned workspace contracts and services in the server dependency graph."
+      "reason": "Remove all forge and Linear product dependency edges while preserving native chat/model providers and shared core contracts."
     },
     {
       "source": "integration/t3/overrides/apps/web/package.json",

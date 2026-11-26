@@ -2,6 +2,13 @@ import * as Schema from "effect/Schema";
 
 export const RuntimeCapabilities = Schema.Struct({
   threadSettlement: Schema.Boolean,
+  pullRequests: Schema.Boolean,
+  git: Schema.Boolean,
+  github: Schema.Boolean,
+  sourceControl: Schema.Boolean,
+  issues: Schema.Boolean,
+  pairing: Schema.Boolean,
+  environments: Schema.Boolean,
 });
 export type RuntimeCapabilities = typeof RuntimeCapabilities.Type;
 

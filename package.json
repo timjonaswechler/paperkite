@@ -6,10 +6,12 @@
   "type": "module",
   "scripts": {
     "upstream:check": "node tooling/bootstrap.mjs verify",
+    "upstream:plan": "node tooling/bootstrap.mjs update-plan",
     "compose": "node tooling/bootstrap.mjs compose",
     "lock": "node tooling/bootstrap.mjs lock",
     "setup": "node tooling/bootstrap.mjs setup",
     "check": "node tooling/bootstrap.mjs check",
+    "check:pr-graph": "node tooling/bootstrap.mjs pr-graph",
     "test": "node --test tooling/bootstrap.test.mjs",
     "build": "node tooling/bootstrap.mjs build",
     "proof": "node tooling/bootstrap.mjs proof",

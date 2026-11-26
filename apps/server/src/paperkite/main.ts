@@ -15,7 +15,6 @@ import { resolveServerConfig } from "../cli/config.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import * as Isolation from "./integration/Isolation.ts";
 import * as Runtime from "./integration/Runtime.ts";
-import upstream from "./integration/upstream.json" with { type: "json" };
 
 const command = Command.make(
   "paperkite",
@@ -61,12 +60,7 @@ const command = Command.make(
         ...config,
         staticDir: path.resolve(flags.staticDir),
       }),
-      Effect.provideService(Runtime.Profile, {
-        application: "paperkite",
-        upstreamCommit: upstream.commit,
-        profile: flags.profile,
-        capabilities: { threadSettlement: flags.profile === "native" },
-      }),
+      Effect.provideService(Runtime.Profile, Runtime.status(flags.profile)),
     );
   }),
 );

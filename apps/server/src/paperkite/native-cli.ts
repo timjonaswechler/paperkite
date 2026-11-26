@@ -19,7 +19,7 @@ const permitted = new Set([
 ]);
 
 if (import.meta.main) {
-  await Effect.gen(function* () {
+  const command = await Effect.gen(function* () {
     const args = (yield* HostProcess.Arguments).slice(2);
     if (!permitted.has(args[0] ?? "")) {
       return yield* new Isolation.InvalidRuntimeLocation({
@@ -42,7 +42,16 @@ if (import.meta.main) {
         reason: "an explicit data home is required",
       });
     yield* Isolation.resolve(root, home);
+    return args[0];
   }).pipe(Effect.provide(NodeServices.layer), Effect.runPromise);
-  const { runCliCommand } = await import("../binMain.ts");
-  await runCliCommand();
+  if (["auth", "pair", "thread", "project", "providers"].includes(command ?? "")) {
+    const { ignoreMacosTypeOfServiceEinval } = await import("../outboundHttp.ts");
+    ignoreMacosTypeOfServiceEinval();
+    const { runCli } = await import("../binCli.ts");
+    const Runtime = await import("./integration/Runtime.ts");
+    runCli(Runtime.status("proof"));
+  } else {
+    const { runCliCommand } = await import("../binMain.ts");
+    await runCliCommand();
+  }
 }

@@ -8,6 +8,10 @@ it.effect("a disabled capability rejects execution while the native profile perm
       const result = yield* Effect.gen(function* () {
         const policy = yield* RuntimePolicy.RuntimePolicy;
         expect(policy.status.capabilities.threadSettlement).toBe(enabled);
+        expect(yield* policy.requirePullRequests.pipe(Effect.flip)).toMatchObject({
+          _tag: "PaperkiteFeatureUnavailable",
+          feature: "pullRequests",
+        });
         return yield* Effect.result(policy.requireThreadSettlement);
       }).pipe(
         Effect.provide(
@@ -15,7 +19,16 @@ it.effect("a disabled capability rejects execution while the native profile perm
             application: "paperkite",
             upstreamCommit: "fixture",
             profile: enabled ? "native" : "proof",
-            capabilities: { threadSettlement: enabled },
+            capabilities: {
+              threadSettlement: enabled,
+              pullRequests: false,
+              git: false,
+              pairing: false,
+              environments: false,
+              github: false,
+              sourceControl: false,
+              issues: false,
+            },
           }),
         ),
       );

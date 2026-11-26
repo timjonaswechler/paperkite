@@ -6,7 +6,7 @@ import * as Schema from "effect/Schema";
 
 export class FeatureUnavailable extends Schema.TaggedError<FeatureUnavailable>()(
   "PaperkiteFeatureUnavailable",
-  { feature: Schema.Literal("threadSettlement") },
+  { feature: Schema.Literals(["threadSettlement", "pullRequests", "git"]) },
 ) {
   override get message(): string {
     return `Feature ${this.feature} is unavailable in this Paperkite profile.`;
@@ -18,6 +18,8 @@ export class RuntimePolicy extends Context.Service<
   {
     readonly status: RuntimeStatus;
     readonly requireThreadSettlement: Effect.Effect<void, FeatureUnavailable>;
+    readonly requirePullRequests: Effect.Effect<void, FeatureUnavailable>;
+    readonly requireGit: Effect.Effect<void, FeatureUnavailable>;
   }
 >()("@paperkite/core/RuntimePolicy") {}
 
@@ -27,4 +29,10 @@ export const layer = (status: RuntimeStatus) =>
     requireThreadSettlement: status.capabilities.threadSettlement
       ? Effect.void
       : Effect.fail(new FeatureUnavailable({ feature: "threadSettlement" })),
+    requireGit: status.capabilities.git
+      ? Effect.void
+      : Effect.fail(new FeatureUnavailable({ feature: "git" })),
+    requirePullRequests: status.capabilities.pullRequests
+      ? Effect.void
+      : Effect.fail(new FeatureUnavailable({ feature: "pullRequests" })),
   });

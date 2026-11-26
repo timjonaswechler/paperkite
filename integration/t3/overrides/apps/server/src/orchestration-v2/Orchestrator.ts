@@ -15,7 +15,6 @@ import {
   usageLimitBlockedRun,
 } from "@t3tools/shared/orchestrationV2ThreadError";
 import { threadIssueKeysEqual } from "@t3tools/contracts";
-import { canonicalizeGitCafePullRequestUrl } from "@t3tools/source-control-definitions/registry";
 import { threadPullRequestsOf } from "../sourceControl/threadPullRequests.ts";
 import {
   normalizeThreadPullRequestKey,
@@ -27,6 +26,7 @@ import {
   ORCHESTRATION_V2_WORKSPACE_PREPARATION_FAILURE_CODE,
   type ChatAttachment,
   CommandId,
+  GitUnavailableError,
   type GuestMessageId,
   isCompactionCommandMessage,
   isDeliveredProviderTurn,
@@ -67,7 +67,6 @@ import {
   type OrchestrationV2ThreadProjection,
   type OrchestrationV2TurnItem,
   latestProviderTurnForAttempt,
-  repositoryRewindCheckpoint,
   parseGoalCommand,
   orchestrationV2RunWorkStartedAt,
   ProviderInstanceId,
@@ -107,8 +106,6 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as FiberSet from "effect/FiberSet";
-import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
@@ -118,11 +115,6 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
 import * as ProjectStore from "./ProjectStore.ts";
-import * as TaskFolderStore from "../workspace/TaskFolderStore.ts";
-import {
-  isCheckpointRestoreIsolated,
-  SHARED_WORKSPACE_RESTORE_MESSAGE,
-} from "./CheckpointRestoreSafety.ts";
 import { CheckpointServiceV2 } from "./CheckpointService.ts";
 import {
   CommandPolicyV2,
@@ -568,6 +560,13 @@ export interface OrchestratorV2Shape {
   readonly streamDomainEvents: Stream.Stream<OrchestrationV2DomainEvent, OrchestratorV2Error>;
 }
 
+export const requestsFileRollback = (command: OrchestrationV2ServerCommand): boolean =>
+  command.type === "checkpoint.rollback" && command.restoreFiles !== false;
+
+export const ScratchLaunchFolder = Context.Reference<
+  { readonly commandId: CommandId; readonly folder: string } | undefined
+>("paperkite/orchestration/ScratchLaunchFolder", { defaultValue: () => undefined });
+
 export class OrchestratorV2 extends Context.Service<OrchestratorV2, OrchestratorV2Shape>()(
   "t3/orchestration-v2/Orchestrator/OrchestratorV2",
 ) {}
@@ -948,7 +947,7 @@ function legacyPullRequestLink(
   return withPullRequestWatch(
     {
       ...key,
-      url: canonicalizeGitCafePullRequestUrl(linked.url),
+      url: linked.url,
       source: "manual",
       linkedAt: DateTime.formatIso(now),
       snapshot: null,
@@ -1650,6 +1649,7 @@ const hasRunningDelegatedTasks = (subagents: ReadonlyArray<OrchestrationV2Subage
   );
 
 const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(function* () {
+  const paperkiteProfile = yield* PaperkiteRuntime.Profile;
   const checkpointService = yield* CheckpointServiceV2;
   const commandPolicy = yield* CommandPolicyV2;
   const contextHandoffService = yield* ContextHandoffServiceV2;
@@ -1657,7 +1657,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
   const commandReceipts = yield* CommandReceiptStoreV2;
   const idAllocator = yield* IdAllocator.IdAllocatorV2;
   const projects = yield* ProjectStore.ProjectStoreV2;
-  const taskFolderStore = yield* TaskFolderStore.TaskFolderStore;
   const projectionStore = yield* ProjectionStoreV2;
   const effectOutbox = yield* EffectOutbox.EffectOutboxV2;
   const nextTurnItemOrdinal = (
@@ -1676,8 +1675,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       ),
     );
 
-  const fileSystem = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
   const providerAdapters = yield* ProviderAdapterRegistryV2;
   const continuationRequests = yield* ProviderContinuationRequests.ProviderContinuationRequests;
   const providerSessions = yield* ProviderSessionManagerV2;
@@ -5286,14 +5283,14 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
               ? {
                   ...existing,
                   source: command.source,
-                  url: canonicalizeGitCafePullRequestUrl(command.url),
+                  url: command.url,
                   ...(command.repositoryWebUrl !== undefined && {
                     repositoryWebUrl: command.repositoryWebUrl,
                   }),
                 }
               : {
                   ...key,
-                  url: canonicalizeGitCafePullRequestUrl(command.url),
+                  url: command.url,
                   ...(command.repositoryWebUrl !== undefined && {
                     repositoryWebUrl: command.repositoryWebUrl,
                   }),
@@ -5322,7 +5319,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
                 ? [
                     {
                       ...branchKey,
-                      url: canonicalizeGitCafePullRequestUrl(branch.url),
+                      url: branch.url,
                       source: "manual" as const,
                       linkedAt: DateTime.formatIso(now),
                       snapshot: null,
@@ -5438,7 +5435,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
                   ...linked.filter((link) => !threadPullRequestKeysEqual(link, key)),
                   {
                     ...key,
-                    url: canonicalizeGitCafePullRequestUrl(command.link.url),
+                    url: command.link.url,
                     ...((command.link.repositoryWebUrl ?? dismissed?.repositoryWebUrl) !==
                       undefined && {
                       repositoryWebUrl:
@@ -13019,6 +13016,15 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         cause: `Run ${command.runId} has no failed workspace preparation to retry.`,
       });
     }
+    if (
+      PaperkiteRuntime.requestsGitWorkspace({ workspaceStrategy: state.run.workspacePreparation })
+    ) {
+      return yield* new OrchestratorCommandRejectedError({
+        commandId: command.commandId,
+        commandType: command.type,
+        cause: new GitUnavailableError({ reason: "feature-disabled" }),
+      });
+    }
     if (projection.runs.some((run) => run.id !== state.run.id && isActiveRun(run))) {
       return yield* new OrchestratorDispatchError({
         commandId: command.commandId,
@@ -14822,45 +14828,15 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           cause: `Checkpoint ${command.checkpointId} was not found.`,
         });
       }
-      const worktreePath = projection.thread.worktreePath;
-      const taskFolder =
-        command.restoreFiles === false || worktreePath === null
-          ? null
-          : yield* taskFolderStore.findContaining(worktreePath).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new OrchestratorDispatchError({
-                    commandId: command.commandId,
-                    commandType: command.type,
-                    cause,
-                  }),
-              ),
-            );
-      // A task folder's linked project folder has no snapshot; its repositories can still restore.
-      const restoresRepositories =
-        taskFolder !== null &&
-        !taskFolder.projectIsWorktree &&
-        projection.checkpointScopes.some(
-          (scope) =>
-            typeof scope.repositoryPath === "string" &&
-            repositoryRewindCheckpoint(
-              projection.checkpoints.filter((candidate) => candidate.scopeId === scope.id),
-              targetCheckpoint.appRunOrdinal ?? 0,
-            ) !== null,
-        );
-      // Missing or failed snapshots otherwise support conversation rewind only.
       if (
         targetCheckpoint.status !== "ready" &&
-        !(targetCheckpoint.status === "error" && command.restoreFiles === false) &&
-        !(
-          targetCheckpoint.status === "missing" &&
-          (command.restoreFiles === false || restoresRepositories)
-        )
+        targetCheckpoint.status !== "error" &&
+        targetCheckpoint.status !== "missing"
       ) {
         return yield* new OrchestratorDispatchError({
           commandId: command.commandId,
           commandType: command.type,
-          cause: `Checkpoint ${command.checkpointId} is ${targetCheckpoint.status} and cannot be restored.`,
+          cause: "The checkpoint cannot be used to roll back this conversation.",
         });
       }
       const targetScope = projection.checkpointScopes.find(
@@ -14888,35 +14864,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           cause: `Checkpoint ${command.checkpointId} belongs to a tracked repository; roll back to the thread's own checkpoint instead.`,
         });
       }
-      if (command.restoreFiles !== false) {
-        const isolated = yield* isCheckpointRestoreIsolated(
-          projection.thread,
-          targetScope,
-          taskFolder,
-          {
-            projects,
-            path,
-            fileSystem,
-            projections: projectionStore,
-          },
-        ).pipe(
-          Effect.mapError(
-            (cause) =>
-              new OrchestratorDispatchError({
-                commandId: command.commandId,
-                commandType: command.type,
-                cause,
-              }),
-          ),
-        );
-        if (!isolated)
-          return yield* new OrchestratorDispatchError({
-            commandId: command.commandId,
-            commandType: command.type,
-            cause: SHARED_WORKSPACE_RESTORE_MESSAGE,
-          });
-      }
-
       const targetOrdinal = targetCheckpoint.appRunOrdinal ?? 0;
       if (targetOrdinal > 0) {
         const targetRun = projection.runs.find((run) => run.ordinal === targetOrdinal);
@@ -14981,7 +14928,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           threadId: command.threadId,
           request: {
             type: "provider-thread.rollback",
-            ...(command.restoreFiles === undefined ? {} : { restoreFiles: command.restoreFiles }),
+            restoreFiles: false,
             providerThreadId: providerThread.id,
             checkpointId: targetCheckpoint.id,
             scopeId: targetScope.id,
@@ -16806,7 +16753,33 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
 
   // dispatchWithReceiptEffect owns the dispatch span; this wrapper selects the thread locks.
   const dispatchWithReceipt = Effect.fnUntraced(function* (command: OrchestrationV2ServerCommand) {
-    yield* PaperkiteRuntime.requireCommand(command.type).pipe(
+    const scratch = yield* ScratchLaunchFolder;
+    const commandForAdmission =
+      scratch !== undefined &&
+      (command.type === "thread.create" || command.type === "thread.metadata.update") &&
+      command.commandId === scratch.commandId &&
+      command.worktreePath === scratch.folder
+        ? { ...command, worktreePath: null }
+        : command;
+    const nestedWorkspace =
+      command.type === "thread.create"
+        ? command.initialMessage
+        : command.type === "message.dispatch" && command.dispatchMode.type === "defer_start"
+          ? command.dispatchMode
+          : undefined;
+    if (
+      PaperkiteRuntime.requestsGitWorkspace(commandForAdmission) ||
+      PaperkiteRuntime.requestsGitWorkspace(nestedWorkspace) ||
+      requestsFileRollback(command)
+    ) {
+      return yield* new OrchestratorCommandRejectedError({
+        commandId: command.commandId,
+        commandType: command.type,
+        cause: new GitUnavailableError({ reason: "feature-disabled" }),
+      });
+    }
+    yield* PaperkiteRuntime.requireCommand(command.type, commandForAdmission).pipe(
+      Effect.provideService(PaperkiteRuntime.Profile, paperkiteProfile),
       Effect.mapError(
         (cause) =>
           new OrchestratorCommandRejectedError({
@@ -17653,8 +17626,6 @@ export const layer: Layer.Layer<
   OrchestratorV2,
   never,
   | CheckpointServiceV2
-  | FileSystem.FileSystem
-  | Path.Path
   | CommandPolicyV2
   | CommandReceiptStoreV2
   | ContextHandoffServiceV2
@@ -17668,7 +17639,6 @@ export const layer: Layer.Layer<
   | ProjectionStoreV2
   | RuntimePolicyV2
   | ServerSettings.ServerSettingsService
-  | TaskFolderStore.TaskFolderStore
   | ThreadForkServiceV2
 > = Layer.effect(OrchestratorV2, makeOrchestrator()).pipe(
   Layer.provide(ThreadCommandExecutor.layer),

@@ -88,13 +88,21 @@ export function planOverlay(project, upstream, composition) {
   return entries;
 }
 
+function copyIfChanged(source, destination) {
+  const content = NodeFS.readFileSync(source);
+  if (NodeFS.existsSync(destination) && content.equals(NodeFS.readFileSync(destination))) return;
+  NodeFS.copyFileSync(source, destination);
+}
+
 export function applyOverlay(project, upstream, output, composition, previous = []) {
   const entries = planOverlay(project, upstream, composition);
   // Validate every destination before removing any old product source.
   for (const target of [...previous, ...entries.map((entry) => entry.target)]) {
     safePath(output, target);
   }
+  const retained = new Set(entries.map((entry) => entry.target));
   for (const target of previous) {
+    if (retained.has(target)) continue;
     const destination = safePath(output, target);
     NodeFS.rmSync(destination, { force: true });
     const original = safePath(upstream, target);
@@ -103,9 +111,98 @@ export function applyOverlay(project, upstream, output, composition, previous = 
   for (const entry of entries) {
     const destination = safePath(output, entry.target);
     NodeFS.mkdirSync(NodePath.dirname(destination), { recursive: true });
-    NodeFS.copyFileSync(entry.source, destination);
+    copyIfChanged(entry.source, destination);
   }
   return entries.map((entry) => entry.target);
+}
+
+function revisionFile(repository, commit, file) {
+  const entry = git(repository, "ls-tree", "-z", commit, "--", file);
+  if (!entry.length) return null;
+  if (!/^100[0-7]{3} blob /.test(entry)) {
+    throw new Error(`Revision path is not a regular file: ${file}`);
+  }
+  return NodeChildProcess.execFileSync("git", ["-C", repository, "show", `${commit}:${file}`], {
+    stdio: ["ignore", "pipe", "pipe"],
+    maxBuffer: 32 * 1024 * 1024,
+  });
+}
+
+export function planUpstreamUpdate(project, repository, composition, from, to) {
+  for (const commit of [from, to]) {
+    if (!/^[a-f0-9]{40}$/.test(commit ?? "")) throw new Error("Use full commit SHAs.");
+    if (git(repository, "rev-parse", "--verify", `${commit}^{commit}`).trim() !== commit) {
+      throw new Error("Revision must identify a commit.");
+    }
+  }
+  const digest = (bytes) => NodeCrypto.createHash("sha256").update(bytes).digest("hex");
+  const collisions = [];
+  for (const item of composition.additions) {
+    const source = safePath(project, item.source);
+    for (const file of filesAt(project, item.source)) {
+      const suffix = NodePath.relative(source, safePath(project, file));
+      const target = suffix
+        ? `${item.target}/${suffix.split(NodePath.sep).join("/")}`
+        : item.target;
+      safePath(project, target);
+      if (revisionFile(repository, to, target) !== null) collisions.push(target);
+    }
+  }
+  const overrides = composition.overrides.map((item) => {
+    safePath(project, item.target);
+    const base = revisionFile(repository, from, item.target);
+    if (!base || digest(base) !== item.upstreamSha256 || item.upstreamCommit !== from) {
+      throw new Error(`Override does not match the base pin: ${item.target}`);
+    }
+    const ours = NodeFS.readFileSync(safePath(project, item.source));
+    const theirs = revisionFile(repository, to, item.target);
+    const entry = {
+      source: item.source,
+      target: item.target,
+      upstreamCommit: to,
+      upstreamSha256: theirs ? digest(theirs) : null,
+    };
+    if (!theirs) return { ...entry, status: "removed-upstream", proposal: null };
+    if (
+      [base, ours, theirs].some(
+        (bytes) => bytes.includes(0) || !Buffer.from(bytes.toString("utf8")).equals(bytes),
+      )
+    ) {
+      return { ...entry, status: "binary-review", proposal: null };
+    }
+    if (base.equals(theirs))
+      return { ...entry, status: "unchanged-upstream", proposal: ours.toString("utf8") };
+    const local = safePath(project, ".local");
+    NodeFS.mkdirSync(local, { recursive: true });
+    const scratch = NodeFS.mkdtempSync(NodePath.join(local, "upstream-merge-"));
+    try {
+      const files = [ours, base, theirs].map((content, index) => {
+        const file = NodePath.join(scratch, String(index));
+        NodeFS.writeFileSync(file, content);
+        return file;
+      });
+      const merge = NodeChildProcess.spawnSync(
+        "git",
+        ["merge-file", "-p", "--diff3", "-L", "Paperkite", "-L", from, "-L", to, ...files],
+        {
+          encoding: "utf8",
+          maxBuffer: 32 * 1024 * 1024,
+        },
+      );
+      if (merge.error) throw merge.error;
+      if (merge.status === null || merge.status < 0 || merge.status >= 128) {
+        throw new Error(`Three-way comparison failed: ${item.target}`);
+      }
+      return {
+        ...entry,
+        status: merge.status === 0 ? "merge-proposal" : "conflict",
+        proposal: merge.stdout,
+      };
+    } finally {
+      NodeFS.rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+  return { from, to, collisions, overrides };
 }
 
 function verify() {
@@ -178,7 +275,7 @@ function compose(allowMissingLock = false) {
   if (composition.productLock) {
     const productLock = safePath(root, composition.productLock);
     if (NodeFS.existsSync(productLock)) {
-      NodeFS.copyFileSync(productLock, NodePath.join(output, "pnpm-lock.yaml"));
+      copyIfChanged(productLock, NodePath.join(output, "pnpm-lock.yaml"));
     } else if (!allowMissingLock) {
       throw new Error("Product lock is missing. Run pnpm lock explicitly before installing.");
     }
@@ -196,7 +293,7 @@ export function isolatedEnvironment(environment) {
 }
 
 function run(cwd, args, env = {}, isolated = false) {
-  NodeChildProcess.execFileSync("pnpm", args, {
+  NodeChildProcess.execFileSync("pnpm", ["--config.verify-deps-before-run=error", ...args], {
     cwd,
     stdio: "inherit",
     env: {
@@ -212,6 +309,32 @@ function main(action) {
   if (action === "verify") {
     verify();
     console.log("Pinned T3 checkout and toolchain verified.");
+    return;
+  }
+  if (action === "update-plan") {
+    const { pin, upstream } = verify();
+    const plan = planUpstreamUpdate(
+      root,
+      process.argv[4] ?? upstream,
+      json(NodePath.join(root, "integration/t3/composition.json")),
+      pin.commit,
+      process.argv[3],
+    );
+    const local = safePath(root, ".local");
+    NodeFS.mkdirSync(local, { recursive: true });
+    const directory = NodeFS.mkdtempSync(NodePath.join(local, "upstream-plan-"));
+    NodeFS.writeFileSync(
+      NodePath.join(directory, "plan.json"),
+      `${JSON.stringify(plan, null, 2)}\n`,
+    );
+    console.log(`Update proposal only; no sources or pins changed: ${directory}`);
+    if (
+      plan.collisions.length ||
+      plan.overrides.some(
+        (entry) => !["unchanged-upstream", "merge-proposal"].includes(entry.status),
+      )
+    )
+      process.exitCode = 1;
     return;
   }
   const output = compose(action === "lock");
@@ -241,6 +364,16 @@ function main(action) {
       "--filter",
       "@t3tools/oxlint-plugin-t3code...",
     ]);
+  } else if (action === "pr-graph") {
+    run(output, [
+      "--filter",
+      "@t3tools/scripts",
+      "exec",
+      "node",
+      "paperkite/checkPrGraph.ts",
+      "--root",
+      output,
+    ]);
   } else if (action === "check") {
     const paths = json(NodePath.join(output, ".paperkite-composition.json")).targets;
     run(output, ["exec", "vp", "fmt", "--check", ...paths]);
@@ -255,7 +388,31 @@ function main(action) {
       "t3",
       "--filter",
       "@paperkite/*",
+      "--filter",
+      "@t3tools/scripts",
       "typecheck",
+    ]);
+    run(output, [
+      "--filter",
+      "@t3tools/scripts",
+      "exec",
+      "vp",
+      "test",
+      "run",
+      "--config",
+      "../vite.config.ts",
+      "--dir",
+      ".",
+      "paperkite/checkPrGraph.test.ts",
+    ]);
+    run(output, [
+      "--filter",
+      "@t3tools/scripts",
+      "exec",
+      "node",
+      "paperkite/checkPrGraph.ts",
+      "--root",
+      output,
     ]);
   } else if (action === "build") {
     run(output, ["exec", "vp", "run", "--filter", "@t3tools/web", "--filter", "t3", "build"]);
@@ -291,7 +448,9 @@ function main(action) {
       true,
     );
   } else {
-    throw new Error("Use verify, compose, lock, setup, check, build, proof, start or dev.");
+    throw new Error(
+      "Use verify, update-plan, compose, lock, setup, check, pr-graph, build, proof, start or dev.",
+    );
   }
 }
 

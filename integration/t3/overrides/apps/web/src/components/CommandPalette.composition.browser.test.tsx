@@ -1,0 +1,191 @@
+import { expect, it, vi } from "vite-plus/test";
+import { page, userEvent } from "vite-plus/test/browser";
+import { DEFAULT_RESOLVED_KEYBINDINGS } from "@t3tools/shared/keybindings";
+import { DEFAULT_CLIENT_SETTINGS } from "@t3tools/contracts/settings";
+import { AuthOrchestrationOperateScope } from "@t3tools/contracts";
+import { act, render } from "../../test/render";
+import { CommandPalette } from "./CommandPalette";
+import { openCommandPalette } from "../commandPaletteBus";
+import { primaryServerKeybindingsAtom } from "../state/server";
+
+const scopes = vi.hoisted(() => ({
+  denied: undefined as string | undefined,
+  git: true,
+}));
+const setup = (deniedScope?: string, git = true) => {
+  scopes.git = git;
+  scopes.denied = deniedScope;
+};
+vi.mock("@effect/atom-react", async (original) => ({
+  ...(await original<typeof import("@effect/atom-react")>()),
+  useAtomValue: (atom: unknown) =>
+    atom === primaryServerKeybindingsAtom ? DEFAULT_RESOLVED_KEYBINDINGS : [],
+}));
+vi.mock("../hooks/useTheme", () => ({
+  useRenderedAppearance: () => "light",
+  useTheme: () => ({ theme: "t3-chat", resolvedTheme: "light", appearanceMode: "light" }),
+}));
+vi.mock("../hooks/useCustomThemes", () => ({ useCustomThemes: () => [] }));
+vi.mock("../hooks/useEnvironmentTheme", () => ({ useEnvironmentThemeDefinitions: () => [] }));
+vi.mock("../hooks/useSettings", async (original) => ({
+  ...(await original<typeof import("../hooks/useSettings")>()),
+  useClientSettings: () => DEFAULT_CLIENT_SETTINGS,
+  useUpdateEnvironmentSettings: () => () => undefined,
+}));
+vi.mock("../hooks/useScratchProject", () => ({
+  useScratchProject: () => ({ scratchEnvironmentId: () => null }),
+}));
+vi.mock("../hooks/useHandleNewThread", () => ({
+  useHandleNewThread: () => ({
+    activeDraftThread: null,
+    activeThread: null,
+    defaultProjectRef: null,
+    handleNewThread: async () => undefined,
+  }),
+  useNewThreadHandler: () => async () => undefined,
+}));
+vi.mock("../connection/useDesktopLocalBootstraps", () => ({ useDesktopLocalBootstraps: () => [] }));
+vi.mock("../state/use-atom-command", () => ({
+  useAtomCommand: () => async () => ({ _tag: "Success", value: { projectId: "project-cloned" } }),
+}));
+vi.mock("../state/use-atom-query-runner", () => ({
+  // Doubles as the add-project folder scan, which finds nothing to track.
+  useAtomQueryRunner: () => async () => ({ _tag: "Success", value: { folders: [] } }),
+}));
+vi.mock("../state/environments", async (original) => ({
+  ...(await original<typeof import("../state/environments")>()),
+  useEnvironments: () => ({
+    environments: [
+      {
+        environmentId: "local",
+        label: "Local",
+        connection: { phase: "connected" },
+        entry: { target: { _tag: "PrimaryConnectionTarget" } },
+        serverConfig: {
+          environment: {
+            platform: { os: "linux" },
+            capabilities: { projectCloneTracking: true, git: scopes.git },
+          },
+          settings: { addProjectBaseDirectory: "/workspace/" },
+          newProjectsRoot: "/workspace/",
+        },
+      },
+    ],
+  }),
+  usePrimaryEnvironmentId: () => "local",
+  useEnvironmentProviders: () => new Map(),
+}));
+vi.mock("../state/entities", async (original) => ({
+  ...(await original<typeof import("../state/entities")>()),
+  useProjects: () => [],
+  useThreadShells: () => [],
+  useVisibleThreadShells: () => [],
+  useHiddenThreadKeys: () => new Set(),
+  useAnyEnvironmentHiding: () => false,
+  useEnvironmentThreadRefs: () => [],
+  useServerConfigs: () => new Map(),
+  waitForProject: async () => undefined,
+}));
+vi.mock("../state/queries", async (original) => ({
+  ...(await original<typeof import("../state/queries")>()),
+  useThreadSearch: (_environmentIds: unknown, query: string) => ({
+    matches: [],
+    query,
+    isPending: false,
+  }),
+}));
+vi.mock("../state/session", async (original) => ({
+  ...(await original<typeof import("../state/session")>()),
+  useEnvironmentScope: (_environmentId: unknown, scope: string) => scope !== scopes.denied,
+  readEnvironmentScope: () => true,
+}));
+vi.mock("../state/filesystem", async (original) => ({
+  ...(await original<typeof import("../state/filesystem")>()),
+  useFilesystemReadAccess: () => ({ canReadFiles: true, isPending: false, error: null }),
+}));
+
+vi.mock("./settings/useAvailableSettingsSearchItems", () => ({
+  useAvailableSettingsSearchItems: () => [],
+}));
+
+it.each([false, true])(
+  "only offers folders even with a legacy Git capability of %s",
+  async (git) => {
+    setup(undefined, git);
+    await using _screen = await render(<CommandPalette>{null}</CommandPalette>);
+    await act(() => openCommandPalette({ open: "add-project" }));
+    await expect.element(page.getByText("Local folder", { exact: true })).toBeVisible();
+    await expect.element(page.getByText("Git URL", { exact: true })).not.toBeInTheDocument();
+    await expect.element(page.getByText("New project", { exact: true })).not.toBeInTheDocument();
+    await expect
+      .element(page.getByText("GitHub repository", { exact: true }))
+      .not.toBeInTheDocument();
+  },
+);
+
+// The real palette and Base UI input must agree that confirming composition is typing.
+it.each([
+  { isComposing: true, keyCode: 13 },
+  { isComposing: false, keyCode: 229 },
+])("keeps Enter in the input during composition: %j", async (composition) => {
+  setup();
+  await using _screen = await render(<CommandPalette>{null}</CommandPalette>);
+  await act(() => openCommandPalette({ open: "add-project" }));
+  await page.getByText("Local folder", { exact: true }).click();
+  const input = () => page.getByRole("combobox");
+  const value = "/workspace/計画";
+  await input().fill(value);
+  const event = new KeyboardEvent("keydown", {
+    key: "Enter",
+    bubbles: true,
+    cancelable: true,
+    ...composition,
+  });
+  await act(() => input().element().dispatchEvent(event));
+  expect(event.defaultPrevented).toBe(false);
+  await expect.element(input()).toHaveValue(value);
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByRole("combobox")).not.toBeInTheDocument();
+});
+
+it.each([
+  { step: "folder", source: "Local folder", keys: "", description: /^(?!.*(Ctrl|⌘)).*Add.*Enter/ },
+  {
+    step: "highlighted folder",
+    source: "Local folder",
+    keys: "{ArrowDown}",
+    description: /Add.*(Ctrl|⌘) Enter/,
+  },
+  {
+    step: "permission-blocked folder",
+    source: "Local folder",
+    keys: "",
+    deniedScope: AuthOrchestrationOperateScope,
+    description: "This connection cannot add projects.",
+  },
+])(
+  "tells screen readers how to submit the $step step",
+  async ({ source, keys, deniedScope, description }) => {
+    setup(deniedScope);
+    await using _screen = await render(<CommandPalette>{null}</CommandPalette>);
+    await act(() => openCommandPalette({ open: "add-project" }));
+    await page.getByText(source, { exact: true }).click();
+    if (keys) await userEvent.keyboard(keys);
+    await expect.element(page.getByRole("combobox")).toHaveAccessibleDescription(description);
+  },
+);
+
+it("keeps the caret in place when an edit briefly makes the folder path not a path", async () => {
+  setup();
+  await using _screen = await render(<CommandPalette>{null}</CommandPalette>);
+  await act(() => openCommandPalette({ open: "add-project" }));
+  await page.getByText("Local folder", { exact: true }).click();
+  const input = () => page.getByRole("combobox");
+  await input().fill("/workspace/project");
+  await userEvent.keyboard("{Home}{ArrowRight}{Backspace}");
+  await expect.element(input()).toHaveValue("workspace/project");
+  await userEvent.keyboard("/");
+  await expect.element(input()).toHaveValue("/workspace/project");
+  await userEvent.keyboard("w");
+  await expect.element(input()).toHaveValue("/wworkspace/project");
+});

@@ -8,7 +8,7 @@ import {
   ORCHESTRATION_PROTOCOL_VERSION,
   ProjectId,
   ThreadId,
-  WsRpcGroup,
+  PaperkiteWsRpcGroup as WsRpcGroup,
 } from "@t3tools/contracts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { RuntimeStatus } from "@paperkite/contracts/runtime";
@@ -33,12 +33,24 @@ import * as Isolation from "./integration/Isolation.ts";
 
 class ProofFailure extends Schema.TaggedError<ProofFailure>()("ProofFailure", {
   stage: Schema.String,
-}) {}
+}) {
+  override get message(): string {
+    return `Paperkite proof failed at ${this.stage}.`;
+  }
+}
 const check = (condition: boolean, stage: string) =>
   condition ? Effect.void : Effect.fail(new ProofFailure({ stage }));
 
 const decodeStartedThread = Schema.decodeEffect(
   Schema.fromJsonString(Schema.Struct({ threadId: ThreadId })),
+);
+
+const isProductDisabled = Schema.is(Schema.Struct({ reason: Schema.Literal("feature-disabled") }));
+const isTaggedError = Schema.is(Schema.Struct({ _tag: Schema.String }));
+const isPairingDisabled = Schema.is(
+  Schema.TaggedStruct("EnvironmentFeatureUnavailableError", {
+    feature: Schema.Literal("pairing"),
+  }),
 );
 
 const prove = Effect.gen(function* () {
@@ -75,9 +87,14 @@ const prove = Effect.gen(function* () {
     file: string,
     args: ReadonlyArray<string>,
     home: string,
+    expectedExitCode = 0,
   ) {
     const child = yield* spawner.spawn(command(file, args, home));
-    yield* child.stderr.pipe(Stream.runDrain, Effect.forkScoped);
+    yield* child.stderr.pipe(
+      Stream.decodeText(),
+      Stream.runForEach((line) => Console.error(line)),
+      Effect.forkScoped,
+    );
     const [output, code] = yield* Effect.all(
       [
         child.stdout.pipe(
@@ -91,12 +108,18 @@ const prove = Effect.gen(function* () {
       ],
       { concurrency: "unbounded" },
     );
-    yield* check(code === 0, `command failed: ${file} ${args[0] ?? ""} (exit ${code})`);
+    yield* check(
+      code === expectedExitCode,
+      `command failed: ${file} ${args[0] ?? ""} (exit ${code}, expected ${expectedExitCode})`,
+    );
     return output.trim();
   });
   const cli = (args: ReadonlyArray<string>, home = homeA) =>
     run(path.join(root, "tooling/paperkite"), [...args, "--base-dir", home], home);
-  const launch = Effect.fn("Paperkite.proof.launch")(function* (home: string) {
+  const launch = Effect.fn("Paperkite.proof.launch")(function* (
+    home: string,
+    profile: "proof" | "native",
+  ) {
     const ready = yield* Deferred.make<string>();
     const child = yield* spawner.spawn(
       command(
@@ -110,7 +133,7 @@ const prove = Effect.gen(function* () {
           "--port",
           "0",
           "--profile",
-          "proof",
+          profile,
           "--static-dir",
           path.join(root, ".build/t3/apps/web/dist"),
         ],
@@ -141,8 +164,8 @@ const prove = Effect.gen(function* () {
       ),
     );
   });
-  const originA = yield* launch(homeA);
-  const originB = yield* launch(homeB);
+  const originA = yield* launch(homeA, "proof");
+  const originB = yield* launch(homeB, "native");
   yield* check(originA !== originB, "independent listeners");
   const token = yield* cli(["auth", "session", "issue", "--token-only"]);
   const headers = { authorization: `Bearer ${token}` };
@@ -160,6 +183,21 @@ const prove = Effect.gen(function* () {
     (yield* response(originB, true)).status === 401,
     "instance A token rejected by instance B",
   );
+  const nativeToken = yield* cli(["auth", "session", "issue", "--token-only"], homeB);
+  const nativeStatus = yield* HttpClient.execute(
+    HttpClientRequest.get(`${originB}/api/paperkite/runtime`).pipe(
+      HttpClientRequest.setHeader("authorization", `Bearer ${nativeToken}`),
+    ),
+  ).pipe(
+    Effect.flatMap(HttpClientResponse.filterStatusOk),
+    Effect.flatMap(HttpClientResponse.schemaBodyJson(RuntimeStatus)),
+  );
+  yield* check(
+    nativeStatus.profile === "native" &&
+      nativeStatus.capabilities.threadSettlement &&
+      !nativeStatus.capabilities.pullRequests,
+    "native profile starts without PR services and retains settlement",
+  );
   const status = yield* response(originA, true).pipe(
     Effect.flatMap(HttpClientResponse.filterStatusOk),
     Effect.flatMap(HttpClientResponse.schemaBodyJson(RuntimeStatus)),
@@ -167,7 +205,9 @@ const prove = Effect.gen(function* () {
   yield* check(
     status.application === "paperkite" &&
       status.profile === "proof" &&
-      !status.capabilities.threadSettlement,
+      !status.capabilities.threadSettlement &&
+      !status.capabilities.pullRequests &&
+      !status.capabilities.git,
     "owned runtime status",
   );
   const { ticket } = yield* HttpClient.execute(
@@ -193,10 +233,46 @@ const prove = Effect.gen(function* () {
   const config = yield* rpc["server.getConfig"]({});
   yield* check(
     config.environment.capabilities.threadSettlement === false &&
-      config.environment.capabilities.threadAutoSettlement === false,
+      config.environment.capabilities.threadAutoSettlement === false &&
+      config.environment.capabilities.git === false &&
+      config.environment.capabilities.github === false &&
+      config.environment.capabilities.sourceControl === false &&
+      config.environment.capabilities.issues === false &&
+      config.environment.capabilities.pairing === false &&
+      config.environment.capabilities.additionalEnvironments === false &&
+      config.environment.capabilities.peerLinks === false &&
+      config.environment.capabilities.vcsBranchStatus === false &&
+      config.environment.capabilities.pullRequests === false &&
+      config.environment.capabilities.pullRequestChecks === false &&
+      config.environment.capabilities.linkedThreadRefreshes === false &&
+      config.environment.capabilities.threadPullRequests === false &&
+      config.environment.capabilities.threadPullRequestWatch === false &&
+      config.environment.capabilities.threadPullRequestLinking === false &&
+      config.environment.capabilities.pullRequestStackActions === false,
     "native availability descriptor",
   );
+  const unsupportedSettings = yield* rpc["server.updateSettings"]({
+    patch: {
+      sourceControlHosts: { github: { tokens: { "github.com": "fixture-retired-token" } } },
+    },
+  }).pipe(Effect.result);
+  yield* check(
+    unsupportedSettings._tag === "Failure" &&
+      unsupportedSettings.failure._tag === "ServerSettingsError" &&
+      unsupportedSettings.failure.operation === "normalize",
+    "unsupported host credentials rejected before storage",
+  );
+  const publicSettings = yield* rpc["server.getSettings"]({});
+  yield* check(
+    !Object.hasOwn(publicSettings.sourceControlHosts, "github"),
+    "unsupported host credentials absent from public settings",
+  );
+  yield* Console.log("Paperkite proof: unsupported host settings rejected");
   const api = yield* HttpApiClient.make(EnvironmentHttpApi, { baseUrl: originA });
+  yield* check(
+    typeof config.scratchWorkspaceRoot === "string",
+    "No project stays available without a Git probe",
+  );
   const workspace = path.join(parent, "workspace");
   yield* fs.makeDirectory(workspace);
   yield* fs.writeFileString(
@@ -214,6 +290,75 @@ const prove = Effect.gen(function* () {
       workspaceRoot: workspace,
     },
   });
+  const pairingResponse = yield* HttpClient.execute(
+    HttpClientRequest.post(`${originA}/api/auth/pairing-token`).pipe(
+      HttpClientRequest.setHeaders(headers),
+      HttpClientRequest.bodyJsonUnsafe({}),
+    ),
+  );
+  const pairingError = yield* pairingResponse.json;
+  yield* check(
+    pairingResponse.status === 503 && isPairingDisabled(pairingError),
+    "device pairing unavailable without changing local authentication",
+  );
+  // Proof's separate managed policy already refuses Connect; exercise the product gate in native.
+  const connectResponse = yield* HttpClient.execute(
+    HttpClientRequest.post(`${originB}/api/t3-connect/mint-credential`).pipe(
+      HttpClientRequest.bodyJsonUnsafe({ proof: "fixture" }),
+    ),
+  );
+  const connectError = yield* connectResponse.json;
+  yield* check(
+    connectResponse.status === 503 && isPairingDisabled(connectError),
+    `Connect pairing unavailable (HTTP ${connectResponse.status}, ${isTaggedError(connectError) ? connectError._tag : "unknown error"})`,
+  );
+  yield* Console.log("Paperkite proof: HTTP admission verified");
+  const peerNames = yield* rpc["peerLinks.names"]({}).pipe(Effect.result);
+  yield* check(
+    peerNames._tag === "Failure" &&
+      peerNames.failure._tag === "EnvironmentFeatureUnavailableError" &&
+      peerNames.failure.feature === "environments",
+    "direct peer RPC unavailable",
+  );
+  yield* Console.log("Paperkite proof: peer RPC admission verified");
+  for (const tag of [
+    "vcs.refreshStatus",
+    "vcs.createWorktree",
+    "vcs.removeWorktree",
+    "git.runStackedAction",
+    "sourceControl.signInStart",
+    "sourceControl.publishRepository",
+    "issues.detail",
+    "issueTrackers.list",
+    "issueTrackers.connect",
+    "pullRequests.preview",
+    "projectClone.start",
+    "workspace.taskFolder",
+    "server.discoverSourceControl",
+    "server.prepareTriage",
+    "orchestration.getTurnDiff",
+  ])
+    yield* check(!WsRpcGroup.requests.has(tag), `removed RPC absent: ${tag}`);
+  yield* Console.log("Paperkite proof: Git/forge/issue methods absent from product contract");
+  yield* run(
+    path.join(root, "tooling/paperkite"),
+    ["auth", "pairing", "create", "--json", "--base-dir", homeA],
+    homeA,
+    1,
+  );
+  yield* Console.log("Paperkite proof: CLI admission verified");
+  const prRef = { projectId: created.id, repository: "fixture/fixture", number: 123 };
+  const prHttp = yield* HttpClient.execute(
+    HttpClientRequest.post(`${originA}/api/pull-requests/diff`).pipe(
+      HttpClientRequest.setHeaders(headers),
+      HttpClientRequest.bodyJsonUnsafe(prRef),
+    ),
+  );
+  const prHttpError = yield* prHttp.json;
+  yield* check(
+    prHttp.status === 503 && isProductDisabled(prHttpError),
+    "direct PR HTTP request explicitly unavailable",
+  );
   const started = yield* cli([
     "thread",
     "start",
@@ -229,6 +374,14 @@ const prove = Effect.gen(function* () {
     "--json",
   ]);
   const { threadId } = yield* decodeStartedThread(started);
+  yield* cli([
+    "thread",
+    "send",
+    threadId,
+    "Respond with exactly: second fixture turn complete",
+    "--wait",
+    "--json",
+  ]);
   const snapshot = () => rpc["orchestration.getThreadProjection"]({ threadId });
   const before = yield* snapshot();
   yield* check(
@@ -239,6 +392,17 @@ const prove = Effect.gen(function* () {
       ),
     "native replay turn persisted",
   );
+  yield* check(
+    before.runs.length === 2 &&
+      before.runs.every((run) => run.status === "completed") &&
+      before.checkpoints.length > 0 &&
+      before.checkpoints.every(
+        (checkpoint) => checkpoint.status === "missing" && checkpoint.files.length === 0,
+      ),
+    "native replay completes without Git snapshots",
+  );
+  const refs = yield* run("git", ["-C", workspace, "for-each-ref", "refs/t3"], homeA);
+  yield* check(refs.trim() === "", "chat creates no hidden Git refs");
   const denied = yield* rpc["orchestration.dispatchCommand"]({
     type: "thread.settle",
     commandId: CommandId.make("paperkite-proof-settle"),
@@ -247,6 +411,20 @@ const prove = Effect.gen(function* () {
   yield* check(
     Exit.isFailure(denied) && Cause.pretty(denied.cause).includes("threadSettlement"),
     "direct RPC rejects unavailable capability",
+  );
+  const prLink = yield* rpc["orchestration.dispatchCommand"]({
+    type: "thread.pull-request.link",
+    commandId: CommandId.make("paperkite-proof-pr-link"),
+    threadId,
+    host: "github.com",
+    repository: "fixture/fixture",
+    number: 123,
+    source: "manual",
+    url: "https://github.com/fixture/fixture/pull/123",
+  }).pipe(Effect.exit);
+  yield* check(
+    Exit.isFailure(prLink) && Cause.pretty(prLink.cause).includes("pullRequests"),
+    "direct PR linking command unavailable",
   );
   const after = yield* snapshot();
   yield* check(
@@ -274,6 +452,11 @@ const prove = Effect.gen(function* () {
     isolatedInstances: 2,
     authenticationIsolation: true,
     nativeReplay: true,
+    completedRunsWithoutSnapshots: before.runs.length,
+    hiddenGitRefs: 0,
+    gitApiAbsent: true,
+    pairingRejected: true,
+    additionalEnvironmentsRejected: true,
     settlementRejectedWithoutMutation: true,
     nativeSideChat: true,
   });
@@ -281,6 +464,10 @@ const prove = Effect.gen(function* () {
 
 if (import.meta.main) {
   prove.pipe(
+    Effect.timeoutOrElse({
+      duration: "60 seconds",
+      orElse: () => Effect.fail(new ProofFailure({ stage: "execution deadline" })),
+    }),
     Effect.scoped,
     Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, FetchHttpClient.layer)),
     NodeRuntime.runMain,

@@ -1,0 +1,201 @@
+import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
+import {
+  type EnvironmentId,
+  type ProjectId,
+  type ScopedThreadRef,
+  type ThreadLinkedPullRequest,
+  type ThreadPullRequestLink,
+  type VcsStatusResult,
+} from "@t3tools/contracts";
+import { scopedThreadKey } from "@t3tools/client-runtime/environment";
+import {
+  isAtomCommandInterrupted,
+  squashAtomCommandFailure,
+} from "@t3tools/client-runtime/state/runtime";
+import { msg, useMessages } from "gt-react";
+import { useEffect, useRef } from "react";
+import { m } from "~/i18n/messages";
+import { selectActiveRightPanelSurface, useRightPanelStore } from "../../rightPanelStore";
+import { threadEnvironment } from "../../state/threads";
+import { useOrchestrationCommand } from "../../state/use-orchestration-command";
+import {
+  linkedPullRequestSnapshotStatus,
+  prStatusIndicator,
+  type LinkedThreadPullRequestStatus,
+  type ThreadPr,
+} from "../LegacyThreadPullRequestStatus";
+import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
+import { pullRequestDetailToVcsStatus } from "@t3tools/client-runtime/state/pull-requests";
+import {
+  resolveThreadCurrentPullRequestLink,
+  resolveThreadPullRequestBadge,
+} from "@t3tools/client-runtime/thread-pull-requests";
+import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
+import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
+import { useEnvironmentQuery } from "../../state/query";
+import { linkedPullRequestDetailAtom, useSharedPullRequestSummary } from "../../state/pullRequests";
+import { stackedThreadToast, toastManager } from "../ui/toast";
+
+export function useLinkedThreadPullRequest(
+  environmentId: EnvironmentId | null,
+  linkedPullRequest: ThreadLinkedPullRequest | null | undefined,
+  enabled = true,
+  pullRequests?: ReadonlyArray<ThreadPullRequestLink>,
+  branchPullRequest?: ThreadLinkedPullRequest | null,
+): LinkedThreadPullRequestStatus | null {
+  const supportsLinks = useSupportsMultiplePullRequests(environmentId);
+  const current = supportsLinks ? resolveThreadCurrentPullRequestLink(pullRequests ?? []) : null;
+  const currentStatus = current === null ? null : linkedPullRequestSnapshotStatus(current);
+  const fallback =
+    current === null ? ((!supportsLinks ? linkedPullRequest : null) ?? branchPullRequest) : null;
+  // Preserve reference identity so sidebar renders do not touch the summary cache.
+  const reference = fallback == null ? null : linkedPullRequestReference(fallback);
+  // Mounted for its answers, which land in the shared summary read below.
+  useEnvironmentQuery(
+    !enabled || environmentId === null || reference === null
+      ? null
+      : linkedPullRequestDetailAtom({ environmentId, input: reference }),
+  );
+  const detail = useSharedPullRequestSummary(environmentId, reference);
+
+  if (current !== null) return currentStatus;
+  return detail === null
+    ? null
+    : {
+        pr: pullRequestDetailToVcsStatus(detail),
+        sourceControlProvider: {
+          kind: detail.provider,
+          name: sourceControlClients.get(detail.provider).label,
+          baseUrl: "",
+        },
+      };
+}
+
+/** The pull request a thread shows: its current link, else the one found for its branch. */
+export function useThreadDisplayedPullRequest(
+  environmentId: EnvironmentId,
+  thread: Pick<
+    EnvironmentThreadShell,
+    "pullRequests" | "linkedPullRequest" | "branchPullRequest"
+  > | null,
+  branchPr: ThreadPr = null,
+  branchSourceControlProvider?: VcsStatusResult["sourceControlProvider"],
+) {
+  const m = useMessages();
+  const supportsLinks = useSupportsMultiplePullRequests(environmentId);
+  const linkedStatus = useLinkedThreadPullRequest(
+    environmentId,
+    thread?.linkedPullRequest,
+    true,
+    thread?.pullRequests,
+    thread?.branchPullRequest,
+  );
+  const currentLink = supportsLinks
+    ? resolveThreadCurrentPullRequestLink(thread?.pullRequests ?? [])
+    : null;
+  const pr = linkedStatus?.pr ?? (currentLink === null ? branchPr : null);
+  return {
+    currentLink,
+    badge: supportsLinks ? resolveThreadPullRequestBadge(thread?.pullRequests) : null,
+    pr,
+    status: prStatusIndicator(
+      pr,
+      linkedStatus?.sourceControlProvider ?? branchSourceControlProvider,
+      m,
+    ),
+    number: currentLink?.number ?? pr?.number,
+    url: currentLink?.url ?? pr?.url,
+  };
+}
+
+function linkedPullRequestReference(fallback: ThreadLinkedPullRequest) {
+  const host = sourceControlClients.parseChangeRequestUrl(fallback.url)?.link.host;
+  return { ...fallback, ...(host === undefined ? {} : { host }) };
+}
+
+/** Relink replaced closed/merged requests to the newer open request on the same branch, moving its panel. */
+export function useThreadLinkedPullRequest(input: {
+  readonly serverThreadRef: ScopedThreadRef | null;
+  readonly environmentId: EnvironmentId | null;
+  readonly persisted: ThreadLinkedPullRequest | null;
+  readonly projectId: ProjectId | null;
+  readonly projectRepository: string | null;
+  readonly threadBranch: string | null;
+  readonly gitStatus: Pick<VcsStatusResult, "refName" | "pr"> | null;
+}) {
+  const { serverThreadRef, persisted, projectId, projectRepository, threadBranch, gitStatus } =
+    input;
+  const updateThreadMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
+    reportFailure: false,
+  });
+  const persistedStatus = useLinkedThreadPullRequest(input.environmentId, persisted);
+  const detected = gitStatus?.pr;
+  const replacement: ThreadLinkedPullRequest | null =
+    persisted === null ||
+    (persistedStatus?.pr.state !== "merged" && persistedStatus?.pr.state !== "closed") ||
+    gitStatus?.refName !== threadBranch ||
+    detected?.state !== "open" ||
+    detected.headRef !== threadBranch ||
+    projectId === null ||
+    projectRepository === null ||
+    (persisted.projectId === projectId &&
+      persisted.repository.toLowerCase() === projectRepository.toLowerCase() &&
+      persisted.number === detected.number)
+      ? null
+      : { projectId, repository: projectRepository, number: detected.number, url: detected.url };
+
+  const relinkKeysRef = useRef(new Map<string, string>());
+  const relinkWriteRef = useRef(Promise.resolve());
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- persists the detected PR to the server thread once per change and retargets the open right panel store
+  useEffect(() => {
+    if (serverThreadRef === null) return;
+    const threadKey = scopedThreadKey(serverThreadRef);
+    if (replacement === null) {
+      relinkKeysRef.current.delete(threadKey);
+      return;
+    }
+    const relinkKey = `${replacement.projectId}:${replacement.repository}#${replacement.number}`;
+    if (relinkKeysRef.current.get(threadKey) === relinkKey) return;
+    relinkKeysRef.current.set(threadKey, relinkKey);
+    const openSurface = selectActiveRightPanelSurface(
+      useRightPanelStore.getState().byThreadKey,
+      serverThreadRef,
+    );
+    if (
+      openSurface?.kind === "pull-request" &&
+      persisted !== null &&
+      openSurface.projectId === persisted.projectId &&
+      openSurface.repository.toLowerCase() === persisted.repository.toLowerCase() &&
+      openSurface.number === persisted.number
+    ) {
+      useRightPanelStore.getState().openPullRequest(serverThreadRef, replacement);
+    }
+
+    relinkWriteRef.current = relinkWriteRef.current.then(async () => {
+      if (relinkKeysRef.current.get(threadKey) !== relinkKey) return;
+      const result = await updateThreadMetadata({
+        environmentId: serverThreadRef.environmentId,
+        input: { threadId: serverThreadRef.threadId, linkedPullRequest: replacement },
+      });
+      if (relinkKeysRef.current.get(threadKey) !== relinkKey) return;
+      if (result._tag !== "Failure") return;
+      relinkKeysRef.current.delete(threadKey);
+      if (isAtomCommandInterrupted(result)) return;
+      const error = squashAtomCommandFailure(result);
+      toastManager.add(
+        stackedThreadToast({
+          type: "error",
+          title: m(msg("Unable to update the thread pull request")),
+          description: thrownErrorMessage(error, m) ?? m(msg("An error occurred.")),
+        }),
+      );
+    });
+  }, [persisted, replacement, serverThreadRef, updateThreadMetadata]);
+
+  const linked = replacement ?? persisted;
+  return {
+    linked,
+    linkedKey: linked ? JSON.stringify([linked.projectId, linked.repository, linked.number]) : null,
+    hasDetail: persisted !== null,
+  };
+}
